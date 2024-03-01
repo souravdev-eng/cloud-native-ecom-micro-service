@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: product-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: product
+  template:
+    metadata:
+      labels:
+        app: product
+    spec:
+      containers:
+        - name: product
+          image: souravdeveloper/ecom-product
+          env:
+            - name: DB_URL
+              value: mongodb+srv://sourav:<password>@cluster0.ut3zhsv.mongodb.net/product?retryWrites=true&w=majority
+            - name: NATS_CLIENT_ID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: NATS_CLUSTER_ID
+              value: ecom
+          envFrom:
+            - secretRef:
+                name: secret-credential
+            - configMapRef:
+                name: app-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: product-srv
+spec:
+  selector:
+    app: product
+  type: ClusterIP
+  ports:
+    - name: product
+      targetPort: 4000
+      port: 4000
+      protocol: TCP
