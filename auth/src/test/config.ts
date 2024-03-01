@@ -1,36 +1,38 @@
-import { createConnection, getConnection } from 'typeorm';
+import { createConnection, getConnection, Connection } from 'typeorm';
 import { User } from '../entity/User';
 
 const connection = {
-  async create() {
-    await createConnection({
-      name: 'default',
-      type: 'postgres',
-      host: 'localhost',
-      port: 5432,
-      username: 'postgres',
-      password: 'SouravMajumdar123@',
-      database: 'auth-test',
-      dropSchema: true,
-      logging: false,
+  async create(): Promise<Connection> {
+    const connection = await createConnection({
+      type: 'sqlite',
+      database: ':memory:',
       synchronize: true,
+      logging: false,
       entities: [User],
     });
+
+    // console.log(`Connected to PostgreSQL database: ${connection.name}`);
+    return connection;
   },
 
-  async close() {
-    await getConnection().close();
+  async close(): Promise<void> {
+    const defaultConnection = getConnection('default');
+    await defaultConnection.close();
+    // console.log(`Connection to PostgreSQL database closed`);
   },
 
-  async clear() {
-    const connection = getConnection();
-    const entities = connection.entityMetadatas;
+  async clear(): Promise<void> {
+    const defaultConnection = getConnection('default');
+    const entities = defaultConnection.entityMetadatas;
 
-    const entityDeletionPromises = entities.map((entity) => async () => {
-      const repository = connection.getRepository(entity.name);
+    const entityDeletionPromises = entities.map(async (entity) => {
+      const repository = defaultConnection.getRepository(entity.name);
       await repository.query(`DELETE FROM ${entity.tableName}`);
     });
+
     await Promise.all(entityDeletionPromises);
+    // console.log(`Cleared data from PostgreSQL database`);
   },
 };
+
 export default connection;
