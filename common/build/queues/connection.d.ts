@@ -1,5 +1,5 @@
 import { Channel } from "amqplib";
-declare class QueueConnection {
+export declare class QueueConnection {
     private readonly endPoint;
     private connection;
     private channel;
@@ -7,4 +7,3 @@ declare class QueueConnection {
     createConnection(): Promise<Channel | undefined>;
     private closeConnection;
 }
-export { QueueConnection };
