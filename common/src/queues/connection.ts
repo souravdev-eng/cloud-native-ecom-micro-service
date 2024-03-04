@@ -1,6 +1,6 @@
 import client, { Channel, Connection } from "amqplib";
 
-class QueueConnection {
+export class QueueConnection {
     private connection: Connection | undefined;
     private channel: Channel | undefined;
 
@@ -35,4 +35,3 @@ class QueueConnection {
     }
 }
 
-export { QueueConnection }
