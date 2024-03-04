@@ -35,13 +35,16 @@ router.post(
 
     const token = signInToken(user.id, user.email, user.role);
     //* store the token in the session
+
     req.session = { jwt: token };
+
+    console.log("=========", req.session)
 
     res.status(200).send({
       id: user.id,
       name: user.name,
       email: user.email,
-      role: user.role,
+      role: user.role
     });
   }
 );

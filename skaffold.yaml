@@ -4,6 +4,7 @@ manifests:
   rawYaml:
     - ./k8s/auth-depl.yml
     - ./k8s/ingress-depl.yml
+    - ./k8s/product-depl.yml
     - ./k8s/rabbitmq-depl.yml
     - ./k8s/secret/*
     - ./k8s/config/*

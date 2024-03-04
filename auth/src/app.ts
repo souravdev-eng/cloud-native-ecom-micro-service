@@ -12,15 +12,18 @@ import { newUser } from './controllers/newUser';
 
 const app = express();
 
+
 // middleware
-app.set('trust proxy', true); //? because we transfer our request via ingress proxy
+app.set('trust proxy', 1); //? because we transfer our request via ingress proxy
 app.use(express.json());
 
 app.use(cors());
 app.use(
   cookieSession({
+    // name: 'session',
     signed: false,
-    secure: process.env.NODE_ENV !== 'test',
+    secure: false,
+    // secure: process.env.NODE_ENV !== 'test',
   })
 );
 app.use(currentUser);

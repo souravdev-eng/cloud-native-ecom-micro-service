@@ -6,3 +6,4 @@ metadata:
     app: postgres
 data:
   NATS_URL: 'http://nats-srv:4222'
+  RABBITMQ_ENDPOINT: 'amqp://ecom:password@rabbitmq-srv:5672'

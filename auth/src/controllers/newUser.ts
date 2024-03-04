@@ -4,6 +4,8 @@ import { signUpValidation } from '../validation/newUserValidation';
 import { requestValidation, BadRequestError } from '@ecom-micro/common';
 
 import { User } from '../entity/User';
+import { publishDirectMessage } from '../queue/auth.producer';
+import { authChannel } from '..';
 
 
 const signInToken = (id: string, email: string, role: string) => {
@@ -34,6 +36,20 @@ router.post(
     });
 
     await user.save();
+
+    const messageDetails = {
+      email: user.email,
+      name: user.name,
+      role: user.role,
+    }
+
+    await publishDirectMessage(
+      authChannel,
+      'ecom-micro-product-auth',
+      'auth-user',
+      JSON.stringify(messageDetails),
+      "A new user has been created!",
+    )
 
 
     const token = signInToken(user.id, user.email, user.role);

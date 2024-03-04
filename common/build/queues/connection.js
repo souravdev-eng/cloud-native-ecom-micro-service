@@ -26,11 +26,12 @@ class QueueConnection {
                 this.connection = yield amqplib_1.default.connect(this.endPoint);
                 this.channel = yield this.connection.createChannel();
                 this.closeConnection();
-                console.log('Notification server connected to queue successfully...');
+                console.log('RabbitMQ server connected to queue successfully...');
                 return this.channel;
             }
             catch (error) {
-                console.log('error', 'NotificationService error createConnection() method:', error);
+                console.log('RabbitMQ server error createConnection() method:', error);
+                process.exit(1);
                 return undefined;
             }
         });

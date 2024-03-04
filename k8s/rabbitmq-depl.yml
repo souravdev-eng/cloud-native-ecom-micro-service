@@ -17,7 +17,7 @@ spec:
           image: rabbitmq:3.13-rc-management-alpine
           env:
             - name: RABBITMQ_DEFAULT_USER
-              value: user
+              value: ecom
             - name: RABBITMQ_DEFAULT_PASS
               value: password
 
@@ -34,4 +34,8 @@ spec:
     - name: rabbitmq
       targetPort: 5672
       port: 5672
+      protocol: TCP
+    - name: rabbitmq-admin
+      targetPort: 15672
+      port: 15672
       protocol: TCP
