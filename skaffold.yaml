@@ -47,14 +47,14 @@ build:
     #   docker:
     #     dockerfile: Dockerfile
 
-    # - image: souravdeveloper/ecom-product
-    #   context: product
-    #   sync:
-    #     manual:
-    #       - src: src/**/*.ts
-    #         dest: .
-    #   docker:
-    #     dockerfile: Dockerfile
+    - image: souravdeveloper/ecom-product
+      context: product
+      sync:
+        manual:
+          - src: src/**/*.ts
+            dest: .
+      docker:
+        dockerfile: Dockerfile
 
     # - image: souravdeveloper/ecom-seller-client
     # context: seller-client

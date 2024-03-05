@@ -1,9 +1,7 @@
 import { Router, Response, Request, NextFunction } from 'express';
 import { requireAuth, restrictTo, requestValidation } from '@ecom-micro/common';
-import { ProductCreatedPublisher } from '../events/publishers/productCreatedPublisher';
 import { productValidation } from '../validation/productValidation';
 import { Product } from '../models/productModel';
-import { natsWrapper } from '../natsWrapper';
 
 const router = Router();
 
@@ -24,14 +22,6 @@ router.post(
     });
 
     await product.save();
-
-    new ProductCreatedPublisher(natsWrapper.client).publish({
-      id: product.id,
-      title: product.title,
-      price: product.price,
-      image: product.image,
-      sellerId: product.sellerId,
-    });
 
     res.status(201).send(product);
   }
