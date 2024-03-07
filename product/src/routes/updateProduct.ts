@@ -6,10 +6,9 @@ import {
   requestValidation,
 } from "@ecom-micro/common";
 import { Router, Response, Request, NextFunction } from "express";
-import { natsWrapper } from "../natsWrapper";
+
 import { Product } from "../models/productModel";
 import { productUpdateValidation } from "../validation/productValidation";
-import { ProductUpdatedPublisher } from "../events/publishers/productUpdatedPublisher";
 
 const router = Router();
 
@@ -43,14 +42,6 @@ router.patch(
     });
 
     await product.save();
-
-    new ProductUpdatedPublisher(natsWrapper.client).publish({
-      id: product.id,
-      title: product.title,
-      price: product.price,
-      image: product.image,
-      sellerId: product.sellerId,
-    });
 
     res.status(200).send(product);
   }

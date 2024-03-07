@@ -11,41 +11,23 @@ spec:
       http:
         paths:
           - path: /api/users/?(.*)
-            pathType: Prefix
+            pathType: ImplementationSpecific
             backend:
               service:
                 name: auth-srv
                 port:
                   number: 3000
           - path: /api/product/?(.*)
-            pathType: Prefix
+            pathType: ImplementationSpecific
             backend:
               service:
                 name: product-srv
                 port:
                   number: 4000
           - path: /?(.*)
-            pathType: Prefix
+            pathType: ImplementationSpecific
             backend:
               service:
-                name: client-srv
-                port:
-                  number: 3000
-
-    - host: seller.ecom.dev
-      http:
-        paths:
-          - path: /api/users/?(.*)
-            pathType: Prefix
-            backend:
-              service:
-                name: auth-srv
-                port:
-                  number: 3000
-          - path: /?(.*)
-            pathType: Prefix
-            backend:
-              service:
-                name: seller-client-srv
+                name: user-client-srv
                 port:
                   number: 3000

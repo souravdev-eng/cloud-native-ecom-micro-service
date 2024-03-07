@@ -1,6 +1,5 @@
 import request from 'supertest';
 import app from '../../app';
-import { natsWrapper } from '../../natsWrapper';
 
 let userToken: any;
 let userPayload: any;
@@ -37,7 +36,6 @@ describe('New Product', () => {
       .set('Cookie', userToken)
       .send(productData)
       .expect(201);
-    expect(natsWrapper.client.publish).toHaveBeenCalled();
   });
 
   it('should return 400 if product price below 100 or grater than 1_000_000', async () => {
