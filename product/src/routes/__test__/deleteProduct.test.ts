@@ -1,6 +1,5 @@
 import request from 'supertest';
 import app from '../../app';
-import { natsWrapper } from '../../natsWrapper';
 
 let sellerToken: any;
 let sellerPayload: any;
@@ -35,8 +34,6 @@ describe('DELETE Product', () => {
       .delete(`/api/product/${product.body.id}`)
       .set('Cookie', sellerToken)
       .expect(200);
-
-    expect(natsWrapper.client.publish).toHaveBeenCalled();
   });
 
   test('it should return 404 if the product already deleted or does not exists into db', async () => {

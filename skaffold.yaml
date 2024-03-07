@@ -6,6 +6,7 @@ manifests:
     - ./k8s/ingress-depl.yml
     - ./k8s/product-depl.yml
     - ./k8s/rabbitmq-depl.yml
+    - ./k8s/user-client-depl.yml
     - ./k8s/secret/*
     - ./k8s/config/*
 deploy:
@@ -21,22 +22,22 @@ build:
       docker:
         dockerfile: Dockerfile
 
-    # - image: souravdeveloper/ecom-client
-    #   context: client
-    #   sync:
-    #     manual:
-    #       - src: src/**/*.ts
-    #         dest: .
-    #       - src: src/**/*.tsx
-    #         dest: .
-    #       - src: src/**/*.css
-    #         dest: .
-    #       - src: src/**/*.scss
-    #         dest: .
-    #       - src: src/**/*.json
-    #         dest: .
-    #   docker:
-    #     dockerfile: Dockerfile
+    - image: souravdeveloper/ecom-user-client
+      context: user-client
+      sync:
+        manual:
+          - src: src/**/*.ts
+            dest: .
+          - src: src/**/*.tsx
+            dest: .
+          - src: src/**/*.css
+            dest: .
+          - src: src/**/*.scss
+            dest: .
+          - src: src/**/*.json
+            dest: .
+      docker:
+        dockerfile: Dockerfile
 
     # - image: souravdeveloper/ecom-cart
     #   context: cart

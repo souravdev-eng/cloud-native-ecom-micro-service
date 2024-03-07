@@ -7,9 +7,9 @@ import { queueConnection } from './queue/connection';
 export let authChannel: Channel;
 
 const start = async () => {
-  if (!process.env.JWT_KEY) {
-    throw new Error('JWT is not found');
-  }
+  // if (!process.env.JWT_KEY) {
+  //   throw new Error('JWT is not found');
+  // }
 
   connectDB();
   startQueues();
@@ -23,22 +23,21 @@ const connectDB = async () => {
       type: 'postgres',
       port: 5432,
       url: config.DB_URL,
-      entities: ["src/entity/*.ts"],
+      entities: ['src/entity/*.ts'],
       synchronize: true,
       ssl: false,
     });
 
-    await AppDataSource.initialize()
+    await AppDataSource.initialize();
     console.log('Auth Postgres Server Started...');
   } catch (error: any) {
     console.log(error);
     process.exit(1);
   }
-}
+};
 
 const startQueues = async (): Promise<void> => {
-  authChannel = await queueConnection.createConnection() as Channel;
-}
-
+  authChannel = (await queueConnection.createConnection()) as Channel;
+};
 
 start();

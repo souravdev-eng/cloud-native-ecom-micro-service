@@ -8,8 +8,6 @@ declare global {
   function sellerSignIn(): any;
 }
 
-jest.mock('../natsWrapper');
-
 let mongo: any;
 beforeAll(async () => {
   process.env.JWT_KEY = 'asdfasdf';

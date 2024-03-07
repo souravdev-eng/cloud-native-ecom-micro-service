@@ -17,6 +17,9 @@
   },
   "scripts": {
     "start": "react-scripts start",
+    "d-build": "docker build -t souravdeveloper/ecom-user-client .",
+    "d-push": "docker push souravdeveloper/ecom-user-client",
+    "d-pub": "npm run d-build && npm run d-push",
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
