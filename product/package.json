@@ -4,7 +4,7 @@
   "main": "index.js",
   "license": "MIT",
   "scripts": {
-    "start": "ts-node-dev ./src/index.ts",
+    "start": "ts-node-dev --poll src/index.ts",
     "d-build": "docker build -t souravdeveloper/ecom-product .",
     "d-push": "docker push souravdeveloper/ecom-product",
     "d-pub": "npm run d-build && npm run d-push",
