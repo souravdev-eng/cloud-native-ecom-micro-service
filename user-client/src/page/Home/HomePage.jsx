@@ -31,7 +31,6 @@ const HomePage = () => {
 
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem('user'));
-    console.log('uhuhhuh', user);
     if (!user) {
       navigate('/auth/signup');
       return;

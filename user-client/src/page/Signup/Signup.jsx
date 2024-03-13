@@ -16,10 +16,10 @@ const Signup = () => {
       const response = await axios.post(
         `${BASE_URL}/users/signup`,
         {
-          name,
-          email,
-          password,
-          passwordConfirm,
+          name: name,
+          email: email,
+          password: password,
+          passwordConfirm: passwordConfirm,
           role: 'user',
         },
         {

@@ -7,7 +7,6 @@ import { User } from '../entity/User';
 import { publishDirectMessage } from '../queue/auth.producer';
 import { authChannel } from '..';
 
-
 const signInToken = (id: string, email: string, role: string) => {
   return jwt.sign({ id, email, role }, process.env.JWT_KEY!, {
     expiresIn: '90d',
@@ -27,6 +26,8 @@ router.post(
       return next(new BadRequestError('This email is already in use! Please try another'));
     }
 
+    console.log(req.body);
+
     const user = User.create({
       name: req.body.name,
       email: req.body.email,
@@ -41,16 +42,15 @@ router.post(
       email: user.email,
       name: user.name,
       role: user.role,
-    }
+    };
 
     await publishDirectMessage(
       authChannel,
       'ecom-micro-product-auth',
       'auth-user',
       JSON.stringify(messageDetails),
-      "A new user has been created!",
-    )
-
+      'A new user has been created!'
+    );
 
     const token = signInToken(user.id, user.email, user.role);
     // store the token in the session

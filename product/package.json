@@ -10,9 +10,19 @@
     "d-pub": "npm run d-build && npm run d-push",
     "test": "jest --watchAll --no-cache"
   },
+  "config": {
+    "mongodbMemoryServer": {
+      "systemBinary": "/opt/homebrew/bin/mongod",
+      "arch": "x64",
+      "disablePostinstall": "1",
+      "version": "6.5.1",
+      "debug": "0"
+    }
+  },
   "jest": {
     "preset": "ts-jest",
     "testEnvironment": "node",
+    "testTimeout": 3000,
     "setupFilesAfterEnv": [
       "./src/test/setup.ts"
     ]
