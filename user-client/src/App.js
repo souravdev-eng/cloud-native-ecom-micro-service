@@ -1,32 +1,20 @@
 import Header from './components/Header/Header';
+import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import './App.css';
 import Signup from './page/Signup/Signup';
-import { useEffect } from 'react';
-import Cookies from 'js-cookie';
-import axios from 'axios';
-import { BASE_URL } from './api/baseUrl';
+import HomePage from './page/Home/HomePage';
+import Login from './page/Login/LoginPage';
 
 function App() {
-  // const [currentUser, setCurrentUser] = useState(null);
-
-  const getCurrentUser = async () => {
-    const { data } = await axios.get(`${BASE_URL}/users/currentuser`, {
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
-    console.log({ data });
-  };
-
-  useEffect(() => {
-    getCurrentUser();
-  }, []);
-
   return (
-    <>
+    <BrowserRouter>
       <Header />
-      <Signup />
-    </>
+      <Routes>
+        <Route path='/' Component={HomePage} />
+        <Route path='/auth/signup' Component={Signup} />
+        <Route path='/auth/login' Component={Login} />
+      </Routes>
+    </BrowserRouter>
   );
 }
 

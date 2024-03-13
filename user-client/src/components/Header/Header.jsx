@@ -1,19 +1,14 @@
-import React from 'react';
-import AppBar from '@mui/material/AppBar';
-import Box from '@mui/material/Box';
-import Toolbar from '@mui/material/Toolbar';
-import IconButton from '@mui/material/IconButton';
-import Typography from '@mui/material/Typography';
-import Badge from '@mui/material/Badge';
-import MenuItem from '@mui/material/MenuItem';
-import Menu from '@mui/material/Menu';
-import AccountCircle from '@mui/icons-material/AccountCircle';
-import NotificationsIcon from '@mui/icons-material/Notifications';
-import LoginIcon from '@mui/icons-material/Login';
+import React, { useState } from 'react';
+import { AppBar, Box, Toolbar, Typography, IconButton, Badge, MenuItem, Menu } from '@mui/material';
+import { AccountCircle, Notifications, Login } from '@mui/icons-material';
+import axios from 'axios';
+import { BASE_URL } from '../../api/baseUrl';
+import { useNavigate } from 'react-router-dom';
 
-export default function Header() {
-  let isLoggedIn = false;
-  const [anchorEl, setAnchorEl] = React.useState(null);
+const Header = () => {
+  const [anchorEl, setAnchorEl] = useState(null);
+  const user = JSON.parse(localStorage.getItem('user'));
+  const navigate = useNavigate();
 
   const isMenuOpen = Boolean(anchorEl);
 
@@ -25,7 +20,26 @@ export default function Header() {
     setAnchorEl(null);
   };
 
-  const menuId = 'primary-search-account-menu';
+  const handleSignOut = async () => {
+    try {
+      const response = await axios.post(
+        `${BASE_URL}/users/signout`,
+        {},
+        {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+      if (response.data) {
+        localStorage.clear('user');
+        navigate('/auth/login');
+      }
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
   const renderMenu = (
     <Menu
       anchorEl={anchorEl}
@@ -42,6 +56,9 @@ export default function Header() {
       onClose={handleMenuClose}>
       <MenuItem onClick={handleMenuClose}>Profile</MenuItem>
       <MenuItem onClick={handleMenuClose}>My account</MenuItem>
+      <MenuItem onClick={handleSignOut}>
+        Sign out <Login />
+      </MenuItem>
     </Menu>
   );
 
@@ -58,36 +75,24 @@ export default function Header() {
           </Typography>
           <Box sx={{ flexGrow: 1 }} />
           <Box sx={{ display: { xs: 'none', md: 'flex' } }}>
-            {isLoggedIn ? (
+            {user && (
               <>
                 <IconButton size='large' aria-label='show 17 new notifications' color='inherit'>
-                  {/* NOTIFICATION */}
                   <Badge badgeContent={17} color='error'>
-                    <NotificationsIcon />
+                    <Notifications />
                   </Badge>
                 </IconButton>
                 <IconButton
                   size='large'
                   edge='end'
                   aria-label='account of current user'
-                  aria-controls={menuId}
+                  aria-controls='primary-search-account-menu'
                   aria-haspopup='true'
                   onClick={handleProfileMenuOpen}
                   color='inherit'>
                   <AccountCircle />
                 </IconButton>
               </>
-            ) : (
-              <IconButton
-                size='large'
-                edge='end'
-                aria-label='account of current user'
-                aria-controls={menuId}
-                aria-haspopup='true'
-                onClick={handleProfileMenuOpen}
-                color='inherit'>
-                <LoginIcon />
-              </IconButton>
             )}
           </Box>
         </Toolbar>
@@ -95,4 +100,6 @@ export default function Header() {
       {renderMenu}
     </Box>
   );
-}
+};
+
+export default Header;

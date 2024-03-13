@@ -4,23 +4,18 @@ import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import { Button, Link, TextField, Typography } from '@mui/material';
 import { BASE_URL } from '../../api/baseUrl';
 
-const Signup = () => {
+const Login = () => {
   const navigate = useNavigate();
-  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [passwordConfirm, setPasswordConfirm] = useState('');
 
-  const handleSignup = async () => {
+  const handleLogin = async () => {
     try {
       const response = await axios.post(
-        `${BASE_URL}/users/signup`,
+        `${BASE_URL}/users/login`,
         {
-          name,
-          email,
-          password,
-          passwordConfirm,
-          role: 'user',
+          email: email,
+          password: password,
         },
         {
           headers: {
@@ -46,16 +41,8 @@ const Signup = () => {
         padding: '20px',
       }}>
       <Typography variant='h4' gutterBottom>
-        Create your new account
+        Login to your account
       </Typography>
-
-      <TextField
-        label='Name'
-        variant='outlined'
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        style={{ margin: '10px 0px', width: '300px' }}
-      />
 
       <TextField
         label='Email'
@@ -74,17 +61,8 @@ const Signup = () => {
         style={{ margin: '10px 0px', width: '300px' }}
       />
 
-      <TextField
-        label='Confirm Password'
-        variant='outlined'
-        type='password'
-        value={passwordConfirm}
-        onChange={(e) => setPasswordConfirm(e.target.value)}
-        style={{ margin: '10px 0px', width: '300px' }}
-      />
-
       <Button
-        onClick={handleSignup}
+        onClick={handleLogin}
         variant='contained'
         style={{
           width: '300px',
@@ -94,19 +72,19 @@ const Signup = () => {
           backgroundColor: '#1976d2',
           color: '#fff',
         }}>
-        Sign up
+        LogIn
       </Button>
 
       <div style={{ marginTop: '20px' }}>
         <Link
           component={RouterLink}
-          to='/auth/login'
+          to='/auth/signup'
           style={{ color: '#1976d2', textDecoration: 'none' }}>
-          Already have an account? Login
+          Don't have an account? Sign Up
         </Link>
       </div>
     </div>
   );
 };
 
-export default Signup;
+export default Login;
