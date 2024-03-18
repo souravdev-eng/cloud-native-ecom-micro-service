@@ -1,0 +1,75 @@
+apiVersion: skaffold/v4beta2
+kind: Config
+manifests:
+  rawYaml:
+    - ./k8s/auth-depl.yml
+    - ./k8s/ingress-depl.yml
+    - ./k8s/product-depl.yml
+    - ./k8s/rabbitmq-depl.yml
+    - ./k8s/user-client-depl.yml
+    - ./k8s/secret/*
+    - ./k8s/config/*
+deploy:
+  kubectl: {}
+build:
+  artifacts:
+    - image: souravdeveloper/ecom-auth
+      context: auth
+      sync:
+        manual:
+          - src: src/**/*.ts
+            dest: .
+      docker:
+        dockerfile: Dockerfile
+
+    - image: souravdeveloper/ecom-user-client
+      context: user-client
+      sync:
+        manual:
+          - src: src/**/*.ts
+            dest: .
+          - src: src/**/*.tsx
+            dest: .
+          - src: src/**/*.css
+            dest: .
+          - src: src/**/*.scss
+            dest: .
+          - src: src/**/*.json
+            dest: .
+      docker:
+        dockerfile: Dockerfile
+
+    # - image: souravdeveloper/ecom-cart
+    #   context: cart
+    #   sync:
+    #     manual:
+    #       - src: src/**/*.ts
+    #         dest: .
+    #   docker:
+    #     dockerfile: Dockerfile
+
+    - image: souravdeveloper/ecom-product
+      context: product
+      sync:
+        manual:
+          - src: src/**/*.ts
+            dest: .
+      docker:
+        dockerfile: Dockerfile
+
+    # - image: souravdeveloper/ecom-seller-client
+    # context: seller-client
+    # sync:
+    #   manual:
+    #     - src: '**/*.js'
+    #       dest: .
+    #     - src: '**/*.jsx'
+    #       dest: .
+    #     - src: '**/*.css'
+    #       dest: .
+    #     - src: '**/*.json'
+    #       dest: .
+    # docker:
+    #   dockerfile: Dockerfile
+  local:
+    push: false

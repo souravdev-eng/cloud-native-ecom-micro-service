@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cart-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cart
+  template:
+    metadata:
+      labels:
+        app: cart
+    spec:
+      containers:
+        - name: cart
+          image: souravdeveloper/ecom-cart
+          env:
+            - name: NATS_CLIENT_ID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: NATS_CLUSTER_ID
+              value: ecom
+          envFrom:
+            - configMapRef:
+                name: auth-config
+            - secretRef:
+                name: auth-credential
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cart-srv
+spec:
+  selector:
+    app: cart
+  type: ClusterIP
+  ports:
+    - name: cart
+      targetPort: 3000
+      port: 3000
+      protocol: TCP
