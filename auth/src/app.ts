@@ -9,6 +9,11 @@ import { showAllUserRoute } from './controllers/showAllUser';
 import { signOutRoute } from './controllers/signOut';
 import { loginUser } from './controllers/loginUser';
 import { newUser } from './controllers/newUser';
+<<<<<<< HEAD
+=======
+import { forgotPasswordRoute } from './controllers/forgotPassword';
+import { updatePasswordRoute } from './controllers/resetPassword';
+>>>>>>> 4e85ca3e6933b05cb3e978c54cb24826221546b5
 
 const app = express();
 
@@ -34,6 +39,11 @@ app.use(loginUser);
 app.use(signOutRoute);
 app.use(currentUserRoute);
 app.use(showAllUserRoute);
+<<<<<<< HEAD
+=======
+app.use(forgotPasswordRoute)
+app.use(updatePasswordRoute)
+>>>>>>> 4e85ca3e6933b05cb3e978c54cb24826221546b5
 
 app.use('*', (req: Request, res: Response, next: NextFunction) => {
   return next(new NotFoundError(`${req.originalUrl} is not find to this server!`));

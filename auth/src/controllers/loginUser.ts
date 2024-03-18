@@ -24,7 +24,7 @@ router.post(
     const user = await User.findOneBy({ email });
 
     if (!user) {
-      return next(new BadRequestError('Invalid email or Password. Please try again.'));
+      return next(new BadRequestError('Invalid email or Password. Please try again!.'));
     }
 
     const passwordMatch = await bcrypt.compare(password, user.password);
@@ -38,13 +38,11 @@ router.post(
 
     req.session = { jwt: token };
 
-    console.log("=========", req.session)
-
     res.status(200).send({
       id: user.id,
       name: user.name,
       email: user.email,
-      role: user.role
+      role: user.role,
     });
   }
 );
