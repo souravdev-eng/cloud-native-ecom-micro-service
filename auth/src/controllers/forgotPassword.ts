@@ -14,7 +14,7 @@ router.post(
 
         const user = await User.findOneBy({ email });
         if (!user) {
-            return next(new BadRequestError('User not found with this email address!!'));
+            return next(new BadRequestError('User not found with this email address!'));
         }
         // Save reset token to user in the database
         user.resetToken = resetToken;
