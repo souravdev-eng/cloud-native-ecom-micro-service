@@ -20,8 +20,11 @@ router.post(
         user.resetToken = resetToken;
         await User.save(user);
 
-        await sendResetTokenEmail(email, resetToken);
-        res.status(200).send({ message: "Email sent" })
+        const forgotPasswordLink = `http://ecom.dev/auth/reset-password?token=${resetToken}&email=${email}`
+
+        await sendResetTokenEmail(email, forgotPasswordLink);
+
+        res.status(200).send({ message: "Email sent", token: resetToken })
     }
 );
 

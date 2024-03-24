@@ -1,33 +1,35 @@
 import axios from 'axios';
 import React, { useState } from 'react';
-import { Link as RouterLink, useNavigate } from 'react-router-dom';
+import { Link as RouterLink, useNavigate, useLocation } from 'react-router-dom';
 import { Button, Link, TextField, Typography } from '@mui/material';
 import { BASE_URL } from '../../api/baseUrl';
 
-const Login = () => {
+const ResetPassword = () => {
   const navigate = useNavigate();
-  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const location = useLocation();
 
-  const handleLogin = async () => {
+  const handleResetPassword = async () => {
     try {
-      const response = await axios.post(
-        `${BASE_URL}/users/login`,
+      const searchParams = new URLSearchParams(location.search);
+      const email = searchParams.get('email');
+      const token = searchParams.get('token');
+      console.log({ token, email });
+      const response = await axios.put(
+        `${BASE_URL}/users/reset-password`,
+        { newPassword: password },
         {
-          email: email,
-          password: password,
-        },
-        {
+          params: { email, token },
           headers: {
             'Content-Type': 'application/json',
           },
         }
       );
-      if (response.data) {
-        navigate('/');
+      if (response?.data) {
+        navigate('/auth/login');
       }
     } catch (error) {
-      console.log(error);
+      console.error(error);
     }
   };
 
@@ -41,16 +43,8 @@ const Login = () => {
         padding: '20px',
       }}>
       <Typography variant='h4' gutterBottom>
-        Login to your account
+        Reset your password
       </Typography>
-
-      <TextField
-        label='Email'
-        variant='outlined'
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        style={{ margin: '10px 0px', width: '300px' }}
-      />
 
       <TextField
         label='Password'
@@ -62,7 +56,7 @@ const Login = () => {
       />
 
       <Button
-        onClick={handleLogin}
+        onClick={handleResetPassword}
         variant='contained'
         style={{
           width: '300px',
@@ -72,27 +66,19 @@ const Login = () => {
           backgroundColor: '#1976d2',
           color: '#fff',
         }}>
-        LogIn
+        Update Password
       </Button>
 
       <div style={{ marginTop: '20px' }}>
         <Link
           component={RouterLink}
-          to='/auth/signup'
+          to='/auth/login'
           style={{ color: '#1976d2', textDecoration: 'none' }}>
-          Don't have an account? Sign Up
-        </Link>
-      </div>
-      <div style={{ marginTop: '20px' }}>
-        <Link
-          component={RouterLink}
-          to='/auth/forgot-password'
-          style={{ color: 'red', textDecoration: 'none' }}>
-          forgot password? Click here
+          Already have an account? Login
         </Link>
       </div>
     </div>
   );
 };
 
-export default Login;
+export default ResetPassword;
