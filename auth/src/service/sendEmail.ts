@@ -25,7 +25,7 @@ export const sendResetTokenEmail = async (receiverEmail: string, token: string) 
         to: `To ${receiverEmail}`,
         subject: "Password Reset",
         text: `Your password reset token is: ${token}`,
-        html: `<b> Your password reset token is: ${token}</b>`
+        html: `<b> Your password reset token is:</b>\n${token}`
     }
 
     await transporter.sendMail(mailOptions);

@@ -1,8 +1,9 @@
 FROM node:alpine
 WORKDIR '/app'
+RUN npm install -g pnpm
 
 COPY ./package.json .
-RUN npm install --omit=dev
+RUN pnpm install
 COPY . .
 
 CMD [ "npm","start"]

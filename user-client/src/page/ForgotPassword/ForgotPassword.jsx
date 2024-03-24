@@ -4,19 +4,15 @@ import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import { Button, Link, TextField, Typography } from '@mui/material';
 import { BASE_URL } from '../../api/baseUrl';
 
-const Login = () => {
+const ForgotPassword = () => {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
 
-  const handleLogin = async () => {
+  const handleForgotPassword = async () => {
     try {
       const response = await axios.post(
-        `${BASE_URL}/users/login`,
-        {
-          email: email,
-          password: password,
-        },
+        `${BASE_URL}/users/forgot-password`,
+        { email },
         {
           headers: {
             'Content-Type': 'application/json',
@@ -24,7 +20,7 @@ const Login = () => {
         }
       );
       if (response.data) {
-        navigate('/');
+        alert('Email sent!');
       }
     } catch (error) {
       console.log(error);
@@ -41,7 +37,7 @@ const Login = () => {
         padding: '20px',
       }}>
       <Typography variant='h4' gutterBottom>
-        Login to your account
+        Reset your password
       </Typography>
 
       <TextField
@@ -52,17 +48,8 @@ const Login = () => {
         style={{ margin: '10px 0px', width: '300px' }}
       />
 
-      <TextField
-        label='Password'
-        variant='outlined'
-        type='password'
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        style={{ margin: '10px 0px', width: '300px' }}
-      />
-
       <Button
-        onClick={handleLogin}
+        onClick={handleForgotPassword}
         variant='contained'
         style={{
           width: '300px',
@@ -72,27 +59,19 @@ const Login = () => {
           backgroundColor: '#1976d2',
           color: '#fff',
         }}>
-        LogIn
+        RESET PASSWORD
       </Button>
 
       <div style={{ marginTop: '20px' }}>
         <Link
           component={RouterLink}
-          to='/auth/signup'
+          to='/auth/login'
           style={{ color: '#1976d2', textDecoration: 'none' }}>
-          Don't have an account? Sign Up
-        </Link>
-      </div>
-      <div style={{ marginTop: '20px' }}>
-        <Link
-          component={RouterLink}
-          to='/auth/forgot-password'
-          style={{ color: 'red', textDecoration: 'none' }}>
-          forgot password? Click here
+          Already have an account? Login
         </Link>
       </div>
     </div>
   );
 };
 
-export default Login;
+export default ForgotPassword;

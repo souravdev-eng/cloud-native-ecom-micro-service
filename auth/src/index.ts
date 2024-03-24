@@ -32,7 +32,7 @@ const connectDB = async () => {
     console.log('Auth Postgres Server Started...');
   } catch (error: any) {
     console.log(error);
-    process.exit(1);
+    // process.exit(1);
   }
 };
 

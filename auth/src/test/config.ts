@@ -1,38 +1,36 @@
-import { createConnection, getConnection, Connection } from 'typeorm';
-import { User } from '../entity/User';
+import { Connection, createConnection } from 'typeorm';
+import Database from 'better-sqlite3';
 
-const connection = {
-  async create(): Promise<Connection> {
-    const connection = await createConnection({
-      type: 'sqlite',
+export class TestHelper {
+
+  private static _instance: TestHelper;
+
+  private constructor() { }
+
+  public static get instance(): TestHelper {
+    if (!this._instance) this._instance = new TestHelper();
+
+    return this._instance;
+  }
+
+  private dbConnect!: Connection;
+  private testdb!: any;
+
+
+  async setupTestDB() {
+    this.testdb = new Database(':memory:', { verbose: console.log });
+    this.dbConnect = await createConnection({
+      name: 'default',
+      type: 'better-sqlite3',
       database: ':memory:',
-      synchronize: true,
-      logging: false,
-      entities: [User],
+      entities: ['src/entity/*.ts'],
+      synchronize: true
     });
+  }
 
-    // console.log(`Connected to PostgreSQL database: ${connection.name}`);
-    return connection;
-  },
+  teardownTestDB() {
+    this.dbConnect.close();
+    this.testdb.close();
+  }
 
-  async close(): Promise<void> {
-    const defaultConnection = getConnection('default');
-    await defaultConnection.close();
-    // console.log(`Connection to PostgreSQL database closed`);
-  },
-
-  async clear(): Promise<void> {
-    const defaultConnection = getConnection('default');
-    const entities = defaultConnection.entityMetadatas;
-
-    const entityDeletionPromises = entities.map(async (entity) => {
-      const repository = defaultConnection.getRepository(entity.name);
-      await repository.query(`DELETE FROM ${entity.tableName}`);
-    });
-
-    await Promise.all(entityDeletionPromises);
-    // console.log(`Cleared data from PostgreSQL database`);
-  },
-};
-
-export default connection;
+}

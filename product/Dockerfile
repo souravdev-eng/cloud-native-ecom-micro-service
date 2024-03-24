@@ -1,8 +1,10 @@
 FROM node:alpine
 WORKDIR '/app'
 
+RUN npm install -g pnpm
+
 COPY ./package.json .
-RUN npm install --only=prod
+RUN pnpm install
 COPY . .
 
 CMD [ "npm","start"]
