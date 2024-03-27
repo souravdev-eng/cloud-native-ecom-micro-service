@@ -7,6 +7,7 @@ manifests:
     - ./k8s/product-depl.yml
     - ./k8s/rabbitmq-depl.yml
     - ./k8s/user-client-depl.yml
+    - ./k8s/notification-depl.yml
     - ./k8s/secret/*
     - ./k8s/config/*
 deploy:
@@ -39,14 +40,14 @@ build:
       docker:
         dockerfile: Dockerfile
 
-    # - image: souravdeveloper/ecom-cart
-    #   context: cart
-    #   sync:
-    #     manual:
-    #       - src: src/**/*.ts
-    #         dest: .
-    #   docker:
-    #     dockerfile: Dockerfile
+    - image: souravdeveloper/ecom-notification
+      context: notification
+      sync:
+        manual:
+          - src: src/**/*.ts
+            dest: .
+      docker:
+        dockerfile: Dockerfile
 
     - image: souravdeveloper/ecom-product
       context: product

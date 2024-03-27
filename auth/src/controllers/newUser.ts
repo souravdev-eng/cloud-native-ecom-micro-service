@@ -1,11 +1,9 @@
 import jwt from 'jsonwebtoken';
 import { Router, Request, Response, NextFunction } from 'express';
-import { signUpValidation } from '../validation/newUserValidation';
 import { requestValidation, BadRequestError } from '@ecom-micro/common';
 
+import { signUpValidation } from '../validation/newUserValidation';
 import { User } from '../entity/User';
-import { publishDirectMessage } from '../queue/auth.producer';
-import { authChannel } from '..';
 
 const signInToken = (id: string, email: string, role: string) => {
   return jwt.sign({ id, email, role }, process.env.JWT_KEY!, {
@@ -37,20 +35,6 @@ router.post(
     });
 
     await user.save();
-
-    const messageDetails = {
-      email: user.email,
-      name: user.name,
-      role: user.role,
-    };
-
-    await publishDirectMessage(
-      authChannel,
-      'ecom-micro-product-auth',
-      'auth-user',
-      JSON.stringify(messageDetails),
-      'A new user has been created!'
-    );
 
     const token = signInToken(user.id, user.email, user.role);
     // store the token in the session

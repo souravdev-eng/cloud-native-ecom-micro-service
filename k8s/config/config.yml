@@ -1,8 +1,9 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: config
+  name: ecom-global-config
   labels:
     app: ecom-config
 data:
   PRODUCT_MONGO_URL: 'mongodb+srv://sourav:<password>@cluster0.ut3zhsv.mongodb.net/ecom-product?retryWrites=true&w=majority&appName=Cluster0'
+  RABBITMQ_ENDPOINT: 'amqp://ecom:password@rabbitmq-srv:5672'
