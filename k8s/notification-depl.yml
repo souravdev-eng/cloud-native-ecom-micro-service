@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: notification-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: notification
+  template:
+    metadata:
+      labels:
+        app: notification
+    spec:
+      containers:
+        - name: notification
+          image: souravdeveloper/ecom-notification
+          envFrom:
+            - configMapRef:
+                name: ecom-global-config
+            - secretRef:
+                name: secret-credential
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: notification-srv
+spec:
+  selector:
+    app: notification
+  type: ClusterIP
+  ports:
+    - name: notification
+      targetPort: 4000
+      port: 4000
+      protocol: TCP
