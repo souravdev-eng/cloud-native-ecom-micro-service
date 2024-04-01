@@ -2,14 +2,9 @@ apiVersion: skaffold/v4beta2
 kind: Config
 manifests:
   rawYaml:
-    - ./k8s/auth-depl.yml
-    - ./k8s/ingress-depl.yml
-    - ./k8s/product-depl.yml
-    - ./k8s/rabbitmq-depl.yml
-    - ./k8s/user-client-depl.yml
-    - ./k8s/notification-depl.yml
     - ./k8s/secret/*
     - ./k8s/config/*
+    - ./k8s/*
 deploy:
   kubectl: {}
 build:
@@ -54,6 +49,17 @@ build:
       sync:
         manual:
           - src: src/**/*.ts
+            dest: .
+      docker:
+        dockerfile: Dockerfile
+
+    - image: souravdeveloper/ecom-order
+      context: order
+      sync:
+        manual:
+          - src: src/**/*.go
+            dest: .
+          - src: main.go
             dest: .
       docker:
         dockerfile: Dockerfile
