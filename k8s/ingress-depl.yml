@@ -24,6 +24,13 @@ spec:
                 name: product-srv
                 port:
                   number: 4000
+          - path: /api/order/?(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: order-srv
+                port:
+                  number: 4000
           - path: /?(.*)
             pathType: ImplementationSpecific
             backend:
