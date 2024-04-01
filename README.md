@@ -10,7 +10,7 @@
   </a>
   <h2 align="center">Cloud Native E-com Micro Service Project</h2>
   <p align="center">
-    E-com is an micro service based Full-Stack application
+    E-com is an microservice based Full-Stack application
   </p>
 </div>
 
@@ -24,20 +24,20 @@
 
 E-com is a commerce project where the main goal is to build a distributed and scalable application with zero downtime.
 
-**Here's is some key feature:**
+**Here is some key features:**
 
-- Signup and Login feature with role based(user, seller and admin)
+- Signup and Login feature with role-based(user, seller and admin)
 - User can view, filter, search & sort product
 - Add to cart feathers
-- Payment functionality
+- Payment Functionality
 - Track order delivery
 - Cancels order
 - Seller dashboard
 
 ### Built With
 
-For this project, I am carefully chosen my tech stack:
-
+For this project, I have carefully chosen my tech stack:
+<div style={{display:'flex', gap:'30px'}}>
 <img src="https://github.com/get-icon/geticon/raw/master/icons/react.svg" alt="React" width="35px" height="35px">
 <img src="https://github.com/get-icon/geticon/raw/master/icons/nextjs-icon.svg" alt="Next.js" width="35px" height="35px">
 <img src="https://github.com/get-icon/geticon/raw/master/icons/redux.svg" alt="Redux" width="35px" height="35px">
@@ -55,9 +55,9 @@ For this project, I am carefully chosen my tech stack:
 <img src="https://testing-library.com/img/octopus-64x64.png" alt="react-testing-library" width="35px" height="35px">
 <img src="https://github.com/get-icon/geticon/raw/master/icons/npm.svg" alt="NPM" width="40px" height="40px">
 <img src="https://github.com/get-icon/geticon/raw/master/icons/elasticsearch.svg" alt="Elasticsearch" width="35px" height="35px">
+</div>
 
 ## Contact
-
 souravmajumdar.dev@gamil.com
 
 Project Link: [https://github.com/souravdev-eng/cloud-native-ecom-micro-service](https://github.com/souravdev-eng/cloud-native-ecom-micro-service)
