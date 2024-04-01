@@ -1,9 +1,10 @@
-import React, { useEffect, useState } from 'react';
-import { BASE_URL } from '../../api/baseUrl';
-import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import ProductSkeleton from '../../components/ProductSkeleton/ProductSkeleton';
+import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+
+import { BASE_URL } from '../../api/baseUrl';
 import ProductCard from '../../components/ProductCard/ProductCard';
+import ProductSkeleton from '../../components/ProductSkeleton/ProductSkeleton';
 
 const HomePage = () => {
   const navigate = useNavigate();
@@ -76,7 +77,7 @@ const HomePage = () => {
                 image={el.image}
                 price={el.price}
                 description={el.description}
-                onClick={() => console.log(el.id)}
+                onClick={() => navigate(`/product-details/${el.id}`)}
               />
             ))
           : Array.from(new Array(30)).map((_, idx) => <ProductSkeleton key={idx} />)}
