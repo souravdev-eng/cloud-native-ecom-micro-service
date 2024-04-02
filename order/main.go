@@ -1,13 +1,20 @@
 package main
 
-import "github.com/gin-gonic/gin"
+import (
+	"net/http"
+
+	"github.com/gin-gonic/gin"
+	"github.com/souravdev-eng/ecom-order/src/routes"
+)
 
 func main() {
-	r := gin.Default()
-	r.GET("/api/order/ping", func(c *gin.Context) {
-		c.JSON(200, gin.H{
-			"message": "pong",
-		})
+	router := gin.Default()
+
+	routes.OrderRoutes(router)
+
+	router.GET("/api/order/health", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"health": "OK"})
 	})
-	r.Run(":4000")
+
+	router.Run(":4000")
 }

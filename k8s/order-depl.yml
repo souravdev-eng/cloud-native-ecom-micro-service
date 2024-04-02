@@ -17,6 +17,11 @@ spec:
           image: souravdeveloper/ecom-order
           ports:
             - containerPort: 4000
+          envFrom:
+            - configMapRef:
+                name: app-config
+            - secretRef:
+                name: secret-credential
 ---
 apiVersion: v1
 kind: Service
