@@ -34,9 +34,21 @@ E-com is a commerce project where the main goal is to build a distributed and sc
 - Cancels order
 - Seller dashboard
 
+## Services list & feature details
+
+- **Auth Service 🔑**
+  - Signup
+  - Role based signup
+  - Login
+  - Current user
+  - Forgot password
+  - Reset password
+  - Update password
+
 ### Built With
 
 For this project, I have carefully chosen my tech stack:
+
 <div style={{display:'flex', gap:'30px'}}>
 <img src="https://github.com/get-icon/geticon/raw/master/icons/react.svg" alt="React" width="35px" height="35px">
 <img src="https://github.com/get-icon/geticon/raw/master/icons/nextjs-icon.svg" alt="Next.js" width="35px" height="35px">
@@ -58,6 +70,7 @@ For this project, I have carefully chosen my tech stack:
 </div>
 
 ## Contact
+
 souravmajumdar.dev@gamil.com
 
 Project Link: [https://github.com/souravdev-eng/cloud-native-ecom-micro-service](https://github.com/souravdev-eng/cloud-native-ecom-micro-service)
