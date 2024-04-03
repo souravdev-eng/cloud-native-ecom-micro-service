@@ -38,11 +38,11 @@ func DBInstance() *mongo.Client {
 		log.Fatal(err)
 	}
 
-	defer func() {
-		if err = client.Disconnect(ctx); err != nil {
-			panic(err)
-		}
-	}()
+	// defer func() {
+	// 	if err = client.Disconnect(ctx); err != nil {
+	// 		panic(err)
+	// 	}
+	// }()
 
 	fmt.Println("Order service mongodb connected successfully...")
 
