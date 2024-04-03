@@ -4,10 +4,12 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/souravdev-eng/ecom-order/src/queues"
 	"github.com/souravdev-eng/ecom-order/src/routes"
 )
 
 func main() {
+	queues.Init()
 	router := gin.Default()
 
 	routes.OrderRoutes(router)
