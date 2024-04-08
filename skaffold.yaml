@@ -57,9 +57,7 @@ build:
       context: order
       sync:
         manual:
-          - src: src/**/*.go
-            dest: .
-          - src: main.go
+          - src: src/**/*.ts
             dest: .
       docker:
         dockerfile: Dockerfile
