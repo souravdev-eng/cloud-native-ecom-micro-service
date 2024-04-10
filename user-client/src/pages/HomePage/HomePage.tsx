@@ -1,10 +1,13 @@
 import React from 'react';
+import HeroImageSlider from '../../molecules/HeroImageSlider/HeroImageSlider';
+import HeaderSearch from '../../organisms/HeaderSearch/HeaderSearch';
 
 const HomePage = () => {
   return (
-    <div>
-      <h1>HomePage</h1>
-    </div>
+    <>
+      <HeaderSearch />
+      <HeroImageSlider />
+    </>
   );
 };
 

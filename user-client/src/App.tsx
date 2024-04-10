@@ -1,14 +1,13 @@
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
-import HomePage from './pages/HomePage';
 import './App.css';
+
+import HomePage from './pages/HomePage';
 import HeaderMenu from './organisms/HeaderMenu/HeaderMenu';
-import HeaderSearch from './organisms/HeaderSearch/HeaderSearch';
 
 function App() {
   return (
     <BrowserRouter>
       <HeaderMenu />
-      <HeaderSearch />
       <Routes>
         <Route path='/' Component={HomePage} />
         {/* <Route path='/product-details/:id' Component={ProductDetails} />
