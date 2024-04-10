@@ -10,11 +10,6 @@ function App() {
       <HeaderMenu />
       <Routes>
         <Route path='/' Component={HomePage} />
-        {/* <Route path='/product-details/:id' Component={ProductDetails} />
-        <Route path='/auth/signup' Component={Signup} />
-        <Route path='/auth/login' Component={Login} />
-        <Route path='/auth/forgot-password' Component={ForgotPassword} />
-        <Route path='/auth/reset-password' Component={ResetPassword} /> */}
       </Routes>
     </BrowserRouter>
   );
