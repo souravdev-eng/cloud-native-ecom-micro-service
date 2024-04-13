@@ -1,68 +1,25 @@
-import styles from './FeaturedProductList.module.css';
+import { FC } from 'react';
 import { FeaturedProductCard } from '../../molecules';
+import FeaturedDivider from '../../atoms/FeaturedDivider/FeaturedDivider';
+import styles from './FeaturedProductList.module.css';
 
-const data = [
-  {
-    title: 'Brown Women Casual HandBag',
-    tags: 'ACCESSORIES, BEST SELLING PRODUCTS',
-    price: 299,
-    image:
-      'https://porto-demo.myshopify.com/cdn/shop/products/BrownWomenCasualHandBag1_400x400_crop_center.jpg?v=1606122820',
-  },
-  {
-    title: 'Brown Women Casual HandBag',
-    tags: 'ACCESSORIES, BEST SELLING PRODUCTS',
-    price: 299,
-    rating: 4.3,
-    image:
-      'https://porto-demo.myshopify.com/cdn/shop/products/BrownWomenCasualHandBag1_400x400_crop_center.jpg?v=1606122820',
-  },
-  {
-    title: 'Brown Women Casual HandBag',
-    tags: 'ACCESSORIES, BEST SELLING PRODUCTS',
-    price: 299,
-    rating: 4.3,
-    image:
-      'https://porto-demo.myshopify.com/cdn/shop/products/BrownWomenCasualHandBag1_400x400_crop_center.jpg?v=1606122820',
-  },
-  {
-    title: 'Brown Women Casual HandBag',
-    tags: 'ACCESSORIES, BEST SELLING PRODUCTS',
-    price: 299,
-    rating: 4.3,
-    image:
-      'https://porto-demo.myshopify.com/cdn/shop/products/BrownWomenCasualHandBag1_400x400_crop_center.jpg?v=1606122820',
-  },
-];
+type ProductProps = {
+  title: string;
+  image: string;
+  price: number;
+  tags?: string;
+  rating?: number;
+};
 
-const FeaturedProductList = () => {
+interface FeaturedProductListProps {
+  featuredHeading: string;
+  productList: ProductProps[];
+}
+
+const FeaturedProductList: FC<FeaturedProductListProps> = ({ productList, featuredHeading }) => {
   return (
     <div className={styles.container}>
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          width: '100%',
-        }}>
-        <div
-          style={{
-            flexGrow: 1,
-            height: '1px',
-            backgroundColor: '#000',
-            marginRight: '12px',
-          }}
-        />
-        <h3 style={{ margin: '0 12px' }}>FEATURED PRODUCTS</h3>
-        <div
-          style={{
-            flexGrow: 1,
-            height: '1px',
-            backgroundColor: '#000',
-            marginLeft: '12px',
-          }}
-        />
-      </div>
+      <FeaturedDivider title={featuredHeading} />
       <div
         style={{
           display: 'flex',
@@ -70,8 +27,9 @@ const FeaturedProductList = () => {
           alignItems: 'center',
           gap: 30,
           width: '100%',
+          backgroundColor: '#fbfbfb',
         }}>
-        {data.map((el, idx) => (
+        {productList?.map((el, idx) => (
           <FeaturedProductCard
             key={idx}
             {...el}

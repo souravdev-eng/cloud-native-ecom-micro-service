@@ -1,37 +1,55 @@
 import React from 'react';
-import HeroImageSlider from '../../molecules/HeroImageSlider/HeroImageSlider';
-import HeaderSearch from '../../organisms/HeaderSearch/HeaderSearch';
-import FeaturedProductList from '../../organisms/FeaturedProductList/FeaturedProductList';
+import { HeroImageSlider } from '../../molecules';
+import { HeaderSearch, FeaturedProductList } from '../../organisms';
+
+import styles from './Home.module.css';
+
+const DATA = [
+  {
+    title: 'Brown Women Casual HandBag',
+    tags: 'ACCESSORIES, BEST SELLING PRODUCTS',
+    price: 299,
+    image:
+      'https://porto-demo.myshopify.com/cdn/shop/products/BrownWomenCasualHandBag1_400x400_crop_center.jpg?v=1606122820',
+  },
+  {
+    title: 'Brown Women Casual HandBag',
+    tags: 'ACCESSORIES, BEST SELLING PRODUCTS',
+    price: 299,
+    rating: 4.3,
+    image:
+      'https://porto-demo.myshopify.com/cdn/shop/products/BrownWomenCasualHandBag1_400x400_crop_center.jpg?v=1606122820',
+  },
+  {
+    title: 'Brown Women Casual HandBag',
+    tags: 'ACCESSORIES, BEST SELLING PRODUCTS',
+    price: 299,
+    rating: 4.3,
+    image:
+      'https://porto-demo.myshopify.com/cdn/shop/products/BrownWomenCasualHandBag1_400x400_crop_center.jpg?v=1606122820',
+  },
+  {
+    title: 'Brown Women Casual HandBag',
+    tags: 'ACCESSORIES, BEST SELLING PRODUCTS',
+    price: 299,
+    rating: 4.3,
+    image:
+      'https://porto-demo.myshopify.com/cdn/shop/products/BrownWomenCasualHandBag1_400x400_crop_center.jpg?v=1606122820',
+  },
+];
 
 const HomePage = () => {
   return (
     <>
       <HeaderSearch />
       <HeroImageSlider />
-      <div
-        style={{
-          maxWidth: '80%',
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          alignSelf: 'center',
-          marginLeft: 'auto',
-          marginRight: 'auto',
-        }}>
-        <FeaturedProductList />
+
+      <div className={styles.featuredContainer}>
+        <FeaturedProductList featuredHeading='FEATURED PRODUCTS' productList={DATA} />
       </div>
-      <div
-        style={{
-          maxWidth: '80%',
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          alignSelf: 'center',
-          marginLeft: 'auto',
-          marginRight: 'auto',
-          marginTop: '80px',
-        }}>
-        <FeaturedProductList />
+
+      <div className={styles.featuredContainer}>
+        <FeaturedProductList featuredHeading='NEW ARRIVALS' productList={DATA} />
       </div>
     </>
   );
