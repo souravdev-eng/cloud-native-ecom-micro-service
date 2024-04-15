@@ -19,6 +19,7 @@ router.post(
       image: req.body.image,
       sellerId: req.user.id,
       price: req.body.price,
+      tags: req.body.tags,
     });
 
     await product.save();

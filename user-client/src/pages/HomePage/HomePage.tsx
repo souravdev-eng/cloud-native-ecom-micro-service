@@ -1,7 +1,5 @@
-import React from 'react';
 import { HeroImageSlider } from '../../molecules';
 import { HeaderSearch, FeaturedProductList } from '../../organisms';
-
 import styles from './Home.module.css';
 
 const DATA = [
