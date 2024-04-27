@@ -5,6 +5,9 @@
   "license": "MIT",
   "scripts": {
     "start": "ts-node-dev --poll src/index.ts",
+    "d-build": "docker build -t souravdeveloper/ecom-cart .",
+    "d-push": "docker push souravdeveloper/ecom-cart",
+    "d-pub": "npm run d-build && npm run d-push",
     "test": "jest --watchAll --no-cache"
   },
   "jest": {

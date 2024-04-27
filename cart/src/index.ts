@@ -4,15 +4,15 @@ import { Cart } from './entity/Cart';
 import { Product } from './entity/Product';
 
 const start = async () => {
-  if (!process.env.DB_URL) {
-    throw new Error('DB_URL must be defined');
+  if (!process.env.CART_DB_URL) {
+    throw new Error('CART_DB_URL must be defined');
   }
 
   try {
     const AppDataSource = new DataSource({
       type: 'postgres',
       port: 5432,
-      url: process.env.DB_URL,
+      url: process.env.CART_DB_URL,
       entities: [Cart, Product],
       synchronize: true,
     });
@@ -28,7 +28,7 @@ const start = async () => {
   } catch (error: any) {
     console.log('CART DB ERROR', error.message);
   }
-  app.listen(3000, () => console.log(`Cart service running on PORT 3000....`));
+  app.listen(4000, () => console.log(`Cart service running on PORT 4000....`));
 };
 
 start();
