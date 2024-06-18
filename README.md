@@ -34,25 +34,31 @@ E-com is a commerce project where the main goal is to build a distributed and sc
 - Cancels order
 - Seller dashboard
 
-## Services list & feature details
+## Services list & feature details:
 
-### Auth Service 🔑
+## Auth Service 🔑
 
 **API Endpoints**
 
-- /auth/signup
-- /auth/login
-- /auth/forgotPassword
-- /auth/resetPassword
-- /auth/updatePassword
-- /auth/showAllUser
-- /auth/signout
+- `/auth/signup`
+- `/auth/login`
+- `/auth/forgotPassword`
+- `/auth/resetPassword`
+- `/auth/updatePassword`
+- `/auth/showAllUser`
+- `/auth/signout`
 
 **Tech Stack using**
 
 <div style={{display:'flex', gap:'30px'}}>
 <img src="https://github.com/get-icon/geticon/raw/master/icons/nodejs-icon.svg" alt="Node.js" width="35px" height="35px">
+<img src="https://github.com/get-icon/geticon/blob/master/icons/express.svg" alt="Express" width="35px" height="35px">
+<img src="https://github.com/get-icon/geticon/raw/master/icons/postgresql.svg" alt="PostgreSQL" width="35px" height="35px">
+<img src="https://github.com/get-icon/geticon/raw/master/icons/typescript-icon.svg" alt="Typescript" width="35px" height="35px">
+<img src="https://github.com/get-icon/geticon/raw/master/icons/jest.svg" alt="Jest" width="35px" height="35px">
+<img src="https://github.com/get-icon/geticon/raw/master/icons/elasticsearch.svg" alt="Elasticsearch" width="35px" height="35px">
 </div>
+
 <!-- - Role based signup
 - Login
 - Current user
