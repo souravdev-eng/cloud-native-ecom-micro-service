@@ -36,14 +36,29 @@ E-com is a commerce project where the main goal is to build a distributed and sc
 
 ## Services list & feature details
 
-- **Auth Service 🔑**
-  - Signup
-  - Role based signup
-  - Login
-  - Current user
-  - Forgot password
-  - Reset password
-  - Update password
+### Auth Service 🔑
+
+**API Endpoints**
+
+- /auth/signup
+- /auth/login
+- /auth/forgotPassword
+- /auth/resetPassword
+- /auth/updatePassword
+- /auth/showAllUser
+- /auth/signout
+
+**Tech Stack using**
+
+<div style={{display:'flex', gap:'30px'}}>
+<img src="https://github.com/get-icon/geticon/raw/master/icons/nodejs-icon.svg" alt="Node.js" width="35px" height="35px">
+</div>
+<!-- - Role based signup
+- Login
+- Current user
+- Forgot password
+- Reset password
+- Update password -->
 
 ### Built With
 
