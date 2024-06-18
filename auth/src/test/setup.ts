@@ -1,22 +1,20 @@
 import request from 'supertest';
-import { TestHelper } from './config';
+
 import app from '../app';
 
 declare global {
   function signIn(): Promise<string[]>;
 }
 
-
-
 beforeAll(async () => {
   process.env.JWT_KEY = 'asdfasdf';
   process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
   process.env.JWT_EXPIRE_IN = '90d';
-  await TestHelper.instance.setupTestDB();
+  // await TestHelper.instance.setupTestDB();
 });
 
 afterAll(() => {
-  TestHelper.instance.teardownTestDB();
+  // TestHelper.instance.teardownTestDB();
 });
 
 global.signIn = async () => {
