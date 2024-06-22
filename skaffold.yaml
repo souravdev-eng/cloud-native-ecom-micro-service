@@ -6,6 +6,8 @@ manifests:
     - ./k8s/config/*
     - ./k8s/auth-depl.yml
     - ./k8s/notification-depl.yml
+    - ./k8s/product-depl.yml
+    - ./k8s/review-depl.yml
     - ./k8s/rabbitmq-depl.yml
     - ./k8s/ingress-depl.yml
 deploy:
@@ -47,14 +49,25 @@ build:
       docker:
         dockerfile: Dockerfile
 
-    # - image: souravdeveloper/ecom-product
-    #   context: product
+    # - image: souravdeveloper/ecom-review
+    #   context: review
     #   sync:
     #     manual:
-    #       - src: src/**/*.ts
+    #       - src: main.go
+    #         dest: .
+    #       - src: src/**/*.go
     #         dest: .
     #   docker:
     #     dockerfile: Dockerfile
+
+    - image: souravdeveloper/ecom-product
+      context: product
+      sync:
+        manual:
+          - src: src/**/*.ts
+            dest: .
+      docker:
+        dockerfile: Dockerfile
 
     # - image: souravdeveloper/ecom-cart
     #   context: cart

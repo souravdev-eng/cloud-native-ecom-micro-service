@@ -1,7 +1,6 @@
 import mongoose from 'mongoose';
 import app from './app';
 
-
 const start = async () => {
   if (!process.env.MONGO_USER) {
     throw new Error('Mongo DB User not found');

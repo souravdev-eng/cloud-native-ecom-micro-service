@@ -24,6 +24,13 @@ spec:
                 name: product-srv
                 port:
                   number: 4000
+          - path: /api/review/?(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: review-service
+                port:
+                  number: 3000
           - path: /api/order/?(.*)
             pathType: ImplementationSpecific
             backend:
