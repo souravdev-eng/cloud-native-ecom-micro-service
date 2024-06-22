@@ -4,9 +4,11 @@ manifests:
   rawYaml:
     - ./k8s/secret/*
     - ./k8s/config/*
+    - ./k8s/volumes/*
     - ./k8s/auth-depl.yml
     - ./k8s/notification-depl.yml
     - ./k8s/product-depl.yml
+    - ./k8s/product-redis-depl.yml
     - ./k8s/review-depl.yml
     - ./k8s/rabbitmq-depl.yml
     - ./k8s/ingress-depl.yml
