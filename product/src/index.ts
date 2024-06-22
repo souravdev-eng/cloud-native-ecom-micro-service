@@ -1,5 +1,17 @@
 import mongoose from 'mongoose';
 import app from './app';
+import { connectRedis } from './redisClient';
+
+const startRedisServer = () => {
+  connectRedis(process.env.PRODUCT_REDIS_URL!)
+    .then(() => {
+      console.log('Redis client connected');
+    })
+    .catch((err: any) => {
+      console.error('Failed to connect to Redis:', err);
+      process.exit(1);
+    });
+};
 
 const start = async () => {
   if (!process.env.MONGO_USER) {
@@ -11,17 +23,13 @@ const start = async () => {
   if (!process.env.MONGO_PASSWORD) {
     throw new Error('Mongo DB password not found');
   }
-  if (!process.env.NATS_CLIENT_ID) {
-    throw new Error('NATS_CLIENT_ID must be defined');
-  }
-  if (!process.env.NATS_URL) {
-    throw new Error('NATS_URL must be defined');
-  }
-  if (!process.env.NATS_CLUSTER_ID) {
-    throw new Error('NATS_CLUSTER_ID must be defined');
-  }
+
   if (!process.env.JWT_KEY) {
     throw new Error('JWT is not found');
+  }
+
+  if (!process.env.PRODUCT_REDIS_URL) {
+    throw new Error('Redis URL not found');
   }
 
   try {
@@ -35,6 +43,8 @@ const start = async () => {
         console.log(err.message);
         process.exit(1);
       });
+
+    startRedisServer();
 
     app.listen(4000, () => {
       console.log('Product server running on PORT--> 4000');

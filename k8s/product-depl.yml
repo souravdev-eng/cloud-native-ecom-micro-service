@@ -18,17 +18,11 @@ spec:
           env:
             - name: DB_URL
               value: mongodb+srv://sourav:<password>@cluster0.ut3zhsv.mongodb.net/product?retryWrites=true&w=majority
-            - name: NATS_CLIENT_ID
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.name
-            - name: NATS_CLUSTER_ID
-              value: ecom
           envFrom:
             - secretRef:
                 name: secret-credential
             - configMapRef:
-                name: app-config
+                name: ecom-global-config
 ---
 apiVersion: v1
 kind: Service
