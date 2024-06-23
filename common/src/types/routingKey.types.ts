@@ -1,4 +1,7 @@
-export enum Subjects {
+export enum RoutingKeyTypes {
+  UserForgotPassword = 'user-forgot-password',
+  UserResetPassword = 'user-rest-password',
+
   SellerCreated = 'seller-created',
   SellerUpdated = 'seller-updated',
 

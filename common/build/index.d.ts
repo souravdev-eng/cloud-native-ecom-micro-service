@@ -10,6 +10,8 @@ export * from './middleware/requestValidation';
 export * from './middleware/requireAuth';
 export * from './middleware/currentUser';
 export * from './queues/connection';
+export * from './queues/baseListener';
+export * from './queues/basePublisher';
 export * from './logger/logger';
 export * from './types/product.types';
 export * from './types/subjects';

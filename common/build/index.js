@@ -29,6 +29,8 @@ __exportStar(require("./middleware/requireAuth"), exports);
 __exportStar(require("./middleware/currentUser"), exports);
 // RabbitMQ Service
 __exportStar(require("./queues/connection"), exports);
+__exportStar(require("./queues/baseListener"), exports);
+__exportStar(require("./queues/basePublisher"), exports);
 // Logger
 __exportStar(require("./logger/logger"), exports);
 // Interface

@@ -1,7 +1,9 @@
-import { Exchange } from '../queues/types/Exchange';
+import { ExchangeTypes } from './exchange.types';
+import { RoutingKeyTypes } from './routingKey.types';
 
 export interface ProductCreatedMessage {
-  exchange: Exchange.ProductCreated;
+  exchangeName: ExchangeTypes.ProductService;
+  routingKey: RoutingKeyTypes.ProductCreated;
   data: {
     id: string;
     title: string;
@@ -12,7 +14,8 @@ export interface ProductCreatedMessage {
 }
 
 export interface ProductUpdatedMessage {
-  exchange: Exchange.ProductUpdated;
+  exchangeName: ExchangeTypes.ProductService;
+  routingKey: RoutingKeyTypes.ProductUpdated;
   data: {
     id: string;
     title: string;
@@ -23,7 +26,8 @@ export interface ProductUpdatedMessage {
 }
 
 export interface ProductDeletedMessage {
-  exchange: Exchange.ProductDeleted;
+  exchangeName: ExchangeTypes.ProductService;
+  routingKey: RoutingKeyTypes.ProductDeleted;
   data: {
     id: string;
   };
