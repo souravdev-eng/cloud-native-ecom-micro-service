@@ -11,4 +11,5 @@ export * from './middleware/requireAuth';
 export * from './middleware/currentUser';
 export * from './queues/connection';
 export * from './logger/logger';
-export * from './types/index';
+export * from './types/product.types';
+export * from './types/subjects';

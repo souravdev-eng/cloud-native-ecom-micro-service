@@ -31,4 +31,6 @@ __exportStar(require("./middleware/currentUser"), exports);
 __exportStar(require("./queues/connection"), exports);
 // Logger
 __exportStar(require("./logger/logger"), exports);
-__exportStar(require("./types/index"), exports);
+// Interface
+__exportStar(require("./types/product.types"), exports);
+__exportStar(require("./types/subjects"), exports);
