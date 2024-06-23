@@ -1,5 +1,6 @@
 import { Channel } from 'amqplib';
-import { ExchangeTypes } from '../types/subjects';
+import { ExchangeTypes } from '../types/exchange.types';
+import { RoutingKeyTypes } from '../types/routingKey.types';
 
 interface Event {
   exchange: ExchangeTypes;
@@ -9,7 +10,7 @@ interface Event {
 export abstract class BasePublisher<T extends Event> {
   protected channel: Channel;
   abstract exchangeName: T['exchange'];
-  abstract routingKey: string;
+  abstract routingKey: RoutingKeyTypes;
 
   constructor(channel: Channel) {
     this.channel = channel;

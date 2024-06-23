@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.ExchangeTypes = exports.Subjects = void 0;
+exports.Subjects = void 0;
 var Subjects;
 (function (Subjects) {
     Subjects["SellerCreated"] = "seller-created";
@@ -14,18 +14,3 @@ var Subjects;
     Subjects["ProductAddedCart"] = "product-add-to-cart";
     Subjects["ProductRemoveCart"] = "product-remove-to-cart";
 })(Subjects = exports.Subjects || (exports.Subjects = {}));
-var ExchangeTypes;
-(function (ExchangeTypes) {
-    ExchangeTypes["UserForgotPassword"] = "user-forgot-password";
-    ExchangeTypes["UserResetPassword"] = "user-rest-password";
-    ExchangeTypes["SellerCreated"] = "seller-created";
-    ExchangeTypes["SellerUpdated"] = "seller-updated";
-    ExchangeTypes["ProductCreated"] = "product-created";
-    ExchangeTypes["ProductUpdated"] = "product-updated";
-    ExchangeTypes["ProductDeleted"] = "product-deleted";
-    ExchangeTypes["OrderCreated"] = "order-created";
-    ExchangeTypes["OrderUpdated"] = "order-updated";
-    ExchangeTypes["OrderCanceled"] = "order-cancelled";
-    ExchangeTypes["ProductAddedCart"] = "product-add-to-cart";
-    ExchangeTypes["ProductRemoveCart"] = "product-remove-to-cart";
-})(ExchangeTypes = exports.ExchangeTypes || (exports.ExchangeTypes = {}));

@@ -1,4 +1,6 @@
-export declare enum Subjects {
+export declare enum RoutingKeyTypes {
+    UserForgotPassword = "user-forgot-password",
+    UserResetPassword = "user-rest-password",
     SellerCreated = "seller-created",
     SellerUpdated = "seller-updated",
     ProductCreated = "product-created",
