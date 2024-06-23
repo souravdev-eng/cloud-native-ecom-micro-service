@@ -35,7 +35,6 @@ __exportStar(require("./queues/basePublisher"), exports);
 __exportStar(require("./logger/logger"), exports);
 // Interface
 __exportStar(require("./types/product.types"), exports);
-__exportStar(require("./types/product.types"), exports);
 __exportStar(require("./types/routingKey.types"), exports);
 __exportStar(require("./types/exchange.types"), exports);
 __exportStar(require("./types/subjects"), exports);

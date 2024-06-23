@@ -14,7 +14,6 @@ export * from './queues/baseListener';
 export * from './queues/basePublisher';
 export * from './logger/logger';
 export * from './types/product.types';
-export * from './types/product.types';
 export * from './types/routingKey.types';
 export * from './types/exchange.types';
 export * from './types/subjects';
