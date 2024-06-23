@@ -31,3 +31,4 @@ __exportStar(require("./middleware/currentUser"), exports);
 __exportStar(require("./queues/connection"), exports);
 // Logger
 __exportStar(require("./logger/logger"), exports);
+__exportStar(require("./types/index"), exports);

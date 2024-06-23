@@ -1,4 +1,4 @@
-import { Channel } from "amqplib";
+import { Channel } from 'amqplib';
 export declare class QueueConnection {
     private readonly endPoint;
     private connection;
