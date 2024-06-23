@@ -1,16 +1,15 @@
 import mongoose from 'mongoose';
 import app from './app';
 import { connectRedis } from './redisClient';
+import { rabbitMQWrapper } from './rabbitMQWrapper';
 
-const startRedisServer = () => {
-  connectRedis(process.env.PRODUCT_REDIS_URL!)
-    .then(() => {
-      console.log('Redis client connected');
-    })
-    .catch((err: any) => {
-      console.error('Failed to connect to Redis:', err);
-      process.exit(1);
-    });
+const startRedisServer = async () => {
+  try {
+    await connectRedis(process.env.PRODUCT_REDIS_URL!);
+  } catch (error) {
+    console.error('Failed to connect to Redis:', error);
+    process.exit(1);
+  }
 };
 
 const start = async () => {
@@ -32,6 +31,10 @@ const start = async () => {
     throw new Error('Redis URL not found');
   }
 
+  if (!process.env.RABBITMQ_ENDPOINT) {
+    throw new Error('RabbitMQ endpoint not found');
+  }
+
   try {
     mongoose
       .connect(process.env.DB_URL!, {
@@ -43,6 +46,8 @@ const start = async () => {
         console.log(err.message);
         process.exit(1);
       });
+
+    await rabbitMQWrapper.connect(process.env.RABBITMQ_ENDPOINT!);
 
     startRedisServer();
 

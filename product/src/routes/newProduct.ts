@@ -2,6 +2,8 @@ import { Router, Response, Request, NextFunction } from 'express';
 import { requireAuth, restrictTo, requestValidation } from '@ecom-micro/common';
 import { productValidation } from '../validation/productValidation';
 import { Product } from '../models/productModel';
+import { rabbitMQWrapper } from '../rabbitMQWrapper';
+import { ProductCreatedPub } from '../queues/publisher/productCreatedPub';
 
 const router = Router();
 
@@ -23,6 +25,14 @@ router.post(
     });
 
     await product.save();
+
+    new ProductCreatedPub(rabbitMQWrapper.channel).publish({
+      id: product.id,
+      title: product.title,
+      price: product.price,
+      sellerId: product.sellerId,
+      quantity: 10,
+    });
 
     res.status(201).send(product);
   }

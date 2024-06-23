@@ -13,7 +13,9 @@ export const publishDirectMessage = async (message: string, logMessage: string):
     }
 
     await channel.assertExchange(exchangeName, 'direct');
-    channel.publish(exchangeName, routingKey, Buffer.from(message));
+    channel.publish(exchangeName, routingKey, Buffer.from(message), {
+      persistent: true,
+    });
     console.log(logMessage);
   } catch (error) {
     console.log('AuthService Provider publishDirectMessage() method error:', error);
