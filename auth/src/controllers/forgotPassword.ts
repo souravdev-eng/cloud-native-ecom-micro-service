@@ -3,7 +3,6 @@ import { BadRequestError } from '@ecom-micro/common';
 import { generateResetToken } from '../service/sendEmail';
 import { User } from '../entity/User';
 import { publishDirectMessage } from '../queue/auth.producer';
-import { authChannel } from '..';
 
 const router = Router();
 

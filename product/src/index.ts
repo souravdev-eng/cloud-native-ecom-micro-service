@@ -1,6 +1,16 @@
 import mongoose from 'mongoose';
 import app from './app';
+import { connectRedis } from './redisClient';
+import { rabbitMQWrapper } from './rabbitMQWrapper';
 
+const startRedisServer = async () => {
+  try {
+    await connectRedis(process.env.PRODUCT_REDIS_URL!);
+  } catch (error) {
+    console.error('Failed to connect to Redis:', error);
+    process.exit(1);
+  }
+};
 
 const start = async () => {
   if (!process.env.MONGO_USER) {
@@ -12,17 +22,17 @@ const start = async () => {
   if (!process.env.MONGO_PASSWORD) {
     throw new Error('Mongo DB password not found');
   }
-  if (!process.env.NATS_CLIENT_ID) {
-    throw new Error('NATS_CLIENT_ID must be defined');
-  }
-  if (!process.env.NATS_URL) {
-    throw new Error('NATS_URL must be defined');
-  }
-  if (!process.env.NATS_CLUSTER_ID) {
-    throw new Error('NATS_CLUSTER_ID must be defined');
-  }
+
   if (!process.env.JWT_KEY) {
     throw new Error('JWT is not found');
+  }
+
+  if (!process.env.PRODUCT_REDIS_URL) {
+    throw new Error('Redis URL not found');
+  }
+
+  if (!process.env.RABBITMQ_ENDPOINT) {
+    throw new Error('RabbitMQ endpoint not found');
   }
 
   try {
@@ -36,6 +46,10 @@ const start = async () => {
         console.log(err.message);
         process.exit(1);
       });
+
+    await rabbitMQWrapper.connect(process.env.RABBITMQ_ENDPOINT!);
+
+    startRedisServer();
 
     app.listen(4000, () => {
       console.log('Product server running on PORT--> 4000');

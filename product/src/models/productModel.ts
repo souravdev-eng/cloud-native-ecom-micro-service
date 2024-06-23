@@ -14,6 +14,7 @@ interface ProductAttars {
   sellerId: string;
   description: string;
   category: Category;
+  tags?: string[];
 }
 
 interface ProductDoc extends mongoose.Document {
@@ -23,6 +24,7 @@ interface ProductDoc extends mongoose.Document {
   sellerId: string;
   description: string;
   category: Category;
+  tags?: string[];
 }
 
 interface ProductModel extends mongoose.Model<ProductDoc> {
@@ -60,6 +62,10 @@ const productSchema = new mongoose.Schema(
     sellerId: {
       type: String,
       required: true,
+    },
+    tags: {
+      type: Array,
+      default: [],
     },
   },
   {

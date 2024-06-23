@@ -26,7 +26,7 @@ spec:
             - configMapRef:
                 name: auth-config
             - secretRef:
-                name: auth-credential
+                name: secret-credential
 ---
 apiVersion: v1
 kind: Service
@@ -38,6 +38,6 @@ spec:
   type: ClusterIP
   ports:
     - name: cart
-      targetPort: 3000
-      port: 3000
+      targetPort: 4000
+      port: 4000
       protocol: TCP

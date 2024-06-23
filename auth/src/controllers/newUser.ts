@@ -24,7 +24,9 @@ router.post(
       return next(new BadRequestError('This email is already in use! Please try another'));
     }
 
-    console.log(req.body);
+    if (req?.body?.password !== req?.body?.passwordConform) {
+      return next(new BadRequestError('Password must be same! Please try another'));
+    }
 
     const user = User.create({
       name: req.body.name,

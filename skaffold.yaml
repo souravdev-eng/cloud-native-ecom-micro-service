@@ -4,7 +4,14 @@ manifests:
   rawYaml:
     - ./k8s/secret/*
     - ./k8s/config/*
-    - ./k8s/*
+    - ./k8s/volumes/*
+    - ./k8s/auth-depl.yml
+    - ./k8s/notification-depl.yml
+    - ./k8s/product-depl.yml
+    - ./k8s/product-redis-depl.yml
+    - ./k8s/review-depl.yml
+    - ./k8s/rabbitmq-depl.yml
+    - ./k8s/ingress-depl.yml
 deploy:
   kubectl: {}
 build:
@@ -18,22 +25,22 @@ build:
       docker:
         dockerfile: Dockerfile
 
-    - image: souravdeveloper/ecom-user-client
-      context: user-client
-      sync:
-        manual:
-          - src: src/**/*.js
-            dest: .
-          - src: src/**/*.jsx
-            dest: .
-          - src: src/**/*.css
-            dest: .
-          - src: src/**/*.scss
-            dest: .
-          - src: src/**/*.json
-            dest: .
-      docker:
-        dockerfile: Dockerfile
+    # - image: souravdeveloper/ecom-user-client
+    #   context: user-client
+    #   sync:
+    #     manual:
+    #       - src: src/**/*.js
+    #         dest: .
+    #       - src: src/**/*.jsx
+    #         dest: .
+    #       - src: src/**/*.css
+    #         dest: .
+    #       - src: src/**/*.scss
+    #         dest: .
+    #       - src: src/**/*.json
+    #         dest: .
+    #   docker:
+    #     dockerfile: Dockerfile
 
     - image: souravdeveloper/ecom-notification
       context: notification
@@ -44,6 +51,17 @@ build:
       docker:
         dockerfile: Dockerfile
 
+    # - image: souravdeveloper/ecom-review
+    #   context: review
+    #   sync:
+    #     manual:
+    #       - src: main.go
+    #         dest: .
+    #       - src: src/**/*.go
+    #         dest: .
+    #   docker:
+    #     dockerfile: Dockerfile
+
     - image: souravdeveloper/ecom-product
       context: product
       sync:
@@ -53,15 +71,22 @@ build:
       docker:
         dockerfile: Dockerfile
 
-    - image: souravdeveloper/ecom-order
-      context: order
-      sync:
-        manual:
-          - src: src/**/*.go
-            dest: .
-          - src: main.go
-            dest: .
-      docker:
-        dockerfile: Dockerfile
+    # - image: souravdeveloper/ecom-cart
+    #   context: cart
+    #   sync:
+    #     manual:
+    #       - src: src/**/*.ts
+    #         dest: .
+    #   docker:
+    #     dockerfile: Dockerfile
+
+    # - image: souravdeveloper/ecom-order
+    #   context: order
+    #   sync:
+    #     manual:
+    #       - src: src/**/*.ts
+    #         dest: .
+    #   docker:
+    #     dockerfile: Dockerfile
   local:
     push: false

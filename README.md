@@ -34,15 +34,63 @@ E-com is a commerce project where the main goal is to build a distributed and sc
 - Cancels order
 - Seller dashboard
 
+## Services list & feature details:
+
+## Auth Service 🔑
+
+**API Endpoints**
+
+- `/auth/signup`
+- `/auth/login`
+- `/auth/forgotPassword`
+- `/auth/resetPassword`
+- `/auth/updatePassword`
+- `/auth/showAllUser`
+- `/auth/signout`
+
+**Tech Stack using**
+
+<div style={{display:'flex', gap:'30px'}}>
+<img src="https://github.com/get-icon/geticon/raw/master/icons/nodejs-icon.svg" alt="Node.js" width="35px" height="35px">
+<img src="https://adware-technologies.s3.amazonaws.com/uploads/technology/thumbnail/20/express-js.png" alt="Express.js" width="35px" height="35px">
+<img src="https://github.com/get-icon/geticon/raw/master/icons/postgresql.svg" alt="PostgreSQL" width="35px" height="35px">
+<img src="https://github.com/get-icon/geticon/raw/master/icons/typescript-icon.svg" alt="Typescript" width="35px" height="35px">
+<img src="https://github.com/get-icon/geticon/raw/master/icons/jest.svg" alt="Jest" width="35px" height="35px">
+<img src="https://github.com/get-icon/geticon/raw/master/icons/elasticsearch.svg" alt="Elasticsearch" width="35px" height="35px">
+</div>
+
+## Product Service 🔑
+
+**API Endpoints**
+
+- `GET /product`
+- `GET /product/<ID>`
+- `PATCH /product/<ID>`
+- `PATCH /product/update-seller-id/<ID>`
+- `DELETE /product/<ID>`
+
+**Tech Stack using**
+
+<div style={{display:'flex', gap:'30px'}}>
+<img src="https://github.com/get-icon/geticon/raw/master/icons/nodejs-icon.svg" alt="Node.js" width="35px" height="35px">
+<img src="https://adware-technologies.s3.amazonaws.com/uploads/technology/thumbnail/20/express-js.png" alt="Express.js" width="35px" height="35px">
+<img src="https://github.com/get-icon/geticon/raw/master/icons/mongodb-icon.svg" alt="MongoDB" width="35px" height="35px">
+<img src="https://cdn4.iconfinder.com/data/icons/redis-2/1451/Untitled-2-512.png" alt="Redis" width="35px" height="35px">
+<img src="https://github.com/get-icon/geticon/raw/master/icons/elasticsearch.svg" alt="Elasticsearch" width="35px" height="35px">
+<img src="https://github.com/get-icon/geticon/raw/master/icons/typescript-icon.svg" alt="Typescript" width="35px" height="35px">
+<img src="https://github.com/get-icon/geticon/raw/master/icons/jest.svg" alt="Jest" width="35px" height="35px">
+</div>
+
 ### Built With
 
 For this project, I have carefully chosen my tech stack:
+
 <div style={{display:'flex', gap:'30px'}}>
 <img src="https://github.com/get-icon/geticon/raw/master/icons/react.svg" alt="React" width="35px" height="35px">
 <img src="https://github.com/get-icon/geticon/raw/master/icons/nextjs-icon.svg" alt="Next.js" width="35px" height="35px">
 <img src="https://github.com/get-icon/geticon/raw/master/icons/redux.svg" alt="Redux" width="35px" height="35px">
 <img src="https://github.com/get-icon/geticon/raw/master/icons/nodejs-icon.svg" alt="Node.js" width="35px" height="35px">
-<img src="https://github.com/get-icon/geticon/blob/master/icons/go.svg" alt="Golang" width="35px" height="35px">
+<img src="https://adware-technologies.s3.amazonaws.com/uploads/technology/thumbnail/20/express-js.png" alt="Express.js" width="35px" height="35px">
 <img src="https://github.com/get-icon/geticon/raw/master/icons/mongodb-icon.svg" alt="MongoDB" width="35px" height="35px">
 <img src="https://github.com/get-icon/geticon/raw/master/icons/postgresql.svg" alt="PostgreSQL" width="35px" height="35px">
 <img src="https://github.com/get-icon/geticon/raw/master/icons/jest.svg" alt="Jest" width="35px" height="35px">
@@ -54,10 +102,12 @@ For this project, I have carefully chosen my tech stack:
 <img src="https://github.com/get-icon/geticon/blob/master/icons/rabbitmq.svg" alt="RabbitMQ" width="35px" height="35px">
 <img src="https://testing-library.com/img/octopus-64x64.png" alt="react-testing-library" width="35px" height="35px">
 <img src="https://github.com/get-icon/geticon/raw/master/icons/npm.svg" alt="NPM" width="40px" height="40px">
+<img src="https://cdn4.iconfinder.com/data/icons/redis-2/1451/Untitled-2-512.png" alt="Redis" width="35px" height="35px">
 <img src="https://github.com/get-icon/geticon/raw/master/icons/elasticsearch.svg" alt="Elasticsearch" width="35px" height="35px">
 </div>
 
 ## Contact
+
 souravmajumdar.dev@gamil.com
 
 Project Link: [https://github.com/souravdev-eng/cloud-native-ecom-micro-service](https://github.com/souravdev-eng/cloud-native-ecom-micro-service)
