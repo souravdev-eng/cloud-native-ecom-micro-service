@@ -19,6 +19,9 @@ export abstract class MQConsumer<T extends Event> {
 
   async consume() {
     this.channel.assertExchange(this.exchangeName, 'direct');
+    // `assertQueue` will check if there is a queue exist or not to listen the messages
+    // if present then it will not create again
+    // if not then it will create a queue with provided name
     const ecomQueue = await this.channel.assertQueue(this.queueName, {
       durable: true,
       autoDelete: false,
@@ -29,12 +32,9 @@ export abstract class MQConsumer<T extends Event> {
       console.log(`Message received: ${this.exchangeName} / ${this.queueName}`);
 
       if (msg) {
-        const parsedData = this.parseMessage(msg);
+        const parsedData = JSON.parse(msg!.content.toString());
         this.onMessage(parsedData, msg);
       }
     });
-  }
-  parseMessage(msg: ConsumeMessage) {
-    return JSON.parse(msg!.content.toString());
   }
 }

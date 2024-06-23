@@ -18,3 +18,5 @@ export * from './queues/connection';
 
 // Logger
 export * from './logger/logger';
+
+export * from './types/index';
