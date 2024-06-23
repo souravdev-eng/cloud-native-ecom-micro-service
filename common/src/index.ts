@@ -23,7 +23,6 @@ export * from './logger/logger';
 
 // Interface
 export * from './types/product.types';
-export * from './types/product.types';
 export * from './types/routingKey.types';
 export * from './types/exchange.types';
 export * from './types/subjects';

@@ -3,13 +3,13 @@ import { ExchangeTypes } from '../types/exchange.types';
 import { RoutingKeyTypes } from '../types/routingKey.types';
 
 interface Event {
-  exchange: ExchangeTypes;
+  exchangeName: ExchangeTypes;
   data: any;
 }
 
 export abstract class BaseListener<T extends Event> {
   protected channel: Channel;
-  abstract exchangeName: T['exchange'];
+  abstract exchangeName: T['exchangeName'];
   abstract routingKey: RoutingKeyTypes;
   abstract onMessage(data: T['data'], msg: ConsumeMessage): void;
 
