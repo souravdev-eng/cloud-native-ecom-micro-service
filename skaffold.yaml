@@ -9,7 +9,8 @@ manifests:
     - ./k8s/notification-depl.yml
     - ./k8s/product-depl.yml
     - ./k8s/product-redis-depl.yml
-    - ./k8s/review-depl.yml
+    # - ./k8s/review-depl.yml
+    # - ./k8s/review-postgres-depl.yml
     - ./k8s/rabbitmq-depl.yml
     - ./k8s/ingress-depl.yml
 deploy:
@@ -71,14 +72,14 @@ build:
       docker:
         dockerfile: Dockerfile
 
-    # - image: souravdeveloper/ecom-cart
-    #   context: cart
-    #   sync:
-    #     manual:
-    #       - src: src/**/*.ts
-    #         dest: .
-    #   docker:
-    #     dockerfile: Dockerfile
+    - image: souravdeveloper/ecom-cart
+      context: cart
+      sync:
+        manual:
+          - src: src/**/*.ts
+            dest: .
+      docker:
+        dockerfile: Dockerfile
 
     # - image: souravdeveloper/ecom-order
     #   context: order
