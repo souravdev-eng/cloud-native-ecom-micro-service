@@ -81,6 +81,26 @@ E-com is a commerce project where the main goal is to build a distributed and sc
 <img src="https://github.com/get-icon/geticon/raw/master/icons/jest.svg" alt="Jest" width="35px" height="35px">
 </div>
 
+## Cart Service 🔑
+
+**API Endpoints**
+
+- `GET /cart`
+- `PATCH /cart/<ID>`
+- `DELETE /cart/<ID>`
+
+**Tech Stack using**
+
+<div style={{display:'flex', gap:'30px'}}>
+<img src="https://github.com/get-icon/geticon/raw/master/icons/nodejs-icon.svg" alt="Node.js" width="35px" height="35px">
+<img src="https://adware-technologies.s3.amazonaws.com/uploads/technology/thumbnail/20/express-js.png" alt="Express.js" width="35px" height="35px">
+<img src="https://github.com/get-icon/geticon/raw/master/icons/postgresql.svg" alt="PostgreSQL" width="35px" height="35px">
+<img src="https://cdn4.iconfinder.com/data/icons/redis-2/1451/Untitled-2-512.png" alt="Redis" width="35px" height="35px">
+<img src="https://github.com/get-icon/geticon/raw/master/icons/elasticsearch.svg" alt="Elasticsearch" width="35px" height="35px">
+<img src="https://github.com/get-icon/geticon/raw/master/icons/typescript-icon.svg" alt="Typescript" width="35px" height="35px">
+<img src="https://github.com/get-icon/geticon/raw/master/icons/jest.svg" alt="Jest" width="35px" height="35px">
+</div>
+
 ### Built With
 
 For this project, I have carefully chosen my tech stack:
