@@ -18,8 +18,13 @@ export abstract class BaseListener<T extends Event> {
   }
 
   async listen() {
-    await this.channel.assertExchange(this.exchangeName, 'direct');
-    const consumeQueue = await this.channel.assertQueue(this.routingKey);
+    await this.channel.assertExchange(this.exchangeName, 'direct', {
+      durable: true,
+    });
+
+    const consumeQueue = await this.channel.assertQueue(this.routingKey, {
+      durable: true,
+    });
     await this.channel.bindQueue(consumeQueue.queue, this.exchangeName, this.routingKey);
 
     this.channel.consume(consumeQueue.queue, async (msg: ConsumeMessage | null) => {
