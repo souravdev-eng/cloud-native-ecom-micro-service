@@ -8,6 +8,7 @@ export interface ProductCreatedMessage {
         title: string;
         quantity: number;
         price: number;
+        image: string;
         sellerId: string;
     };
 }
@@ -19,6 +20,7 @@ export interface ProductUpdatedMessage {
         title: string;
         quantity: number;
         price: number;
+        image: string;
         sellerId: string;
     };
 }
