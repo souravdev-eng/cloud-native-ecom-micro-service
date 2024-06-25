@@ -15,7 +15,6 @@ import { updatePasswordRoute } from './controllers/updatePassword';
 
 const app = express();
 
-
 // middleware
 app.set('trust proxy', 1); //? because we transfer our request via ingress proxy
 app.use(express.json());
@@ -37,9 +36,9 @@ app.use(loginUser);
 app.use(signOutRoute);
 app.use(currentUserRoute);
 app.use(showAllUserRoute);
-app.use(forgotPasswordRoute)
-app.use(resetPasswordRoute)
-app.use(updatePasswordRoute)
+app.use(forgotPasswordRoute);
+app.use(resetPasswordRoute);
+app.use(updatePasswordRoute);
 
 app.use('*', (req: Request, res: Response, next: NextFunction) => {
   return next(new NotFoundError(`${req.originalUrl} is not find to this server!`));

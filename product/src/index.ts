@@ -36,6 +36,7 @@ const start = async () => {
   }
 
   try {
+    mongoose.set('strictQuery', false);
     mongoose
       .connect(process.env.DB_URL!, {
         user: process.env.MONGO_USER,

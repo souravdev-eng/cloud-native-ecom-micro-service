@@ -15,16 +15,9 @@ spec:
       containers:
         - name: cart
           image: souravdeveloper/ecom-cart
-          env:
-            - name: NATS_CLIENT_ID
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.name
-            - name: NATS_CLUSTER_ID
-              value: ecom
           envFrom:
             - configMapRef:
-                name: auth-config
+                name: ecom-global-config
             - secretRef:
                 name: secret-credential
 ---

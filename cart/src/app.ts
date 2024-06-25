@@ -24,8 +24,8 @@ app.use(currentUser);
 // routes
 app.use(newCartRoute);
 
-app.get('/api/cart/all', async (req, res) => {
-  const product = await Product.find();
+app.get('/api/cart/product', async (req, res) => {
+  const product = await Product.find({});
   res.send(product);
 });
 

@@ -16,4 +16,7 @@ export class Product extends BaseEntity {
 
   @Column()
   sellerId: string;
+
+  @Column()
+  quantity: number;
 }

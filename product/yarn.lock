@@ -1069,10 +1069,10 @@
     enabled "2.0.x"
     kuler "^2.0.0"
 
-"@ecom-micro/common@^2.0.38":
-  version "2.0.38"
-  resolved "https://registry.npmjs.org/@ecom-micro/common/-/common-2.0.38.tgz"
-  integrity sha512-BthdpQml4sy52YEDbazTQTyusQ0WXUd365vQb6dXfbL0Bj0KX5TBRowsok8F53VI591B7zAnPdgK+e+XYHhNog==
+"@ecom-micro/common@^2.0.39":
+  version "2.0.39"
+  resolved "https://registry.npmjs.org/@ecom-micro/common/-/common-2.0.39.tgz"
+  integrity sha512-IwPhs4G20Tdurb3fV1RtOfeaHYMdoCBNwcoYqGD+bTdD4HFpQNwTeShgN1R4VxG84RGDdYinAEUkXC6IX+scog==
   dependencies:
     "@types/amqplib" "^0.10.0"
     "@types/cookie-session" "^2.0.44"

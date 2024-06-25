@@ -23,7 +23,7 @@ class BaseListener {
                 console.log(`Message received: ${this.exchangeName} / ${this.routingKey}`);
                 if (msg) {
                     const parsedData = JSON.parse(msg.content.toString());
-                    this.onMessage(parsedData, msg);
+                    this.onMessage(parsedData, this.channel, msg);
                 }
             }));
         });

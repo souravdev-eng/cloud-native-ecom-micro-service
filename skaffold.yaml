@@ -4,8 +4,10 @@ manifests:
   rawYaml:
     - ./k8s/secret/*
     - ./k8s/config/*
-    - ./k8s/volumes/*
+    - ./k8s/volumes/redis-pv.yml
+    - ./k8s/volumes/redis-pvc.yml
     - ./k8s/auth-depl.yml
+    - ./k8s/cart-depl.yml
     - ./k8s/notification-depl.yml
     - ./k8s/product-depl.yml
     - ./k8s/product-redis-depl.yml

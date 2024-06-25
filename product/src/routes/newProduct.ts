@@ -1,5 +1,5 @@
 import { Router, Response, Request, NextFunction } from 'express';
-import { requireAuth, restrictTo, requestValidation } from '@ecom-micro/common';
+import { requireAuth, restrictTo, requestValidation, NotAuthorizedError } from '@ecom-micro/common';
 import { productValidation } from '../validation/productValidation';
 import { Product } from '../models/productModel';
 import { rabbitMQWrapper } from '../rabbitMQWrapper';
@@ -14,13 +14,20 @@ router.post(
   productValidation,
   requestValidation,
   async (req: Request, res: Response, next: NextFunction) => {
+    const sellerId = req?.user?.id;
+
+    if (!sellerId) {
+      throw new NotAuthorizedError();
+    }
+
     const product = Product.build({
       title: req.body.title,
       category: req.body.category,
       description: req.body.description,
       image: req.body.image,
-      sellerId: req.user.id,
+      sellerId: sellerId,
       price: req.body.price,
+      quantity: req.body.quantity,
       tags: req.body.tags,
     });
 
@@ -31,7 +38,8 @@ router.post(
       title: product.title,
       price: product.price,
       sellerId: product.sellerId,
-      quantity: 10,
+      image: product.image,
+      quantity: product.quantity!,
     });
 
     res.status(201).send(product);

@@ -13,6 +13,7 @@ interface ProductAttars {
   image: string;
   sellerId: string;
   description: string;
+  quantity?: number;
   category: Category;
   tags?: string[];
 }
@@ -23,6 +24,7 @@ interface ProductDoc extends mongoose.Document {
   image: string;
   sellerId: string;
   description: string;
+  quantity?: number;
   category: Category;
   tags?: string[];
 }
@@ -58,6 +60,10 @@ const productSchema = new mongoose.Schema(
     rating: {
       type: Number,
       default: 4.5,
+    },
+    quantity: {
+      type: Number,
+      default: 5,
     },
     sellerId: {
       type: String,
