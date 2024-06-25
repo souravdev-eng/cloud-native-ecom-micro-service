@@ -328,10 +328,10 @@
     enabled "2.0.x"
     kuler "^2.0.0"
 
-"@ecom-micro/common@^2.0.40":
-  version "2.0.40"
-  resolved "https://registry.npmjs.org/@ecom-micro/common/-/common-2.0.40.tgz"
-  integrity sha512-WrWwN3GNi0w5Hw7v7O/HpKG5w6f3KnYf1zqZJuhAulAb/p928avLXSxBp6HxJulNS4HXzcz1G9fKQFQFxw9pwQ==
+"@ecom-micro/common@^2.0.41":
+  version "2.0.41"
+  resolved "https://registry.npmjs.org/@ecom-micro/common/-/common-2.0.41.tgz"
+  integrity sha512-ZlLFPAsgjGyOOIQU81fBYRLX1Zr9FQoBXXkA9B//rVRWex3yXr8nGnd6Ybxxz64iAGM02u4aDE3c1L5ckzFpsg==
   dependencies:
     "@types/amqplib" "^0.10.0"
     "@types/cookie-session" "^2.0.44"
@@ -766,10 +766,10 @@
   resolved "https://registry.npmjs.org/@tsconfig/node16/-/node16-1.0.3.tgz"
   integrity sha512-yOlFc+7UtL/89t2ZhjPvvB/DeAr3r+Dq58IgzsFkOAvVC6NMJXmCGjbptdXdR9qsX7pKcTL+s87FtYREi2dEEQ==
 
-"@types/amqplib@^0.10.0":
-  version "0.10.1"
-  resolved "https://registry.npmjs.org/@types/amqplib/-/amqplib-0.10.1.tgz"
-  integrity sha512-j6ANKT79ncUDnAs/+9r9eDujxbeJoTjoVu33gHHcaPfmLQaMhvfbH2GqSe8KUM444epAp1Vl3peVOQfZk3UIqA==
+"@types/amqplib@^0.10.0", "@types/amqplib@^0.10.5":
+  version "0.10.5"
+  resolved "https://registry.npmjs.org/@types/amqplib/-/amqplib-0.10.5.tgz"
+  integrity sha512-/cSykxROY7BWwDoi4Y4/jLAuZTshZxd8Ey1QYa/VaXriMotBDoou7V/twJiOSHzU6t1Kp1AHAUXGCgqq+6DNeg==
   dependencies:
     "@types/node" "*"
 

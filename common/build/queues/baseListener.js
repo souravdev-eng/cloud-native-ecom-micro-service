@@ -16,8 +16,12 @@ class BaseListener {
     }
     listen() {
         return __awaiter(this, void 0, void 0, function* () {
-            yield this.channel.assertExchange(this.exchangeName, 'direct');
-            const consumeQueue = yield this.channel.assertQueue(this.routingKey);
+            yield this.channel.assertExchange(this.exchangeName, 'direct', {
+                durable: true,
+            });
+            const consumeQueue = yield this.channel.assertQueue(this.routingKey, {
+                durable: true,
+            });
             yield this.channel.bindQueue(consumeQueue.queue, this.exchangeName, this.routingKey);
             this.channel.consume(consumeQueue.queue, (msg) => __awaiter(this, void 0, void 0, function* () {
                 console.log(`Message received: ${this.exchangeName} / ${this.routingKey}`);

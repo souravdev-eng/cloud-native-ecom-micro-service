@@ -1,6 +1,6 @@
 import { Column, BaseEntity, Entity, PrimaryColumn } from 'typeorm';
 
-@Entity()
+@Entity('product')
 export class Product extends BaseEntity {
   @PrimaryColumn()
   id: string;

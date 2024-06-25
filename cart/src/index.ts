@@ -4,6 +4,7 @@ import { Cart } from './entity/Cart';
 import { Product } from './entity/Product';
 import { rabbitMQWrapper } from './rabbitMQWrapper';
 import { ProductCreatedListener } from './queues/listener/productCreatedListener';
+import { ProductUpdatedListener } from './queues/listener/productUpdatedListener';
 
 const start = async () => {
   if (!process.env.CART_DB_URL) {
@@ -33,7 +34,8 @@ const start = async () => {
       });
 
     await rabbitMQWrapper.connect(process.env.RABBITMQ_ENDPOINT!);
-    new ProductCreatedListener(rabbitMQWrapper.channel).listen();
+    await new ProductCreatedListener(rabbitMQWrapper.channel).listen();
+    await new ProductUpdatedListener(rabbitMQWrapper.channel).listen();
   } catch (error: any) {
     console.log('CART DB ERROR', error.message);
   }

@@ -8,7 +8,8 @@ import {
 import { Router, Response, Request, NextFunction } from 'express';
 
 import { Product } from '../models/productModel';
-import { productUpdateValidation } from '../validation/productValidation';
+import { ProductUpdatePub } from '../queues/publisher/productUpdatePub';
+import { rabbitMQWrapper } from '../rabbitMQWrapper';
 
 const router = Router();
 
@@ -16,7 +17,6 @@ router.patch(
   '/api/product/:id',
   requireAuth,
   restrictTo('seller', 'admin'),
-  // productUpdateValidation,
   requestValidation,
   async (req: Request, res: Response, next: NextFunction) => {
     const category = ['phone', 'book', 'Fashions', 'other'];
@@ -37,9 +37,19 @@ router.patch(
       description: req.body.description ? req.body.description : product.description,
       image: req.body.image ? req.body.image : product.image,
       price: req.body.price ? req.body.price : product.price,
+      quantity: req.body.quantity ? req.body.quantity : product.quantity,
     });
 
     await product.save();
+
+    new ProductUpdatePub(rabbitMQWrapper.channel).publish({
+      id: product.id,
+      title: product.title,
+      image: product.image,
+      price: product.price,
+      quantity: product.quantity!,
+      sellerId: product.sellerId,
+    });
 
     res.status(200).send(product);
   }

@@ -16,7 +16,8 @@ class RabbitMQWrapper {
       console.log('MQ Server connected...');
     } catch (error) {
       console.log(error);
-      throw new Error('Not able to connect MQ server!');
+      // throw new Error('Not able to connect MQ server!');
+      process.exit(1);
     }
   }
 }

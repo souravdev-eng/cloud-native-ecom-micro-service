@@ -18,8 +18,8 @@
     ]
   },
   "dependencies": {
+    "@ecom-micro/common": "^2.0.41",
     "@types/amqplib": "^0.10.5",
-    "@ecom-micro/common": "^2.0.40",
     "@types/cookie-session": "^2.0.44",
     "@types/cors": "^2.8.12",
     "@types/express": "^4.17.14",
