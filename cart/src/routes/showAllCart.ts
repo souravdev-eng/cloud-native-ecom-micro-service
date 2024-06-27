@@ -1,6 +1,5 @@
 import { Request, Response, NextFunction, Router } from 'express';
-import { NotFoundError, requestValidation, requireAuth, BadRequestError } from '@ecom-micro/common';
-import { Product } from '../entity/Product';
+import { requestValidation, requireAuth } from '@ecom-micro/common';
 import { Cart } from '../entity/Cart';
 
 const router = Router();

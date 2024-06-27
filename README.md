@@ -81,12 +81,12 @@ E-com is a commerce project where the main goal is to build a distributed and sc
 <img src="https://github.com/get-icon/geticon/raw/master/icons/jest.svg" alt="Jest" width="35px" height="35px">
 </div>
 
-## Cart Service 🔑
+## Cart Service 🛒
 
 **API Endpoints**
 
 - `GET /cart`
-- `PATCH /cart/<ID>`
+- `POST/PATCH /cart`
 - `DELETE /cart/<ID>`
 
 **Tech Stack using**
