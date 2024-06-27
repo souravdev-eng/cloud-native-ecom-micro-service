@@ -1,25 +1,20 @@
-import { Column, Entity, PrimaryGeneratedColumn, BaseEntity } from 'typeorm';
+import { Column, Entity, PrimaryGeneratedColumn, BaseEntity, ManyToOne } from 'typeorm';
+import { Product } from './Product';
 
 @Entity()
 export class Cart extends BaseEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column()
-  title: string;
-
-  @Column()
-  productId: string;
-
-  @Column()
-  image: string;
-
-  @Column()
-  price: number;
-
   @Column({ default: 1 })
   quantity: number;
 
   @Column()
   userId: string;
+
+  @Column({ default: 0 })
+  total: number;
+
+  @ManyToOne(() => Product, (product) => product.carts)
+  product: Product;
 }

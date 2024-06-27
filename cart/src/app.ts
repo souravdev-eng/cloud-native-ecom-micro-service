@@ -5,6 +5,8 @@ import { NotFoundError, errorHandler, currentUser } from '@ecom-micro/common';
 import express, { NextFunction, Request, Response } from 'express';
 import cookieSession from 'cookie-session';
 import { newCartRoute } from './routes/newCart';
+import { deleteCartRoute } from './routes/deleteCart';
+import { showAllCartRoute } from './routes/showAllCart';
 
 const app = express();
 
@@ -23,6 +25,8 @@ app.use(currentUser);
 
 // routes
 app.use(newCartRoute);
+app.use(showAllCartRoute);
+app.use(deleteCartRoute);
 
 app.get('/api/cart/product', async (req, res) => {
   const product = await Product.find({});

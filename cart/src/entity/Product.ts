@@ -1,4 +1,5 @@
-import { Column, BaseEntity, Entity, PrimaryColumn } from 'typeorm';
+import { Column, BaseEntity, Entity, PrimaryColumn, OneToMany } from 'typeorm';
+import { Cart } from './Cart';
 
 @Entity('product')
 export class Product extends BaseEntity {
@@ -19,4 +20,7 @@ export class Product extends BaseEntity {
 
   @Column()
   quantity: number;
+
+  @OneToMany(() => Cart, (cart) => cart.product)
+  carts: Cart[];
 }

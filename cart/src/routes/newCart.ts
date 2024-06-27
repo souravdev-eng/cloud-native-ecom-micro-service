@@ -1,38 +1,49 @@
 import { Request, Response, NextFunction, Router } from 'express';
-import { NotFoundError, requestValidation, requireAuth } from '@ecom-micro/common';
-import { cartValidation } from '../validation/cartValidationSchema';
+import { NotFoundError, requestValidation, requireAuth, BadRequestError } from '@ecom-micro/common';
 import { Product } from '../entity/Product';
 import { Cart } from '../entity/Cart';
 
 const router = Router();
 
 router.post(
-  '/api/cart/new',
+  '/api/cart',
   requireAuth,
-  cartValidation,
   requestValidation,
   async (req: Request, res: Response, next: NextFunction) => {
-    const product = await Product.findOneBy({ id: req.body.productId });
-    const existingCart = await Cart.findOneBy({ productId: req.body.productId });
+    const { productId, quantity } = req.body;
+    const userId = req?.user?.id;
 
-    if (product && !existingCart) {
+    const product = await Product.findOneBy({ id: productId });
+    if (!product) {
+      return next(new NotFoundError('Oops! Product not found'));
+    }
+
+    if (quantity > product.quantity) {
+      return next(new BadRequestError('Oops! Cart quantity is greater than product stock'));
+    }
+
+    const existingCart = await Cart.findOne({
+      where: {
+        product: { id: productId },
+        userId: userId,
+      },
+      relations: ['product'],
+    });
+
+    if (!existingCart) {
+      const total = product.price * quantity;
       const cart = Cart.create({
-        title: product?.title,
-        image: product?.image,
-        price: product?.price,
         userId: req?.user?.id,
-        productId: product?.id,
+        product: product,
+        total: total,
       });
-
       await cart.save();
       res.status(201).send(cart);
-    }
-    if (product && existingCart) {
-      const existCart = Cart.merge(existingCart, { quantity: req.body.quantity });
-      await existCart.save();
-      res.status(200).send(existCart);
     } else {
-      return next(new NotFoundError('Oops! Product not found'));
+      existingCart.quantity = quantity;
+      existingCart.total = product.price * quantity;
+      await existingCart.save();
+      res.status(200).send(existingCart);
     }
   }
 );
