@@ -1,0 +1,48 @@
+.container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 60px;
+  height: 100vh;
+}
+
+.formContainer {
+  display: flex;
+  flex-direction: column;
+}
+.inputGroup {
+  display: flex;
+  flex-direction: column;
+}
+.inputGroup input {
+  width: 360px;
+  height: 45px;
+  border-radius: 12px;
+  margin: 12px 0px;
+  padding: 10px;
+  border: 1px solid #dee2e6;
+  font-size: 16px;
+}
+.inputGroup input:focus {
+  border-color: #007bff;
+  background-color: #f0f8ff;
+  outline: none;
+}
+
+.inputGroup button {
+  background-color: #6741d9;
+  color: #fff;
+  height: 45px;
+  border-radius: 12px;
+  margin-top: 20px;
+  font-size: 18px;
+  cursor: pointer;
+  outline: none;
+  border: none;
+}
+
+.title {
+  font-size: 36px;
+  margin: 6px 0px;
+  font-weight: 400;
+}

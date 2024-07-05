@@ -52,3 +52,13 @@ spec:
                 name: user-client-srv
                 port:
                   number: 3000
+    - host: admin.ecom.dev
+      http:
+        paths:
+          - path: /?(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: admin-client-srv
+                port:
+                  number: 3000
