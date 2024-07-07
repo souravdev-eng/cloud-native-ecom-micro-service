@@ -16,6 +16,7 @@ router.get(
       relations: ['product'],
     });
     const cartList = carts.map((cart) => ({
+      product_id: cart.product.id,
       cart_id: cart.id,
       title: cart.product.title,
       image: cart.product.image,
