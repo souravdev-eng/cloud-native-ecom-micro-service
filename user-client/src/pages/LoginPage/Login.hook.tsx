@@ -12,7 +12,7 @@ interface ResponseError {
 export const useLogin = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
-  const { user } = useAppSelector((state) => state.users);
+  const { user, loading } = useAppSelector((state) => state.users);
   const [userFormData, setUserFormData] = useState({
     email: '',
     password: '',
@@ -47,5 +47,5 @@ export const useLogin = () => {
     }
   }, [user?.email]);
 
-  return { handleLogin, handleInputChange, userFormData };
+  return { handleLogin, handleInputChange, userFormData, loading };
 };

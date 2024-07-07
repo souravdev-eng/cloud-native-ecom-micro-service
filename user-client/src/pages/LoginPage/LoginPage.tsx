@@ -2,9 +2,10 @@ import { Link } from 'react-router-dom';
 
 import { useLogin } from './Login.hook';
 import styles from './Login.module.css';
+import Button from '../../atoms/Button/Button';
 
 const LoginPage = () => {
-  const { handleLogin, userFormData, handleInputChange } = useLogin();
+  const { handleLogin, userFormData, handleInputChange, loading } = useLogin();
 
   return (
     <div className={styles.container}>
@@ -26,13 +27,14 @@ const LoginPage = () => {
           onChange={handleInputChange}
           className={styles.input}
         />
-        <button type='submit' className={styles.button} onClick={handleLogin}>
-          Login
-        </button>
+        <Button title='Login' onClick={handleLogin} loading={loading} />
       </form>
       <div className={styles.signupLink}>
         <p>
           Don't have an account? <Link to='/auth/signup'>Sign up</Link>
+        </p>
+        <p style={{ marginTop: 4, textAlign: 'center' }}>
+          <Link to='/auth/forgotpassword'>Forgot password?</Link>
         </p>
       </div>
     </div>

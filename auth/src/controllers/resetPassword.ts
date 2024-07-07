@@ -8,8 +8,7 @@ import { User } from '../entity/User';
 const router = Router();
 
 router.put('/api/users/reset-password', async (req: Request, res: Response, next: NextFunction) => {
-  const { newPassword } = req.body;
-  const { email, token } = req.query as { email: string; token: string };
+  const { email, token, newPassword } = req.body;
 
   const user = await User.findOneBy({ email, resetToken: token });
 

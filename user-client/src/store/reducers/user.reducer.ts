@@ -1,5 +1,6 @@
 import { createSlice } from '@reduxjs/toolkit';
 import { currentUser, loggedOut, userLogin, userSignUp } from '../actions/user/auth.action';
+import { userForgotPassword, userRestPassword } from '../actions/user/forgotPassword.action';
 
 type User = {
   id?: string;
@@ -24,6 +25,14 @@ const initialState = {
   error: null,
 } as InitialStateProps;
 
+const handleErrorResponse = (payload: any) => {
+  if (payload) {
+    return Array.isArray(payload) ? payload : [payload];
+  } else {
+    return null;
+  }
+};
+
 const userSlice = createSlice({
   name: 'userSlice',
   initialState,
@@ -42,11 +51,7 @@ const userSlice = createSlice({
     builder.addCase(userSignUp.rejected, (state, { payload }) => {
       state.loading = false;
       state.user = null;
-      if (payload) {
-        state.error = Array.isArray(payload) ? payload : [payload];
-      } else {
-        state.error = null;
-      }
+      state.error = handleErrorResponse(payload);
     }),
       // ======================= LOGIN =======================
       builder.addCase(userLogin.pending, (state) => {
@@ -61,11 +66,7 @@ const userSlice = createSlice({
     builder.addCase(userLogin.rejected, (state, { payload }) => {
       state.loading = false;
       state.user = null;
-      if (payload) {
-        state.error = Array.isArray(payload) ? payload : [payload];
-      } else {
-        state.error = null;
-      }
+      state.error = handleErrorResponse(payload);
     }),
       // ======================= CURRENT USER =======================
       builder.addCase(currentUser.pending, (state) => {
@@ -80,11 +81,7 @@ const userSlice = createSlice({
     builder.addCase(currentUser.rejected, (state, { payload }) => {
       state.loading = false;
       state.user = null;
-      if (payload) {
-        state.error = Array.isArray(payload) ? payload : [payload];
-      } else {
-        state.error = null;
-      }
+      state.error = handleErrorResponse(payload);
     });
     // ======================= LOGGED OUT USER =======================
     builder.addCase(loggedOut.pending, (state) => {
@@ -99,11 +96,34 @@ const userSlice = createSlice({
     builder.addCase(loggedOut.rejected, (state, { payload }) => {
       state.loading = false;
       state.user = null;
-      if (payload) {
-        state.error = Array.isArray(payload) ? payload : [payload];
-      } else {
-        state.error = null;
-      }
+      state.error = handleErrorResponse(payload);
+    });
+    // ======================= FORGOT PASSWORD USER =======================
+    builder.addCase(userForgotPassword.pending, (state) => {
+      state.loading = true;
+    });
+
+    builder.addCase(userForgotPassword.fulfilled, (state) => {
+      state.loading = false;
+    });
+
+    builder.addCase(userForgotPassword.rejected, (state, { payload }) => {
+      state.loading = false;
+      state.error = handleErrorResponse(payload);
+    });
+
+    // ======================= RESET PASSWORD USER =======================
+    builder.addCase(userRestPassword.pending, (state) => {
+      state.loading = true;
+    });
+
+    builder.addCase(userRestPassword.fulfilled, (state) => {
+      state.loading = false;
+    });
+
+    builder.addCase(userRestPassword.rejected, (state, { payload }) => {
+      state.loading = false;
+      state.error = handleErrorResponse(payload);
     });
   },
 });

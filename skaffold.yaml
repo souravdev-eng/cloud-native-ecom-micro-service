@@ -24,9 +24,9 @@ build:
       context: user-client
       sync:
         manual:
-          - src: src/**/*.js
+          - src: src/**/*.ts
             dest: .
-          - src: src/**/*.jsx
+          - src: src/**/*.tsx
             dest: .
           - src: src/**/*.css
             dest: .
