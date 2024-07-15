@@ -37,6 +37,25 @@ build:
       docker:
         dockerfile: Dockerfile
 
+    - image: souravdeveloper/ecom-admin-client
+      context: admin-client
+      sync:
+        manual:
+          - src: app/**/*.tsx
+            dest: .
+          - src: app/**/*.css
+            dest: .
+          - src: component/**/*.tsx
+            dest: .
+          - src: hooks/**/*.ts
+            dest: .
+          - src: utils/**/*.ts
+            dest: .
+          - src: api/**/*.ts
+            dest: .
+      docker:
+        dockerfile: Dockerfile
+
     - image: souravdeveloper/ecom-notification
       context: notification
       sync:

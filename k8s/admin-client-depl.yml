@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: admin-client-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: admin-client
+  template:
+    metadata:
+      labels:
+        app: admin-client
+    spec:
+      containers:
+        - name: admin-client
+          image: souravdeveloper/ecom-admin-client
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: admin-client-srv
+spec:
+  selector:
+    app: admin-client
+  type: ClusterIP
+  ports:
+    - name: admin-client
+      protocol: TCP
+      port: 3000
+      targetPort: 3000
