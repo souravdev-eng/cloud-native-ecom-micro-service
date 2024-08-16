@@ -6,7 +6,7 @@
 <br />
 <div align="center">
   <a href="https://github.com/souravdev-eng/E-com-micro-service">
-    <img src="./user-client/src/assets/logo.png" alt="Logo" width="120" height="40">
+    <img src="./user-client/src/assets/logo.png" alt="Logo" width="60" height="60">
   </a>
   <h2 align="center">Cloud Native E-com Micro Service Project</h2>
   <p align="center">
