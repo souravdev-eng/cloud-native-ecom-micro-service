@@ -1,7 +1,7 @@
 export default function HomePage() {
-  return (
-    <div>
-      <h2>Home Page</h2>
-    </div>
-  );
+    return (
+        <div>
+            <h2>Content</h2>
+        </div>
+    );
 }

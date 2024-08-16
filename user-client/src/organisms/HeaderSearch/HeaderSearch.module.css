@@ -1,52 +1,52 @@
 .container {
-  width: 100%;
-  display: flex;
-  padding-top: 10px;
-  align-items: center;
-  justify-content: center;
-  gap: 90px;
+    width: 100%;
+    display: flex;
+    padding-top: 10px;
+    align-items: center;
+    justify-content: center;
+    gap: 90px;
 }
 .logo {
-  font-size: 28px;
-  color: #15aabf;
-  font-weight: 600;
+    font-size: 22px;
+    color: #64b5f6;
+    font-weight: 600;
 }
 .searchBar {
-  gap: 4px;
-  display: flex;
-  height: 40px;
-  min-width: 600px;
-  padding: 12px 4px 12px 30px;
-  align-items: center;
-  border-radius: 30px;
-  background-color: #f4f4f4;
+    gap: 4px;
+    display: flex;
+    height: 40px;
+    min-width: 600px;
+    padding: 12px 4px 12px 30px;
+    align-items: center;
+    border-radius: 30px;
+    background-color: #f4f4f4;
 }
 .textInput {
-  width: 68%;
-  border: none;
-  height: 100%;
-  background-color: transparent;
+    width: 68%;
+    border: none;
+    height: 100%;
+    background-color: transparent;
 }
 .textInput:focus {
-  outline: none !important;
-  outline-width: 0 !important;
-  box-shadow: none;
-  -moz-box-shadow: none;
-  -webkit-box-shadow: none;
+    outline: none !important;
+    outline-width: 0 !important;
+    box-shadow: none;
+    -moz-box-shadow: none;
+    -webkit-box-shadow: none;
 }
 .categoriesText {
-  font-size: 12px;
-  background-color: transparent;
+    font-size: 12px;
+    background-color: transparent;
 }
 .iconGroupConatiner {
-  display: flex;
-  align-items: center;
-  gap: 40px;
+    display: flex;
+    align-items: center;
+    gap: 40px;
 }
 .iconGroup {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  width: 120px;
-  gap: 20px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 120px;
+    gap: 20px;
 }
