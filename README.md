@@ -6,7 +6,7 @@
 <br />
 <div align="center">
   <a href="https://github.com/souravdev-eng/E-com-micro-service">
-    <img src="./client/public/img/logo.png" alt="Logo" width="120" height="40">
+    <img src="./user-client/src/assets/logo.png" alt="Logo" width="120" height="40">
   </a>
   <h2 align="center">Cloud Native E-com Micro Service Project</h2>
   <p align="center">
@@ -26,13 +26,13 @@ E-com is a commerce project where the main goal is to build a distributed and sc
 
 **Here is some key features:**
 
-- Signup and Login feature with role-based(user, seller and admin)
-- User can view, filter, search & sort product
-- Add to cart feathers
-- Payment Functionality
-- Track order delivery
-- Cancels order
-- Seller dashboard
+-   Signup and Login feature with role-based(user, seller and admin)
+-   User can view, filter, search & sort product
+-   Add to cart feathers
+-   Payment Functionality
+-   Track order delivery
+-   Cancels order
+-   Seller dashboard
 
 ## Services list & feature details:
 
@@ -40,13 +40,13 @@ E-com is a commerce project where the main goal is to build a distributed and sc
 
 **API Endpoints**
 
-- `/auth/signup`
-- `/auth/login`
-- `/auth/forgotPassword`
-- `/auth/resetPassword`
-- `/auth/updatePassword`
-- `/auth/showAllUser`
-- `/auth/signout`
+-   `/auth/signup`
+-   `/auth/login`
+-   `/auth/forgotPassword`
+-   `/auth/resetPassword`
+-   `/auth/updatePassword`
+-   `/auth/showAllUser`
+-   `/auth/signout`
 
 **Tech Stack using**
 
@@ -63,11 +63,11 @@ E-com is a commerce project where the main goal is to build a distributed and sc
 
 **API Endpoints**
 
-- `GET /product`
-- `GET /product/<ID>`
-- `PATCH /product/<ID>`
-- `PATCH /product/update-seller-id/<ID>`
-- `DELETE /product/<ID>`
+-   `GET /product`
+-   `GET /product/<ID>`
+-   `PATCH /product/<ID>`
+-   `PATCH /product/update-seller-id/<ID>`
+-   `DELETE /product/<ID>`
 
 **Tech Stack using**
 
@@ -85,9 +85,9 @@ E-com is a commerce project where the main goal is to build a distributed and sc
 
 **API Endpoints**
 
-- `GET /cart`
-- `POST/PATCH /cart`
-- `DELETE /cart/<ID>`
+-   `GET /cart`
+-   `POST/PATCH /cart`
+-   `DELETE /cart/<ID>`
 
 **Tech Stack using**
 
