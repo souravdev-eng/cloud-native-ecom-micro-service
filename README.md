@@ -14,10 +14,6 @@
   </p>
 </div>
 
-<!-- <div>
- <img src="./client/public/img/demo.png" alt="Logo" width="100%" height="32%">
-</div> -->
-
 <!-- ABOUT THE PROJECT -->
 
 ## About The Project
@@ -110,6 +106,7 @@ For this project, I have carefully chosen my tech stack:
 <img src="https://github.com/get-icon/geticon/raw/master/icons/nextjs-icon.svg" alt="Next.js" width="35px" height="35px">
 <img src="https://github.com/get-icon/geticon/raw/master/icons/redux.svg" alt="Redux" width="35px" height="35px">
 <img src="https://github.com/get-icon/geticon/raw/master/icons/nodejs-icon.svg" alt="Node.js" width="35px" height="35px">
+<img src="https://miro.medium.com/v2/resize:fit:600/1*i2skbfmDsHayHhqPfwt6pA.png" alt="Golang" width="35px" height="35px">
 <img src="https://adware-technologies.s3.amazonaws.com/uploads/technology/thumbnail/20/express-js.png" alt="Express.js" width="35px" height="35px">
 <img src="https://github.com/get-icon/geticon/raw/master/icons/mongodb-icon.svg" alt="MongoDB" width="35px" height="35px">
 <img src="https://github.com/get-icon/geticon/raw/master/icons/postgresql.svg" alt="PostgreSQL" width="35px" height="35px">
