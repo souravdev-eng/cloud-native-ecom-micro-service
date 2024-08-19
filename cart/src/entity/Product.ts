@@ -3,24 +3,24 @@ import { Cart } from './Cart';
 
 @Entity('product')
 export class Product extends BaseEntity {
-  @PrimaryColumn()
-  id: string;
+    @PrimaryColumn()
+    id: string;
 
-  @Column()
-  title: string;
+    @Column()
+    title: string;
 
-  @Column()
-  price: number;
+    @Column()
+    price: number;
 
-  @Column()
-  image: string;
+    @Column()
+    image: string;
 
-  @Column()
-  sellerId: string;
+    @Column()
+    sellerId: string;
 
-  @Column()
-  quantity: number;
+    @Column()
+    quantity: number;
 
-  @OneToMany(() => Cart, (cart) => cart.product)
-  carts: Cart[];
+    @OneToMany(() => Cart, (cart) => cart.product)
+    carts: Cart[];
 }

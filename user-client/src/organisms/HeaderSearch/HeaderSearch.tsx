@@ -9,7 +9,11 @@ import {
 } from '@mui/icons-material';
 import styles from './HeaderSearch.module.css';
 import Logo from '../../assets/logo.png';
+import { useHeaderSearch } from './HeaderSearch.hook';
+
 const HeaderSearch = () => {
+    const { cartList } = useHeaderSearch();
+
     return (
         <div className={styles.container}>
             <div
@@ -102,7 +106,7 @@ const HeaderSearch = () => {
                         />
                     </div>
                     <div>
-                        <Badge badgeContent={4} color='error'>
+                        <Badge badgeContent={cartList?.length} color='error'>
                             <LocalMallOutlined
                                 color='action'
                                 style={{

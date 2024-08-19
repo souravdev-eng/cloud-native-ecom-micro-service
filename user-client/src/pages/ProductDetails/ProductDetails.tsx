@@ -1,14 +1,22 @@
-import React from 'react';
-import styles from './ProductDetails.module.css';
+import { useParams } from 'react-router-dom';
 import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
 import FavoriteIcon from '@mui/icons-material/Favorite';
 import Button from '../../atoms/Button/Button';
-import { useParams } from 'react-router-dom';
+import styles from './ProductDetails.module.css';
+
 import { useProductDetails } from './ProductDetails.hook';
+import Divider from '../../atoms/Divider/Divider';
 
 const ProductDetails = () => {
     const { id } = useParams();
-    const { loading, productDetail } = useProductDetails(id as string);
+    const {
+        cartQty,
+        loading,
+        productDetail,
+        addCartQty,
+        removeCartQty,
+        handleAddToCart,
+    } = useProductDetails(id as string);
     const isFavorite = false;
 
     if (loading) {
@@ -43,14 +51,7 @@ const ProductDetails = () => {
                 </div>
                 <div>
                     <h2 className={styles.title}>{productDetail?.title}</h2>
-                    <hr
-                        style={{
-                            border: 'none',
-                            borderTop: '2px solid #e0e0e0',
-                            margin: '10px 0',
-                            width: 40,
-                        }}
-                    />
+                    <Divider />
                     <p className={styles.price}>
                         ${productDetail?.price?.toFixed(2)}
                     </p>
@@ -72,13 +73,7 @@ const ProductDetails = () => {
                         </p>
                     ) : null}
 
-                    <hr
-                        style={{
-                            border: 'none',
-                            borderTop: '1px solid #e0e0e0',
-                            margin: '20px 0',
-                        }}
-                    />
+                    <Divider />
                     <div
                         style={{
                             display: 'flex',
@@ -86,55 +81,25 @@ const ProductDetails = () => {
                             alignItems: 'center',
                             gap: 10,
                         }}>
-                        <div
-                            style={{
-                                display: 'flex',
-                                flexDirection: 'row',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                justifyItems: 'center',
-                            }}>
+                        <div className={styles.cartEditWrapper}>
                             <div
-                                style={{
-                                    border: '1px solid #adb5bd',
-                                    width: 25,
-                                    height: 40,
-                                    textAlign: 'center',
-                                    cursor: 'pointer',
-                                    fontSize: 18,
-                                    paddingTop: 8,
-                                }}>
+                                className={styles.cartButtonWrapper}
+                                onClick={removeCartQty}>
                                 -
                             </div>
-                            <div
-                                style={{
-                                    borderTop: '1px solid #adb5bd',
-                                    borderBottom: '1px solid #adb5bd',
-                                    width: 40,
-                                    height: 40,
-                                    textAlign: 'center',
-                                    fontSize: 20,
-                                    paddingTop: 8,
-                                }}>
-                                1
+                            <div className={styles.cartValueText}>
+                                {cartQty}
                             </div>
                             <div
-                                style={{
-                                    border: '1px solid #adb5bd',
-                                    width: 25,
-                                    height: 40,
-                                    textAlign: 'center',
-                                    cursor: 'pointer',
-                                    fontSize: 18,
-                                    paddingTop: 8,
-                                }}>
+                                className={styles.cartButtonWrapper}
+                                onClick={addCartQty}>
                                 +
                             </div>
                         </div>
                         <Button
                             title='ADD TO CART'
                             loading={false}
-                            onClick={() => {}}
+                            onClick={handleAddToCart}
                             style={{
                                 width: 180,
                                 borderRadius: 0,

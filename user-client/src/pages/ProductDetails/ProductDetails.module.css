@@ -54,3 +54,28 @@
     margin-bottom: 10px;
     display: inline-block;
 }
+.cartEditWrapper {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    justify-items: center;
+}
+.cartButtonWrapper {
+    border: 1px solid #adb5bd;
+    width: 25px;
+    height: 40px;
+    text-align: center;
+    cursor: pointer;
+    font-size: 18px;
+    padding-top: 8px;
+}
+.cartValueText {
+    border-top: 1px solid #adb5bd;
+    border-bottom: 1px solid #adb5bd;
+    width: 40px;
+    height: 40px;
+    text-align: center;
+    font-size: 20px;
+    padding-top: 8px;
+}
