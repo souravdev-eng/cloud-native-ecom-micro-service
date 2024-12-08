@@ -15,9 +15,6 @@ spec:
       containers:
         - name: product
           image: souravdeveloper/ecom-product
-          env:
-            - name: DB_URL
-              value: mongodb+srv://sourav:<password>@cluster0.ut3zhsv.mongodb.net/product?retryWrites=true&w=majority
           envFrom:
             - secretRef:
                 name: secret-credential

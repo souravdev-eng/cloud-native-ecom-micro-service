@@ -15,18 +15,13 @@ spec:
       containers:
         - name: auth
           image: souravdeveloper/ecom-auth
-          env:
-            - name: NATS_CLIENT_ID
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.name
-            - name: NATS_CLUSTER_ID
-              value: ecom
           envFrom:
             - configMapRef:
                 name: auth-config
             - secretRef:
                 name: auth-credential
+            - secretRef:
+                name: secret-credential
 ---
 apiVersion: v1
 kind: Service

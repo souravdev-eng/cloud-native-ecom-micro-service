@@ -21,12 +21,12 @@ app.use(express.json());
 
 app.use(cors());
 app.use(
-  cookieSession({
-    // name: 'session',
-    signed: false,
-    secure: false,
-    // secure: process.env.NODE_ENV !== 'test',
-  })
+    cookieSession({
+        // name: 'session',
+        signed: false,
+        secure: false,
+        // secure: process.env.NODE_ENV !== 'test',
+    })
 );
 app.use(currentUser);
 
@@ -41,7 +41,9 @@ app.use(resetPasswordRoute);
 app.use(updatePasswordRoute);
 
 app.use('*', (req: Request, res: Response, next: NextFunction) => {
-  return next(new NotFoundError(`${req.originalUrl} is not find to this server!`));
+    return next(
+        new NotFoundError(`${req.originalUrl} is not find to this server!`)
+    );
 });
 
 // global error handlebar

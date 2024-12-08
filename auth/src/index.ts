@@ -1,43 +1,49 @@
 import { Channel } from 'amqplib';
-import { DataSource } from 'typeorm';
-import app from './app';
-import { config } from './config';
+import mongoose from 'mongoose';
+
 import { queueConnection } from './queue/connection';
+import { config } from './config';
+import app from './app';
 
 export let authChannel: Channel;
 
 const start = async () => {
-  // if (!process.env.JWT_KEY) {
-  //   throw new Error('JWT is not found');
-  // }
+    if (!config.AUTH_SERVICE_MONGODB_URL) {
+        throw new Error('DB url not found');
+    }
 
-  connectDB();
-  startQueues();
+    if (!config.AUTH_SERVICE_MONGODB_USER) {
+        throw new Error('DB user not found');
+    }
 
-  app.listen(3000, () => console.log(`Auth service running on PORT 3000....`));
+    if (!config.AUTH_SERVICE_MONGODB_PASSWORD) {
+        throw new Error('DB password not found');
+    }
+
+    connectDB();
+    startQueues();
+
+    app.listen(3000, () =>
+        console.log(`Auth service running on PORT 3000....`)
+    );
 };
 
 const connectDB = async () => {
-  try {
-    const AppDataSource = new DataSource({
-      type: 'postgres',
-      port: 5432,
-      url: config.DB_URL,
-      entities: ['src/entity/*.ts'],
-      synchronize: true,
-      ssl: false,
-    });
-
-    await AppDataSource.initialize();
-    console.log('Auth Postgres Server Started...');
-  } catch (error: any) {
-    console.log(error);
-    // process.exit(1);
-  }
+    mongoose
+        .connect(config.AUTH_SERVICE_MONGODB_URL!, {
+            user: config.AUTH_SERVICE_MONGODB_USER!,
+            pass: config.AUTH_SERVICE_MONGODB_PASSWORD!,
+        })
+        .then(() => {
+            console.log('Auth Service MongoDB connected successfully.🚀🚀');
+        })
+        .catch((error) => {
+            console.log('💥 DB Error: ', error);
+        });
 };
 
 const startQueues = async (): Promise<void> => {
-  authChannel = (await queueConnection.createConnection()) as Channel;
+    authChannel = (await queueConnection.createConnection()) as Channel;
 };
 
 start();

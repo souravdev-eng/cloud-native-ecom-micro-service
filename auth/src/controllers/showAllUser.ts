@@ -1,6 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { requireAuth, restrictTo } from '@ecom-micro/common';
-import { User } from '../entity/User';
+import { User } from '../models/User';
 
 const router = Router();
 
