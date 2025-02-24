@@ -33,6 +33,10 @@ const connectDB = async () => {
         .connect(config.AUTH_SERVICE_MONGODB_URL!, {
             user: config.AUTH_SERVICE_MONGODB_USER!,
             pass: config.AUTH_SERVICE_MONGODB_PASSWORD!,
+            auth: {
+                username: config.AUTH_SERVICE_MONGODB_USER!,
+                password: config.AUTH_SERVICE_MONGODB_PASSWORD!,
+            },
         })
         .then(() => {
             console.log('Auth Service MongoDB connected successfully.🚀🚀');

@@ -1,6 +1,7 @@
 import 'express-async-errors';
 import express, { NextFunction, Request, Response } from 'express';
 import cookieSession from 'cookie-session';
+import mongoSanitize from 'express-mongo-sanitize';
 import { NotFoundError, errorHandler, currentUser } from '@ecom-micro/common';
 import cors from 'cors';
 
@@ -19,6 +20,14 @@ const app = express();
 app.set('trust proxy', 1); //? because we transfer our request via ingress proxy
 app.use(express.json());
 
+//🔐 Security checks
+app.use(
+    mongoSanitize({
+        allowDots: true,
+        replaceWith: '_',
+    })
+);
+
 app.use(cors());
 app.use(
     cookieSession({
@@ -29,7 +38,7 @@ app.use(
     })
 );
 app.use(currentUser);
-
+console.log('hello');
 // routes
 app.use(newUser);
 app.use(loginUser);
