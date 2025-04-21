@@ -1,26 +1,32 @@
-# Use the official Golang image as the base image
-FROM golang:1.22.1 as builder
+# Stage 1: Build the Go binary
+FROM golang:1.22.1 AS builder
 
-# Set the Current Working Directory inside the container
+# Set the working directory inside the container
 WORKDIR /app
 
-# Copy go mod and sum files
+# Copy go.mod and go.sum for dependency caching
 COPY go.mod go.sum ./
 
-# Download all dependencies. Dependencies will be cached if the go.mod and go.sum files are not changed
-RUN go mod download
+# Download dependencies
+RUN go mod tidy
 
-# Copy the source from the current directory to the Working Directory inside the container
+# Copy the Go source files
 COPY . .
 
-# Build the Go app
-RUN go build -o main .
+# Build the Go application
+RUN go build -o /app/review/cmd/main /app/cmd/main.go
 
-# Start a new stage from scratch
-FROM golang:1.19
+# Stage 2: Create a minimal image to run the application
+FROM golang:1.22.1
 
-# Copy the Pre-built binary file from the previous stage
-COPY --from=builder /app/main .
+# Set the working directory inside the container
+WORKDIR /app
 
-# Command to run the executable
-CMD ["./main"]
+# Copy the built binary from the builder stage
+COPY --from=builder /app/review/cmd/main /app/review/cmd/main
+
+# Expose port 3000
+EXPOSE 3000
+
+# Set the command to run the app
+CMD ["/app/review/cmd/main"]

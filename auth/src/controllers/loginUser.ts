@@ -16,8 +16,8 @@ const router = Router();
 
 router.post(
     '/api/users/login',
-    // signInValidation,
-    // requestValidation,
+    signInValidation,
+    requestValidation,
     async (req: Request, res: Response, next: NextFunction) => {
         const { email, password } = req.body;
 
