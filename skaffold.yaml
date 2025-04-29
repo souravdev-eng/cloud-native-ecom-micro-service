@@ -19,20 +19,20 @@ build:
             dest: .
       docker:
         dockerfile: Dockerfile
-    - image: souravdeveloper/ecom-user-client
-      context: user-client
-      sync:
-        manual:
-          - src: src/**/*.ts
-            dest: .
-          - src: src/**/*.tsx
-            dest: .
-          - src: src/**/*.css
-            dest: .
-          - src: src/**/*.json
-            dest: .
-      docker:
-        dockerfile: Dockerfile
+    # - image: souravdeveloper/ecom-user-client
+    #   context: user-client
+    #   sync:
+    #     manual:
+    #       - src: src/**/*.ts
+    #         dest: .
+    #       - src: src/**/*.tsx
+    #         dest: .
+    #       - src: src/**/*.css
+    #         dest: .
+    #       - src: src/**/*.json
+    #         dest: .
+    #   docker:
+    #     dockerfile: Dockerfile
     - image: souravdeveloper/ecom-notification
       context: notification
       sync:

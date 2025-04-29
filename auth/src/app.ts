@@ -38,7 +38,7 @@ app.use(
     })
 );
 app.use(currentUser);
-console.log('hello');
+
 // routes
 app.use(newUser);
 app.use(loginUser);

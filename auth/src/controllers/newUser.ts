@@ -38,7 +38,6 @@ router.post(
             name: req.body.name,
             email: req.body.email,
             password: req.body.password,
-            passwordConform: req.body.passwordConform,
             role: req.body.role,
         });
 

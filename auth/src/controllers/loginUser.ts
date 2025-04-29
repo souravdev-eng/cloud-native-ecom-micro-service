@@ -5,6 +5,7 @@ import bcrypt from 'bcryptjs';
 
 import { signInValidation } from '../validation/newUserValidation';
 import { User } from '../models/User';
+import { compareDBPassword } from '../utils/compareDBPassword';
 
 const signInToken = (id: string, email: string, role: string) => {
     return jwt.sign({ id, email, role }, process.env.JWT_KEY!, {
@@ -21,7 +22,7 @@ router.post(
     async (req: Request, res: Response, next: NextFunction) => {
         const { email, password } = req.body;
 
-        const user = await User.findOne({ email });
+        const user = await User.findOne({ email }).select('+password');
 
         if (!user) {
             return next(
@@ -31,7 +32,7 @@ router.post(
             );
         }
 
-        const passwordMatch = await bcrypt.compare(password, user.password);
+        const passwordMatch = await compareDBPassword(password, user?.password);
 
         if (!passwordMatch) {
             return next(

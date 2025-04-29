@@ -9,7 +9,7 @@ router.get(
     requireAuth,
     restrictTo('admin', 'seller'),
     async (req: Request, res: Response, next: NextFunction) => {
-        const user = await User.find({});
+        const user = await User.find({}).select('-password -passwordConform');
         res.send(user);
     }
 );

@@ -25,8 +25,8 @@ WORKDIR /app
 # Copy the built binary from the builder stage
 COPY --from=builder /app/review/cmd/main /app/review/cmd/main
 
-# Expose port 3000
-EXPOSE 3000
+# Expose port 4000
+EXPOSE 4000
 
 # Set the command to run the app
 CMD ["/app/review/cmd/main"]

@@ -11,7 +11,7 @@ interface UserAttars {
     name: string;
     email: string;
     password: string;
-    passwordConform: string;
+    passwordConform?: any;
     role: Roles;
     resetToken?: string | null;
 }
@@ -20,7 +20,7 @@ interface UserDoc extends mongoose.Document {
     name: string;
     email: string;
     password: string;
-    passwordConform: string;
+    passwordConform: any;
     role: Roles;
     resetToken?: string | null;
     isModified(field: string): boolean;
@@ -44,7 +44,6 @@ const userSchema = new mongoose.Schema(
         },
         passwordConform: {
             type: String,
-            required: true,
         },
         role: {
             type: String,
@@ -54,6 +53,7 @@ const userSchema = new mongoose.Schema(
         resetToken: String,
     },
     {
+        timestamps: true,
         toJSON: {
             transform(_, ret) {
                 ret.id = ret._id;
@@ -70,7 +70,8 @@ userSchema.pre('save', async function (next) {
     }
     try {
         this.password = await bcrypt.hash(this.password, 12);
-        this.passwordConform = await bcrypt.hash(this.password, 12);
+        // @ts-ignore
+        this.passwordConfirm = undefined;
         next();
     } catch (error) {
         console.log('Error while encrypt the password 💥');
@@ -78,7 +79,7 @@ userSchema.pre('save', async function (next) {
 });
 
 userSchema.post('save', (doc, next) => {
-    doc.passwordConform = '';
+    doc.passwordConform = null;
     next();
 });
 

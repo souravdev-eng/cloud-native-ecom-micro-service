@@ -13,7 +13,7 @@ import (
 var MongoClient *mongo.Client
 
 func ConnectDB() {
-	uri := os.Getenv("MONGODB_URI")
+	uri := os.Getenv("REVIEW_MONGODB_URL")
 	if uri == "" {
 		log.Fatal("You must set your 'MONGODB_URI' environment variable")
 	}
