@@ -2,7 +2,7 @@ export const mfConfig = {
   name: 'host',
   filename: 'remoteEntry.js',
   remotes: {
-    auth: 'auth@http://localhost:3001/remoteEntry.js',
+    user: 'user@http://localhost:3001/remoteEntry.js',
     dashboard: 'dashboard@http://localhost:3002/remoteEntry.js',
   },
   shared: {

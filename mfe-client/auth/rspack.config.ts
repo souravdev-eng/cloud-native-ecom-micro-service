@@ -26,9 +26,8 @@ export default defineConfig({
     watchFiles: [path.resolve(__dirname, 'src')],
   },
   output: {
-    uniqueName: 'auth',
+    uniqueName: 'user',
     publicPath: 'http://localhost:3001/',
-    // library: { type: 'var', name: 'auth' },
   },
 
   experiments: {

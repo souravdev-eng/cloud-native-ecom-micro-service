@@ -1,8 +1,8 @@
 export const mfConfig = {
-  name: 'auth',
+  name: 'user',
   filename: 'remoteEntry.js',
   exposes: {
-    './App': './src/App.tsx',
+    './UserApp': './src/bootstrap',
   },
   shared: {
     react: { singleton: true, eager: true, requiredVersion: '19.1.1' },
