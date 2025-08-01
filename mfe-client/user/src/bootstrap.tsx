@@ -47,7 +47,7 @@ const mount = (el: any, { onNavigation, defaultRouter, initialPath }: MountOptio
 };
 
 if (process.env.NODE_ENV === 'development') {
-  const devRoot = document.querySelector('#_auth-dev-root');
+  const devRoot = document.querySelector('#_user-dev-root');
   if (devRoot) {
     const browserRouter = createBrowserRouter([
       {

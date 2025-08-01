@@ -1,5 +1,5 @@
 {
-  "name": "remote",
+  "name": "user-module",
   "version": "0.0.1",
   "scripts": {
     "build": "NODE_ENV=production rspack build",
