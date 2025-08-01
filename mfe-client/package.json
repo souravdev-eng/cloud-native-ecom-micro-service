@@ -1,0 +1,13 @@
+{
+    "name": "mfe-client",
+    "private": true,
+    "scripts": {
+        "dev:auth": "cd user && npm run start",
+        "dev:dashboard": "cd dashboard && npm run start",
+        "dev:host": "cd host && npm run start",
+        "start:dev": "concurrently \"npm run dev:auth\" \"npm run dev:dashboard\" \"npm run dev:host\""
+    },
+    "devDependencies": {
+        "concurrently": "^9.1.2"
+    }
+}

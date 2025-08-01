@@ -22,13 +22,13 @@ E-com is a commerce project where the main goal is to build a distributed and sc
 
 **Here is some key features:**
 
--   Signup and Login feature with role-based(user, seller and admin)
--   User can view, filter, search & sort product
--   Add to cart feathers
--   Payment Functionality
--   Track order delivery
--   Cancels order
--   Seller dashboard
+- Signup and Login feature with role-based(user, seller and admin)
+- User can view, filter, search & sort product
+- Add to cart feathers
+- Payment Functionality
+- Track order delivery
+- Cancels order
+- Seller dashboard
 
 ## Services list & feature details:
 
@@ -36,13 +36,13 @@ E-com is a commerce project where the main goal is to build a distributed and sc
 
 **API Endpoints**
 
--   `/auth/signup`
--   `/auth/login`
--   `/auth/forgotPassword`
--   `/auth/resetPassword`
--   `/auth/updatePassword`
--   `/auth/showAllUser`
--   `/auth/signout`
+- `/auth/signup`
+- `/auth/login`
+- `/auth/forgotPassword`
+- `/auth/resetPassword`
+- `/auth/updatePassword`
+- `/auth/showAllUser`
+- `/auth/signout`
 
 **Tech Stack using**
 
@@ -59,11 +59,11 @@ E-com is a commerce project where the main goal is to build a distributed and sc
 
 **API Endpoints**
 
--   `GET /product`
--   `GET /product/<ID>`
--   `PATCH /product/<ID>`
--   `PATCH /product/update-seller-id/<ID>`
--   `DELETE /product/<ID>`
+- `GET /product`
+- `GET /product/<ID>`
+- `PATCH /product/<ID>`
+- `PATCH /product/update-seller-id/<ID>`
+- `DELETE /product/<ID>`
 
 **Tech Stack using**
 
@@ -81,9 +81,9 @@ E-com is a commerce project where the main goal is to build a distributed and sc
 
 **API Endpoints**
 
--   `GET /cart`
--   `POST/PATCH /cart`
--   `DELETE /cart/<ID>`
+- `GET /cart`
+- `POST/PATCH /cart`
+- `DELETE /cart/<ID>`
 
 **Tech Stack using**
 
@@ -95,6 +95,31 @@ E-com is a commerce project where the main goal is to build a distributed and sc
 <img src="https://github.com/get-icon/geticon/raw/master/icons/elasticsearch.svg" alt="Elasticsearch" width="35px" height="35px">
 <img src="https://github.com/get-icon/geticon/raw/master/icons/typescript-icon.svg" alt="Typescript" width="35px" height="35px">
 <img src="https://github.com/get-icon/geticon/raw/master/icons/jest.svg" alt="Jest" width="35px" height="35px">
+</div>
+
+## MFE Client Service
+
+**Micro Frontend Modules**
+
+- `auth` - Authentication micro frontend
+- `dashboard` - Dashboard micro frontend
+- `host` - Main host application with module federation
+
+**Features**
+
+- Module Federation with Rspack
+- Federated micro front-ends for scalable UI architecture
+- Shared component library and type definitions
+- Independent deployment and development workflow
+
+**Tech Stack using**
+
+<div style={{display:'flex', gap:'30px'}}>
+<img src="https://github.com/get-icon/geticon/raw/master/icons/react.svg" alt="React" width="35px" height="35px">
+<img src="https://github.com/get-icon/geticon/raw/master/icons/typescript-icon.svg" alt="Typescript" width="35px" height="35px">
+<img src="https://rspack.dev/favicon.ico" alt="Rspack" width="35px" height="35px">
+<img src="https://github.com/get-icon/geticon/raw/master/icons/css-3.svg" alt="CSS3" width="35px" height="35px">
+<img src="https://github.com/get-icon/geticon/raw/master/icons/npm.svg" alt="PNPM" width="35px" height="35px">
 </div>
 
 ### Built With
