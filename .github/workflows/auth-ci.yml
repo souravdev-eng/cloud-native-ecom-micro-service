@@ -1,0 +1,21 @@
+name: auth-ci
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'auth/**'
+
+defaults:
+  run:
+    working-directory: auth
+
+jobs:
+  auth-test-ci:
+    environment: ${{ github.ref_name }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+      - run: npm install
+      - run: npm run test:ci
