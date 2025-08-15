@@ -99,9 +99,9 @@ E-com is a commerce project where the main goal is to build a distributed and sc
 
 ## MFE Client Service
 
-**Micro Frontend Modules**
+**Micro Frontend Modules (Many modules need to be added here, work in progress)** 🚧
 
-- `auth` - Authentication micro frontend
+- `user` - User micro frontend
 - `dashboard` - Dashboard micro frontend
 - `host` - Main host application with module federation
 
@@ -114,20 +114,23 @@ E-com is a commerce project where the main goal is to build a distributed and sc
 
 **Tech Stack using**
 
-<div style={{display:'flex', gap:'30px'}}>
+<div style={{display:'flex', gap:'30px', align-item: 'center'}}>
 <img src="https://github.com/get-icon/geticon/raw/master/icons/react.svg" alt="React" width="35px" height="35px">
-<img src="https://github.com/get-icon/geticon/raw/master/icons/typescript-icon.svg" alt="Typescript" width="35px" height="35px">
-<img src="https://rspack.dev/favicon.ico" alt="Rspack" width="35px" height="35px">
-<img src="https://github.com/get-icon/geticon/raw/master/icons/css-3.svg" alt="CSS3" width="35px" height="35px">
-<img src="https://github.com/get-icon/geticon/raw/master/icons/npm.svg" alt="PNPM" width="35px" height="35px">
+<img src="https://github.com/get-icon/geticon/raw/master/icons/typescript-icon.svg" alt="Typescript" width="30px" height="30px">
+<img src="https://images.opencollective.com/rspack/7a6035e/logo/256.png" alt="Rspack" width="35px" height="35px">
+<img src="https://i.pinimg.com/474x/19/2c/7e/192c7e8637656cab675eaf9c7f3a44ee.jpg" alt="Mui" width="30px" height="30px">
+<img src="https://github.com/get-icon/geticon/raw/master/icons/redux.svg" alt="Redux" width="35px" height="35px">
+<img src="https://testing-library.com/img/octopus-64x64.png" alt="react-testing-library" width="35px" height="35px">
 </div>
 
 ### Built With
 
 For this project, I have carefully chosen my tech stack:
 
-<div style={{display:'flex', gap:'30px'}}>
+<div style={{display:'flex', gap:'35px', width: '60%', flex-wrap: 'wrap'}}>
 <img src="https://github.com/get-icon/geticon/raw/master/icons/react.svg" alt="React" width="35px" height="35px">
+<img src="https://images.opencollective.com/rspack/7a6035e/logo/256.png" alt="RSPack" width="35px" height="35px">
+<img src="https://i.pinimg.com/474x/19/2c/7e/192c7e8637656cab675eaf9c7f3a44ee.jpg" alt="Mui" width="25px" height="25px">
 <img src="https://github.com/get-icon/geticon/raw/master/icons/nextjs-icon.svg" alt="Next.js" width="35px" height="35px">
 <img src="https://github.com/get-icon/geticon/raw/master/icons/redux.svg" alt="Redux" width="35px" height="35px">
 <img src="https://github.com/get-icon/geticon/raw/master/icons/nodejs-icon.svg" alt="Node.js" width="35px" height="35px">
@@ -136,12 +139,11 @@ For this project, I have carefully chosen my tech stack:
 <img src="https://github.com/get-icon/geticon/raw/master/icons/mongodb-icon.svg" alt="MongoDB" width="35px" height="35px">
 <img src="https://github.com/get-icon/geticon/raw/master/icons/postgresql.svg" alt="PostgreSQL" width="35px" height="35px">
 <img src="https://github.com/get-icon/geticon/raw/master/icons/jest.svg" alt="Jest" width="35px" height="35px">
-<img src="https://github.com/get-icon/geticon/raw/master/icons/css-3.svg" alt="CSS3" width="35px" height="35px">
 <img src="https://github.com/get-icon/geticon/raw/master/icons/typescript-icon.svg" alt="Typescript" width="35px" height="35px">
 <img src="https://github.com/get-icon/geticon/raw/master/icons/docker-icon.svg" alt="docker" width="35px" height="35px">
-<img src="https://github.com/get-icon/geticon/blob/master/icons/kubernetes.svg" alt="kubernetes" width="35px" height="35px">
-<img src="https://github.com/get-icon/geticon/blob/master/icons/aws.svg" alt="AWS" width="35px" height="35px">
-<img src="https://github.com/get-icon/geticon/blob/master/icons/rabbitmq.svg" alt="RabbitMQ" width="35px" height="35px">
+<img src="https://upload.wikimedia.org/wikipedia/commons/thumb/3/39/Kubernetes_logo_without_workmark.svg/500px-Kubernetes_logo_without_workmark.svg.png" alt="kubernetes" width="35px" height="35px">
+<img src="https://img.icons8.com/color/600/google-cloud.png" alt="GCP" width="35px" height="35px">
+<img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS9FZGcOId8e2tvMiw57wbiDRBO0luIyp2atw&s" alt="RabbitMQ" width="35px" height="35px">
 <img src="https://testing-library.com/img/octopus-64x64.png" alt="react-testing-library" width="35px" height="35px">
 <img src="https://github.com/get-icon/geticon/raw/master/icons/npm.svg" alt="NPM" width="40px" height="40px">
 <img src="https://cdn4.iconfinder.com/data/icons/redis-2/1451/Untitled-2-512.png" alt="Redis" width="35px" height="35px">

@@ -1,7 +1,7 @@
 import { createBrowserRouter, RouterProvider, Outlet, Link } from 'react-router-dom';
 
-import Dashboard from 'dashboard/App';
 import UserModule from './modules/UserModule';
+import DashboardModule from './modules/DashboardModule';
 
 const Layout = () => {
   return (
@@ -21,11 +21,11 @@ const Layout = () => {
 const router = createBrowserRouter([
   {
     path: '/',
-    element: <Layout />,
+    // element: <Layout />,
     children: [
       {
         index: true,
-        element: <Dashboard />,
+        element: <DashboardModule />,
       },
 
       // Auth micro frontend routes - catch all user-related paths

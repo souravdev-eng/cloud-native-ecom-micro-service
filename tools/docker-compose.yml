@@ -1,0 +1,23 @@
+version: '3'
+
+services:
+  sonarqube:
+    image: sonarqube:latest
+    ports:
+      - '9000:9000'
+    environment:
+      - SONAR_ES_BOOTSTRAP_CHECKS_DISABLE=true
+    volumes:
+      - sonarqube_data:/opt/sonarqube/data
+
+  scanner:
+    image: sonarsource/sonar-scanner-cli
+    depends_on:
+      - sonarqube
+    volumes:
+      - .:/usr/src
+    environment:
+      - SONAR_HOST_URL=http://sonarqube:9000
+  
+volumes:
+  sonarqube_data:

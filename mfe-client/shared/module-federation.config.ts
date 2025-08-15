@@ -1,9 +1,7 @@
 export const mfConfig = {
-  name: 'dashboard',
+  name: 'sheared',
   filename: 'remoteEntry.js',
-  exposes: {
-    './dashboardApp': './src/bootstrap',
-  },
+  exposes: {},
   shared: {
     react: { singleton: true, eager: true, requiredVersion: '19.1.1' },
     'react-dom': {

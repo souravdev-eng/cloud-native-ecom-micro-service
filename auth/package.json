@@ -8,7 +8,8 @@
     "d-build": "docker build -t souravdeveloper/ecom-auth .",
     "d-push": "docker push souravdeveloper/ecom-auth",
     "d-pub": "npm run d-build && npm run d-push",
-    "test": "jest --watchAll --no-cache"
+    "test": "jest --watchAll --no-cache",
+    "test-ci": "jest"
   },
   "config": {
     "mongodbMemoryServer": {
