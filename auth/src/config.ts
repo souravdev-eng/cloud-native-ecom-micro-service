@@ -4,6 +4,7 @@ class Config {
   public RABBITMQ_ENDPOINT: string | undefined;
   public EMAIL_USER: string | undefined;
   public EMAIL_APP_PASSWORD: string | undefined;
+  public ELASTICSEARCH_URL: string | undefined;
 
   public AUTH_SERVICE_MONGODB_URL: string | undefined;
   public MONGO_PASSWORD: string | undefined;
@@ -18,6 +19,7 @@ class Config {
     this.RABBITMQ_ENDPOINT = process.env.RABBITMQ_ENDPOINT || '';
     this.EMAIL_USER = process.env.EMAIL_USER || '';
     this.EMAIL_APP_PASSWORD = process.env.EMAIL_APP_PASSWORD || '';
+    this.ELASTICSEARCH_URL = process.env.ELASTICSEARCH_URL || 'http://elasticsearch-srv:9200';
   }
 }
 

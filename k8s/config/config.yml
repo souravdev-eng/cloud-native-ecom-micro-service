@@ -8,3 +8,4 @@ data:
   PRODUCT_MONGO_URL: 'mongodb+srv://sourav:<password>@cluster0.ut3zhsv.mongodb.net/ecom-product?retryWrites=true&w=majority&appName=Cluster0'
   RABBITMQ_ENDPOINT: 'amqp://ecom:password@rabbitmq-srv:5672'
   PRODUCT_REDIS_URL: 'redis://product-redis-service:6379'
+  ELASTICSEARCH_URL: 'http://elasticsearch-srv:9200'
