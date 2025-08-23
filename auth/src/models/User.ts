@@ -23,11 +23,6 @@ interface UserDoc extends mongoose.Document {
   passwordConform?: string;
   role: string;
   resetToken?: string | null;
-  isModified(field: string): boolean;
-}
-
-interface UserModel extends mongoose.Model<UserDoc> {
-  build(attars: UserAttars): UserDoc;
 }
 
 const userSchema = new mongoose.Schema(
@@ -87,6 +82,6 @@ userSchema.statics.build = (attars: UserAttars) => {
   return new User(attars);
 };
 
-const User = mongoose.model<UserDoc, UserModel>('user', userSchema);
+const User = mongoose.model('User', userSchema) as any;
 
 export { User };
