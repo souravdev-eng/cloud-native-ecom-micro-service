@@ -5,6 +5,7 @@
   "license": "MIT",
   "scripts": {
     "start": "ts-node-dev --poll src/index.ts",
+    "build": "tsc",
     "d-build": "docker build -t souravdeveloper/ecom-auth .",
     "d-push": "docker push souravdeveloper/ecom-auth",
     "d-pub": "npm run d-build && npm run d-push",
