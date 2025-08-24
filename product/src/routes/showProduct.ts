@@ -6,7 +6,7 @@ import { ProductAPIFeature } from '../utils/productApiFeature';
 const router = Router();
 
 router.get('/api/product', requireAuth, async (req: Request, res: Response, next: NextFunction) => {
-  const productApiFeature = new ProductAPIFeature(Product.find({}), req.query).filter();
+  const productApiFeature = new ProductAPIFeature(Product.find({}), req.query).filter().sort();
 
   const product = await productApiFeature.query;
 

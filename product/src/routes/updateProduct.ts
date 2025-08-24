@@ -35,6 +35,7 @@ router.patch(
       price: req.body.price ? req.body.price : product.price,
       quantity: req.body.quantity ? req.body.quantity : product.quantity,
       tags: req.body.tags ? req.body.tags : product.tags,
+      rating: req.body.rating ? req.body.rating : product.rating,
     });
 
     await product.save();

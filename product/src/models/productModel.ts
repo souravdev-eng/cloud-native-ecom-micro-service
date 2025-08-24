@@ -17,6 +17,7 @@ interface ProductAttars {
   quantity?: number;
   category: Category;
   tags?: string[];
+  rating?: string;
 }
 
 interface ProductDoc extends mongoose.Document {
@@ -28,6 +29,7 @@ interface ProductDoc extends mongoose.Document {
   quantity?: number;
   category: Category;
   tags?: string[];
+  rating: string;
 }
 
 interface ProductModel extends mongoose.Model<ProductDoc> {
