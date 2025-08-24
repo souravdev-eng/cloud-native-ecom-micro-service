@@ -6,9 +6,12 @@ import { ProductAPIFeature } from '../utils/productApiFeature';
 const router = Router();
 
 router.get('/api/product', requireAuth, async (req: Request, res: Response, next: NextFunction) => {
-  const productApiFeature = new ProductAPIFeature(Product.find({}), req.query).filter().sort();
+  const productApiFeature = new ProductAPIFeature(Product.find({}), req.query)
+    .filter()
+    .sort()
+    .paginate();
 
-  const product = await productApiFeature.query;
+  const product = await productApiFeature.executePaginated();
 
   res.status(200).send(product);
 });

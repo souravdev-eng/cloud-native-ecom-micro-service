@@ -30,9 +30,6 @@ export const generatePaginationQuery = (query: any, sort: any, nextKey: any) => 
 
   const sortOperator = sort[1] === 1 ? '$gt' : '$lt';
 
-  console.log('Pagination - sortField:', sortField, 'sortOperator:', sortOperator);
-  console.log('Pagination - nextKey:', nextKey);
-
   const paginationQuery = [
     { [sortField]: { [sortOperator]: nextKey[sortField] } },
     { $and: [{ [sortField]: nextKey[sortField] }, { _id: { [sortOperator]: nextKey._id } }] },
