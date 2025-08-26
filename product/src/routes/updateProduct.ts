@@ -46,7 +46,7 @@ router.patch(
       image: product.image,
       price: product.price,
       quantity: product.quantity!,
-      sellerId: product.sellerId,
+      sellerId: product.sellerId.toString(),
     });
 
     res.status(200).send(product);

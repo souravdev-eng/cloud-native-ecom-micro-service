@@ -37,7 +37,7 @@ router.post(
       id: product.id,
       title: product.title,
       price: product.price,
-      sellerId: product.sellerId,
+      sellerId: product.sellerId.toString(),
       image: product.image,
       quantity: product.quantity!,
     });
