@@ -17,19 +17,19 @@ interface ProductAttars {
   quantity?: number;
   category: Category;
   tags?: string[];
-  rating?: string;
+  rating?: number;
 }
 
 interface ProductDoc extends mongoose.Document {
   title: string;
   price: number;
   image: string;
-  sellerId: string;
+  sellerId: mongoose.Types.ObjectId;
   description: string;
   quantity?: number;
   category: Category;
   tags?: string[];
-  rating: string;
+  rating: number;
 }
 
 interface ProductModel extends mongoose.Model<ProductDoc> {
@@ -40,8 +40,8 @@ const productSchema = new mongoose.Schema(
   {
     title: {
       type: String,
-      required: true,
       trim: true,
+      required: true,
     },
     image: {
       type: String,
@@ -57,8 +57,8 @@ const productSchema = new mongoose.Schema(
     },
     price: {
       type: Number,
-      required: true,
       min: 100,
+      required: true,
     },
     rating: {
       type: Number,
@@ -69,11 +69,12 @@ const productSchema = new mongoose.Schema(
       default: 5,
     },
     sellerId: {
-      type: String,
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
       required: true,
     },
     tags: {
-      type: Array,
+      type: [String],
       default: [],
     },
   },
@@ -87,6 +88,22 @@ const productSchema = new mongoose.Schema(
     },
   }
 );
+
+// Text index for search
+productSchema.index(
+  { title: 'text', tags: 'text' },
+  {
+    name: 'TextSearch_title_tags',
+    weights: { title: 10, tags: 2 },
+  }
+);
+
+// Filter/sort indexes
+productSchema.index({ category: 1, price: -1 });
+productSchema.index({ sellerId: 1, category: 1 });
+
+// Optional: only index in-stock items for faster “available” queries
+productSchema.index({ quantity: 1 }, { partialFilterExpression: { quantity: { $gt: 0 } } });
 
 productSchema.statics.build = (attars: ProductAttars) => {
   return new Product(attars);

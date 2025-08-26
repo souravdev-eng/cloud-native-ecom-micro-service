@@ -1,11 +1,12 @@
-import { Query as MongooseQuery, Document } from 'mongoose';
+// ProductAPIFeature.ts
+import { Query as MongooseQuery, Document, Types } from 'mongoose';
 import { Request } from 'express';
-import { Types } from 'mongoose';
 
 export interface PaginationOptions {
   limit?: number;
   nextKey?: string;
   prevKey?: string;
+  page?: number; // used only in search mode
 }
 
 export interface PaginationMeta {
@@ -13,8 +14,9 @@ export interface PaginationMeta {
   hasPrevPage: boolean;
   nextKey?: string;
   prevKey?: string;
-  count: number;
+  count: number; // items in this page
   limit: number;
+  page?: number; // only in search mode
 }
 
 export interface PaginatedResult<T> {
@@ -22,9 +24,19 @@ export interface PaginatedResult<T> {
   meta: PaginationMeta;
 }
 
+/**
+ * ProductAPIFeature
+ * - filter(): gte/gt/lte/lt casting support
+ * - search(): $text relevance mode (sets projection for textScore)
+ * - sort(): relevance-first sort in search mode; stable sort otherwise
+ * - limitFields(): never drops _id and sortField
+ * - paginate(): page/skip for search; cursor (nextKey/prevKey) otherwise
+ * - executePaginated(): returns data + meta (keys or page number)
+ */
 export class ProductAPIFeature<T extends Document> {
   query: MongooseQuery<T[], T>;
   queryString: Request['query'];
+
   private sortField: string = 'createdAt';
   private sortOrder: 1 | -1 = -1;
 
@@ -33,27 +45,82 @@ export class ProductAPIFeature<T extends Document> {
     this.queryString = queryString;
   }
 
+  // ---------- Helpers ----------
+
+  private isSearchMode(): boolean {
+    return typeof this.queryString.search === 'string' && this.queryString.search.trim().length > 0;
+  }
+
+  private getValidatedLimit(): number {
+    const limit = parseInt(this.queryString.limit as string) || 20;
+    return Math.min(Math.max(limit, 1), 100);
+  }
+
+  private ensureNumber(n: any): number | undefined {
+    if (n === undefined || n === null) return undefined;
+    const val = Number(n);
+    return Number.isFinite(val) ? val : undefined;
+  }
+
+  // ---------- Pipeline steps ----------
+
   filter(): this {
-    const queryObj = { ...this.queryString };
-    const excludedFields = ['limit', 'nextKey', 'prevKey', 'sort', 'fields'];
+    const queryObj: Record<string, any> = { ...this.queryString };
+    const excludedFields = ['limit', 'nextKey', 'prevKey', 'sort', 'fields', 'search', 'page'];
     excludedFields.forEach((el) => delete queryObj[el]);
 
+    // Support gte/gt/lte/lt operators in query string: e.g. price[gte]=100
     let queryStr = JSON.stringify(queryObj);
     queryStr = queryStr.replace(/\b(gte|gt|lte|lt)\b/g, (match) => `$${match}`);
 
-    this.query = this.query.find(JSON.parse(queryStr));
+    // Parse then attempt basic type coercion for numbers/dates where appropriate (optional)
+    const parsed = JSON.parse(queryStr);
+
+    // Example basic casting for known numeric fields (customize as needed)
+    if (parsed.price) {
+      if (typeof parsed.price === 'object') {
+        for (const k of Object.keys(parsed.price)) {
+          const maybeNum = this.ensureNumber(parsed.price[k]);
+          if (maybeNum !== undefined) parsed.price[k] = maybeNum;
+        }
+      } else {
+        const maybeNum = this.ensureNumber(parsed.price);
+        if (maybeNum !== undefined) parsed.price = maybeNum;
+      }
+    }
+
+    this.query = this.query.find(parsed);
+    return this;
+  }
+
+  search(): this {
+    if (this.isSearchMode()) {
+      const search = (this.queryString.search as string).trim();
+      // Add text filter and project text score (so we can sort by it in sort())
+      this.query = this.query
+        .find({ $text: { $search: search } })
+        .select({ score: { $meta: 'textScore' } });
+    }
     return this;
   }
 
   sort(): this {
+    if (this.isSearchMode()) {
+      // Relevance-first, then _id for stability
+      this.query = this.query.sort({ score: { $meta: 'textScore' }, _id: -1 });
+      // We cannot cursor-paginate by score; mark a stable field anyway
+      this.sortField = '_id';
+      this.sortOrder = -1;
+      return this;
+    }
+
     if (this.queryString.sort) {
-      const sortBy = (this.queryString.sort as string).split(',').join(' ');
+      const sortFields = (this.queryString.sort as string).split(',');
+      const sortBy = sortFields.join(' ');
       this.query = this.query.sort(sortBy);
 
-      // Extract primary sort field and order for pagination
-      const sortFields = (this.queryString.sort as string).split(',');
+      // Capture primary sort field + order
       const primarySort = sortFields[0];
-
       if (primarySort.startsWith('-')) {
         this.sortField = primarySort.substring(1);
         this.sortOrder = -1;
@@ -62,102 +129,118 @@ export class ProductAPIFeature<T extends Document> {
         this.sortOrder = 1;
       }
     } else {
-      // Default sort - check if createdAt exists, otherwise use _id
-      this.query = this.query.sort('-_id'); // Using _id as fallback
+      // Default to _id desc for stable pagination
+      this.query = this.query.sort('-_id');
       this.sortField = '_id';
       this.sortOrder = -1;
     }
 
-    console.log('Sort configuration:', { sortField: this.sortField, sortOrder: this.sortOrder });
     return this;
   }
 
   limitFields(): this {
+    const mustKeep = new Set<string>(['_id', this.sortField]);
+
     if (this.queryString.fields) {
-      const fields = (this.queryString.fields as string).split(',').join(' ');
-      this.query = this.query.select(fields);
+      const fields = (this.queryString.fields as string)
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
+
+      fields.forEach((f) => mustKeep.add(f));
+
+      const select: Record<string, 1> = {};
+      for (const f of mustKeep) select[f] = 1;
+      this.query = this.query.select(select);
     } else {
+      // Default selection: remove __v (keep _id by default)
       this.query = this.query.select('-__v');
+      // If you had excluded fields elsewhere, ensure sortField is not excluded
     }
+
     return this;
   }
 
   paginate(): this {
-    const limit = parseInt(this.queryString.limit as string) || 20;
+    const validatedLimit = this.getValidatedLimit();
+
+    if (this.isSearchMode()) {
+      // Offset paging for relevance mode
+      const page = Math.max(parseInt(this.queryString.page as string) || 1, 1);
+      const skip = (page - 1) * validatedLimit;
+
+      // Fetch one extra to detect next page reliably
+      this.query = this.query.skip(skip).limit(validatedLimit + 1);
+      return this;
+    }
+
+    // Cursor mode (non-search)
     const nextKey = this.queryString.nextKey as string;
     const prevKey = this.queryString.prevKey as string;
-
-    // Validate limit bounds (prevent abuse)
-    const validatedLimit = Math.min(Math.max(limit, 1), 100);
 
     if (nextKey) {
       this.applyForwardPagination(nextKey, validatedLimit);
     } else if (prevKey) {
       this.applyBackwardPagination(prevKey, validatedLimit);
     } else {
-      // First page
+      // First page: get one extra
       this.query = this.query.limit(validatedLimit + 1);
     }
 
     return this;
   }
 
-  private applyForwardPagination(nextKey: string, limit: number): void {
-    try {
-      const decodedKey = this.decodeKey(nextKey);
-      const { value, id } = decodedKey;
+  // ---------- Cursor pagination (non-search) ----------
 
-      // If value is null (legacy format), use simple id-based pagination
-      if (value === null) {
-        const condition = {
-          _id: { [this.sortOrder === 1 ? '$gt' : '$lt']: new Types.ObjectId(id) },
-        };
-        this.query = this.query.find(condition).limit(limit + 1);
-      } else {
-        const condition = this.buildPaginationCondition(value, id, 'forward');
-        this.query = this.query.find(condition).limit(limit + 1);
-      }
-    } catch (error) {
-      console.error('Forward pagination error:', error);
-      throw new Error('Invalid pagination key');
+  private applyForwardPagination(nextKey: string, limit: number): void {
+    const { value, id } = this.decodeKey(nextKey);
+
+    if (value === null) {
+      // Legacy id-only key
+      const condition = {
+        _id: { [this.sortOrder === 1 ? '$gt' : '$lt']: new Types.ObjectId(id) },
+      };
+      this.query = this.query.find(condition).limit(limit + 1);
+      return;
     }
+
+    const condition = this.buildPaginationCondition(value, id, 'forward');
+    this.query = this.query.find(condition).limit(limit + 1);
   }
 
   private applyBackwardPagination(prevKey: string, limit: number): void {
-    try {
-      const decodedKey = this.decodeKey(prevKey);
-      const { value, id } = decodedKey;
+    const { value, id } = this.decodeKey(prevKey);
+    const condition = this.buildPaginationCondition(value, id, 'backward');
 
-      const condition = this.buildPaginationCondition(value, id, 'backward');
-
-      // For backward pagination, we need to reverse the sort order temporarily
-      const reversedSort = this.sortOrder === 1 ? `-${this.sortField}` : this.sortField;
-      this.query = this.query
-        .find(condition)
-        .sort(reversedSort)
-        .limit(limit + 1);
-    } catch (error) {
-      throw new Error('Invalid pagination key');
-    }
+    // Reverse sort temporarily to fetch the previous page
+    const reversedSort = this.sortOrder === 1 ? `-${this.sortField}` : this.sortField;
+    this.query = this.query
+      .find(condition)
+      .sort(reversedSort)
+      .limit(limit + 1);
   }
 
   private buildPaginationCondition(value: any, id: string, direction: 'forward' | 'backward'): any {
     const isForward = direction === 'forward';
     const isAscending = this.sortOrder === 1;
 
-    let operator: string;
+    let operator: '$gt' | '$lt';
     if (isForward) {
       operator = isAscending ? '$gt' : '$lt';
     } else {
       operator = isAscending ? '$lt' : '$gt';
     }
 
-    // Handle different data types for the sort field
-    let sortValue = value;
-    if (this.sortField === 'createdAt' || this.sortField === 'updatedAt') {
-      sortValue = new Date(value);
-    } else if (Types.ObjectId.isValid(value)) {
+    let sortValue: any = value;
+
+    // Cast only when appropriate for the active sortField
+    if (this.sortField === '_id') {
       sortValue = new Types.ObjectId(value);
+    } else if (this.sortField === 'createdAt' || this.sortField === 'updatedAt') {
+      sortValue = new Date(value);
+    } else if (typeof value === 'string' && !isNaN(Number(value))) {
+      // numeric sort fields
+      sortValue = Number(value);
     }
 
     return {
@@ -172,73 +255,77 @@ export class ProductAPIFeature<T extends Document> {
   }
 
   private encodeKey(value: any, id: string): string {
-    const keyData = { value, id };
-    return Buffer.from(JSON.stringify(keyData)).toString('base64url');
+    return Buffer.from(JSON.stringify({ value, id })).toString('base64url');
   }
 
   private decodeKey(key: string): { value: any; id: string } {
     try {
       const decoded = Buffer.from(key, 'base64url').toString('utf8');
-      const parsedKey = JSON.parse(decoded);
+      const parsed = JSON.parse(decoded);
 
-      // Handle legacy format with only id
-      if (parsedKey.id && !parsedKey.value) {
-        console.warn('Legacy key format detected, please regenerate pagination keys');
-        return { value: null, id: parsedKey.id };
+      // Accept legacy (id-only) keys
+      if (!('value' in parsed) && 'id' in parsed) {
+        console.warn('Legacy key format detected; please regenerate pagination keys.');
+        return { value: null, id: parsed.id };
       }
 
-      if (!parsedKey.value || !parsedKey.id) {
+      if (!('id' in parsed) || !('value' in parsed)) {
         throw new Error('Key must contain both value and id');
       }
-
-      return parsedKey;
-    } catch (error) {
-      console.error('Key decoding error:', error);
+      return parsed;
+    } catch (err) {
       throw new Error('Invalid key format');
     }
   }
 
+  // ---------- Execute + build meta ----------
+
   async executePaginated(): Promise<PaginatedResult<T>> {
-    const limit = parseInt(this.queryString.limit as string) || 20;
-    const validatedLimit = Math.min(Math.max(limit, 1), 100);
-    const isPrevPagination = !!this.queryString.prevKey;
+    const validatedLimit = this.getValidatedLimit();
 
-    // Debug logging
-    console.log('Pagination params:', {
-      limit: validatedLimit,
-      nextKey: this.queryString.nextKey,
-      prevKey: this.queryString.prevKey,
-      sortField: this.sortField,
-      sortOrder: this.sortOrder,
-    });
-
-    // Execute query with +1 to check for next page
+    // Execute
     const results = await this.query.exec();
-    console.log('Query results count:', results.length);
 
+    // SEARCH MODE (offset-based)
+    if (this.isSearchMode()) {
+      const page = Math.max(parseInt(this.queryString.page as string) || 1, 1);
+
+      const hasNextPage = results.length > validatedLimit;
+      const hasPrevPage = page > 1;
+
+      const data = hasNextPage ? results.slice(0, validatedLimit) : results;
+
+      return {
+        data,
+        meta: {
+          hasNextPage,
+          hasPrevPage,
+          count: data.length,
+          limit: validatedLimit,
+          page,
+        },
+      };
+    }
+
+    // CURSOR MODE (non-search)
+    const isPrevPagination = !!this.queryString.prevKey;
     let data: T[];
     let hasNextPage: boolean;
     let hasPrevPage: boolean;
 
     if (isPrevPagination) {
-      // For backward pagination, we need to reverse the results and handle differently
+      // When going backward we fetched with reversed sort
+      // Reverse results back to requested sort order
       data = results.reverse();
-      hasNextPage = true; // We know there's a next page since we came from there
+      // Coming from a next page implies there's a next when going back
+      hasNextPage = true;
       hasPrevPage = data.length > validatedLimit;
 
-      if (hasPrevPage) {
-        data = data.slice(1); // Remove the extra item
-      }
+      if (hasPrevPage) data = data.slice(1); // drop the extra one
     } else {
-      // Forward pagination or first page
       hasNextPage = results.length > validatedLimit;
       hasPrevPage = !!this.queryString.nextKey || !!this.queryString.prevKey;
-
-      if (hasNextPage) {
-        data = results.slice(0, validatedLimit);
-      } else {
-        data = results;
-      }
+      data = hasNextPage ? results.slice(0, validatedLimit) : results;
     }
 
     const meta: PaginationMeta = {
@@ -248,33 +335,23 @@ export class ProductAPIFeature<T extends Document> {
       limit: validatedLimit,
     };
 
-    // Generate next and previous keys
+    // Keys
     if (data.length > 0) {
+      // Next key
       if (hasNextPage) {
-        const lastItem = data[data.length - 1];
-        const sortValue = lastItem[this.sortField as keyof T];
-        console.log('Generating nextKey with:', {
-          sortField: this.sortField,
-          sortValue,
-          id: lastItem._id.toString(),
-        });
+        const lastItem = data[data.length - 1] as any;
+        const sortValue = lastItem[this.sortField];
         meta.nextKey = this.encodeKey(sortValue, lastItem._id.toString());
       }
 
+      // Prev key
       if (hasPrevPage) {
-        const firstItem = data[0];
-        const sortValue = firstItem[this.sortField as keyof T];
+        const firstItem = data[0] as any;
+        const sortValue = firstItem[this.sortField];
         meta.prevKey = this.encodeKey(sortValue, firstItem._id.toString());
       }
     }
 
-    console.log('Pagination meta:', meta);
-    return { data, meta };
-  }
-
-  // Legacy method for backward compatibility
-  async execute(): Promise<T[]> {
-    const result = await this.executePaginated();
-    return result.data;
+    return { meta, data };
   }
 }

@@ -6,11 +6,11 @@ const connectRedis = async (url: string) => {
   client = createClient({ url });
 
   client.on('connect', () => {
-    console.log('Connected to Redis server...');
+    console.log('Redis Server connected ~~ 🔥🔥🔥');
   });
 
   client.on('error', (err) => {
-    console.error('Redis error:', err);
+    console.error('Redis error: 💥💥💥', err);
   });
 
   await client.connect();
@@ -23,4 +23,4 @@ const getRedisClient = (): RedisClientType => {
   return client;
 };
 
-export { connectRedis, getRedisClient };
+export { connectRedis, getRedisClient, client as redisClient };
