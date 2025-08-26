@@ -2,6 +2,7 @@ import { Channel } from 'amqplib';
 import mongoose from 'mongoose';
 
 import { queueConnection } from './queue/connection';
+import { logger } from './utils/logger';
 import { config } from './config';
 import app from './app';
 
@@ -23,7 +24,9 @@ const start = async () => {
   connectDB();
   startQueues();
 
-  app.listen(3000, () => console.log(`Auth service running on PORT 3000....`));
+  app.listen(3000, () => {
+    logger.info('Auth service running on PORT 3000....');
+  });
 };
 
 const connectDB = async () => {
@@ -31,16 +34,12 @@ const connectDB = async () => {
     .connect(config.AUTH_SERVICE_MONGODB_URL!, {
       user: config.MONGO_USER!,
       pass: config.MONGO_PASSWORD!,
-      auth: {
-        username: config.MONGO_USER!,
-        password: config.MONGO_PASSWORD!,
-      },
     })
     .then(() => {
-      console.log('Auth Service MongoDB connected successfully.🚀🚀');
+      logger.info('Auth Service MongoDB connected successfully 🚀🚀');
     })
     .catch((error) => {
-      console.log('💥 DB Error: ', error);
+      logger.error('💥 DB Error: ', { error: error.message });
     });
 };
 

@@ -11,8 +11,8 @@ interface UserAttars {
   name: string;
   email: string;
   password: string;
-  passwordConform?: any;
-  role: Roles;
+  passwordConform?: string;
+  role?: string;
   resetToken?: string | null;
 }
 
@@ -20,14 +20,9 @@ interface UserDoc extends mongoose.Document {
   name: string;
   email: string;
   password: string;
-  passwordConform: any;
-  role: Roles;
+  passwordConform?: string;
+  role: string;
   resetToken?: string | null;
-  isModified(field: string): boolean;
-}
-
-interface UserModel extends mongoose.Model<UserDoc> {
-  build(attars: UserAttars): UserDoc;
 }
 
 const userSchema = new mongoose.Schema(
@@ -47,8 +42,8 @@ const userSchema = new mongoose.Schema(
     },
     role: {
       type: String,
-      enum: ['user', 'seller', 'admin'],
-      default: 'user',
+      enum: Object.values(Roles),
+      default: Roles.User,
     },
     resetToken: String,
   },
@@ -71,8 +66,7 @@ userSchema.pre('save', async function (next) {
   }
   try {
     this.password = await bcrypt.hash(this.password, 12);
-    // @ts-ignore
-    this.passwordConfirm = undefined;
+    this.passwordConform = undefined;
     next();
   } catch (error) {
     console.log('Error while encrypt the password 💥');
@@ -88,6 +82,6 @@ userSchema.statics.build = (attars: UserAttars) => {
   return new User(attars);
 };
 
-const User = mongoose.model<UserDoc, UserModel>('user', userSchema);
+const User = mongoose.model('User', userSchema) as any;
 
 export { User };

@@ -42,7 +42,7 @@ const MenuItem = [
 	},
 ];
 
-const Header = () => {
+const Header = ({ children }: { children: React.ReactNode }) => {
 	return (
 		<Styled.Container>
 			<Styled.CouponContainer>
@@ -115,6 +115,7 @@ const Header = () => {
 				</div>
 			</Styled.SubHeaderContainer>
 			<Divider />
+			{children}
 		</Styled.Container>
 	);
 };

@@ -1,35 +1,28 @@
 import React from 'react';
-import { Routes, Route } from 'react-router-dom';
-import Header from './components/Header/Header';
-import ProductCard from './components/ProductCard/ProductCard';
+
+import { Route, Routes } from 'react-router-dom';
+
 import './index.css';
 
+import Header from './components/Header/Header';
+import HomePage from './page/HomePage/HomePage';
+import ProductDetails from './page/ProductDetails/ProductDetails';
+
 const App = () => (
-  <Routes>
-    <Route
-      path='/'
-      element={
-        <>
-          <Header />
-          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-            <ProductCard />
-            <ProductCard />
-            <ProductCard />
-            <ProductCard />
-            <ProductCard />
-            <ProductCard />
-            <ProductCard />
-            <ProductCard />
-            <ProductCard />
-            <ProductCard />
-            <ProductCard />
-            <ProductCard />
-          </div>
-        </>
-      }
-    />
-    <Route path='*' element={<div>Auth page not found</div>} />
-  </Routes>
+	<Header>
+		<Routes>
+			<Route
+				path="/"
+				element={
+					<>
+						<HomePage />
+					</>
+				}
+			/>
+			<Route index path="/product/:id" element={<ProductDetails />} />
+			<Route path="*" element={<div>Auth page not found</div>} />
+		</Routes>
+	</Header>
 );
 
 export default App;

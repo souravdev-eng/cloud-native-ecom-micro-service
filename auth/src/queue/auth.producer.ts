@@ -1,6 +1,7 @@
 import { Channel } from 'amqplib';
 import { queueConnection } from './connection';
 import { authChannel } from '..';
+import { logger } from '../utils/logger';
 
 export const publishDirectMessage = async (message: string, logMessage: string): Promise<void> => {
   let channel = authChannel;
@@ -16,8 +17,11 @@ export const publishDirectMessage = async (message: string, logMessage: string):
     channel.publish(exchangeName, routingKey, Buffer.from(message), {
       persistent: true,
     });
-    console.log(logMessage);
+
+    logger.info('AuthService Provider publishDirectMessage()');
+    logger.info(logMessage);
   } catch (error) {
-    console.log('AuthService Provider publishDirectMessage() method error:', error);
+    logger.error('AuthService Provider publishDirectMessage() method error:');
+    logger.error(error);
   }
 };

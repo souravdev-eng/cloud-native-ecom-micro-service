@@ -5,6 +5,7 @@
   "license": "MIT",
   "scripts": {
     "start": "ts-node-dev --poll src/index.ts",
+    "build": "tsc",
     "d-build": "docker build -t souravdeveloper/ecom-auth .",
     "d-push": "docker push souravdeveloper/ecom-auth",
     "d-pub": "npm run d-build && npm run d-push",
@@ -29,7 +30,7 @@
     ]
   },
   "dependencies": {
-    "@ecom-micro/common": "^2.0.28",
+    "@ecom-micro/common": "^2.0.41",
     "@types/amqplib": "^0.10.5",
     "@types/bcryptjs": "^2.4.2",
     "@types/cookie-session": "^2.0.44",
