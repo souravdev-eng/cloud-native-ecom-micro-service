@@ -31,14 +31,18 @@ __exportStar(require("./middleware/currentUser"), exports);
 __exportStar(require("./queues/connection"), exports);
 __exportStar(require("./queues/baseListener"), exports);
 __exportStar(require("./queues/basePublisher"), exports);
+// RabbitMQ Message Types
+__exportStar(require("./queues/product/productCreatedEvent"), exports);
+__exportStar(require("./queues/product/productUpdatedEvent"), exports);
+__exportStar(require("./queues/product/productDeletedEvent"), exports);
+__exportStar(require("./queues/seller/sellerCreatedEvent"), exports);
+__exportStar(require("./queues/seller/sellerUpdatedEvent"), exports);
+__exportStar(require("./queues/cart/cartCreatedMessage"), exports);
+__exportStar(require("./queues/cart/cartUpdatedMessage"), exports);
+__exportStar(require("./queues/cart/cartDeletedMessage"), exports);
 // Logger
 __exportStar(require("./logger/logger"), exports);
 // Events
-__exportStar(require("./events/productCreatedEvent"), exports);
-__exportStar(require("./events/productUpdatedEvent"), exports);
-__exportStar(require("./events/productDeletedEvent"), exports);
-__exportStar(require("./events/sellerCreatedEvent"), exports);
-__exportStar(require("./events/sellerUpdatedEvent"), exports);
 __exportStar(require("./events/cartCreatedEvent"), exports);
 __exportStar(require("./events/cartUpdatedEvent"), exports);
 __exportStar(require("./events/cartDeletedEvent"), exports);
