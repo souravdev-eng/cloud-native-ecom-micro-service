@@ -18,15 +18,21 @@ export * from './queues/connection';
 export * from './queues/baseListener';
 export * from './queues/basePublisher';
 
+// RabbitMQ Message Types
+export * from './queues/product/productCreatedEvent';
+export * from './queues/product/productUpdatedEvent';
+export * from './queues/product/productDeletedEvent';
+export * from './queues/seller/sellerCreatedEvent';
+export * from './queues/seller/sellerUpdatedEvent';
+export * from './queues/cart/cartCreatedMessage';
+export * from './queues/cart/cartUpdatedMessage';
+export * from './queues/cart/cartDeletedMessage';
+
 // Logger
 export * from './logger/logger';
 
 // Events
-export * from './events/productCreatedEvent';
-export * from './events/productUpdatedEvent';
-export * from './events/productDeletedEvent';
-export * from './events/sellerCreatedEvent';
-export * from './events/sellerUpdatedEvent';
+
 export * from './events/cartCreatedEvent';
 export * from './events/cartUpdatedEvent';
 export * from './events/cartDeletedEvent';
