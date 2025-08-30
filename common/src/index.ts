@@ -21,6 +21,18 @@ export * from './queues/basePublisher';
 // Logger
 export * from './logger/logger';
 
+// Events
+export * from './events/productCreatedEvent';
+export * from './events/productUpdatedEvent';
+export * from './events/productDeletedEvent';
+export * from './events/sellerCreatedEvent';
+export * from './events/sellerUpdatedEvent';
+export * from './events/cartCreatedEvent';
+export * from './events/cartUpdatedEvent';
+export * from './events/cartDeletedEvent';
+export * from './events/baseListener';
+export * from './events/basePublisher';
+
 // Interface
 export * from './types/product.types';
 export * from './types/routingKey.types';
