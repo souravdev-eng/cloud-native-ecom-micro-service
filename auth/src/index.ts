@@ -25,7 +25,7 @@ const start = async () => {
   startQueues();
 
   app.listen(3000, () => {
-    logger.info('Auth service running on PORT 3000....');
+    logger.info('Auth service running on PORT 3000');
   });
 };
 
