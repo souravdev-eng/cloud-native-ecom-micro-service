@@ -49,7 +49,6 @@ const productSchema = new mongoose.Schema(
     },
     category: {
       type: String,
-      // enum: Category,
       default: Category.other,
     },
     description: {
@@ -91,19 +90,28 @@ const productSchema = new mongoose.Schema(
 
 // Text index for search
 productSchema.index(
-  { title: 'text', tags: 'text' },
+  { title: 'text' },
   {
-    name: 'TextSearch_title_tags',
-    weights: { title: 10, tags: 2 },
+    name: 'TextSearch_title',
+    weights: { title: 10 },
   }
 );
 
-// Filter/sort indexes
-productSchema.index({ category: 1, price: -1 });
-productSchema.index({ sellerId: 1, category: 1 });
+productSchema.index(
+  {
+    category: 1,
+    price: -1,
+    quantity: 1,
+  },
+  { name: 'category_1_price_-1_quantity1' }
+);
 
-// Optional: only index in-stock items for faster “available” queries
-productSchema.index({ quantity: 1 }, { partialFilterExpression: { quantity: { $gt: 0 } } });
+// Filter/sort indexes
+// productSchema.index({ category: 1, price: -1 });
+// productSchema.index({ sellerId: 1, category: 1 });
+
+// // Optional: only index in-stock items for faster “available” queries
+// productSchema.index({ quantity: 1 }, { partialFilterExpression: { quantity: { $gt: 0 } } });
 
 productSchema.statics.build = (attars: ProductAttars) => {
   return new Product(attars);

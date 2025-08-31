@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 import app from './app';
 import { connectRedis } from './redisClient';
 import { rabbitMQWrapper } from './rabbitMQWrapper';
+import { ProductQuantityUpdateListener } from './queues/listeners/productQuantityUpdate';
 
 const startRedisServer = async () => {
   try {
@@ -49,6 +50,7 @@ const start = async () => {
       });
 
     await rabbitMQWrapper.connect(process.env.RABBITMQ_ENDPOINT!);
+    await new ProductQuantityUpdateListener(rabbitMQWrapper.channel).listen();
 
     startRedisServer();
 

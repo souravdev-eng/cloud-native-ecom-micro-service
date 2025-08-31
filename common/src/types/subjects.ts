@@ -6,6 +6,10 @@ export enum Subjects {
   ProductUpdated = 'product-updated',
   ProductDeleted = 'product-deleted',
 
+  CartCreated = 'cart-created',
+  CartUpdated = 'cart-updated',
+  CartDeleted = 'cart-deleted',
+
   OrderCreated = 'order-created',
   OrderUpdated = 'order-updated',
   OrderCanceled = 'order-cancelled',

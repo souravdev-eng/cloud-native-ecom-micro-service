@@ -6,8 +6,13 @@ export enum RoutingKeyTypes {
   SellerUpdated = 'seller-updated',
 
   ProductCreated = 'product-created',
+  ProductQuantityUpdated = 'product-quantity-updated',
   ProductUpdated = 'product-updated',
   ProductDeleted = 'product-deleted',
+
+  CartCreated = 'cart-created',
+  CartUpdated = 'cart-updated',
+  CartDeleted = 'cart-deleted',
 
   OrderCreated = 'order-created',
   OrderUpdated = 'order-updated',

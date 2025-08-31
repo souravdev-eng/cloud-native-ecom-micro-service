@@ -18,8 +18,20 @@ export * from './queues/connection';
 export * from './queues/baseListener';
 export * from './queues/basePublisher';
 
+// Message Types
+export * from './types/product.types';
+export * from './types/cart.types';
+
 // Logger
 export * from './logger/logger';
+
+// Events
+
+export * from './events/cartCreatedEvent';
+export * from './events/cartUpdatedEvent';
+export * from './events/cartDeletedEvent';
+export * from './events/baseListener';
+export * from './events/basePublisher';
 
 // Interface
 export * from './types/product.types';

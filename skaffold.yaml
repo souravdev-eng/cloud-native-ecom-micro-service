@@ -71,13 +71,13 @@ build:
       docker:
         dockerfile: Dockerfile
 
-    # - image: souravdeveloper/ecom-order
-    #   context: order
-    #   sync:
-    #     manual:
-    #       - src: src/**/*.ts
-    #         dest: .
-    #   docker:
-    #     dockerfile: Dockerfile
+    - image: souravdeveloper/ecom-order
+      context: order
+      sync:
+        manual:
+          - src: src/**/*.ts
+            dest: .
+      docker:
+        dockerfile: Dockerfile
   local:
     push: false
