@@ -4,6 +4,7 @@ export declare enum RoutingKeyTypes {
     SellerCreated = "seller-created",
     SellerUpdated = "seller-updated",
     ProductCreated = "product-created",
+    ProductQuantityUpdated = "product-quantity-updated",
     ProductUpdated = "product-updated",
     ProductDeleted = "product-deleted",
     CartCreated = "cart-created",

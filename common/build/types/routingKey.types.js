@@ -8,6 +8,7 @@ var RoutingKeyTypes;
     RoutingKeyTypes["SellerCreated"] = "seller-created";
     RoutingKeyTypes["SellerUpdated"] = "seller-updated";
     RoutingKeyTypes["ProductCreated"] = "product-created";
+    RoutingKeyTypes["ProductQuantityUpdated"] = "product-quantity-updated";
     RoutingKeyTypes["ProductUpdated"] = "product-updated";
     RoutingKeyTypes["ProductDeleted"] = "product-deleted";
     RoutingKeyTypes["CartCreated"] = "cart-created";

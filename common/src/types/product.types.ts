@@ -34,3 +34,13 @@ export interface ProductDeletedMessage {
     id: string;
   };
 }
+
+export interface ProductQuantityUpdatedMessage {
+  exchangeName: ExchangeTypes.ProductService;
+  routingKey: RoutingKeyTypes.ProductQuantityUpdated;
+  data: {
+    id: string;
+    quantity: number;
+    sellerId: string;
+  };
+}
