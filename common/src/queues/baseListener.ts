@@ -21,19 +21,25 @@ export abstract class BaseListener<T extends Event> {
     await this.channel.assertExchange(this.exchangeName, 'direct', {
       durable: true,
     });
-
     const consumeQueue = await this.channel.assertQueue(this.routingKey, {
       durable: true,
     });
+    this.channel.prefetch(1);
+
     await this.channel.bindQueue(consumeQueue.queue, this.exchangeName, this.routingKey);
 
-    this.channel.consume(consumeQueue.queue, async (msg: ConsumeMessage | null) => {
-      console.log(`Message received: ${this.exchangeName} / ${this.routingKey}`);
-
-      if (msg) {
-        const parsedData = JSON.parse(msg!.content.toString());
-        this.onMessage(parsedData, this.channel, msg);
+    this.channel.consume(
+      consumeQueue.queue,
+      async (msg: ConsumeMessage | null) => {
+        console.log(`Message received: ${this.exchangeName} / ${this.routingKey}`);
+        if (msg) {
+          const parsedData = JSON.parse(msg!.content.toString());
+          this.onMessage(parsedData, this.channel, msg);
+        }
+      },
+      {
+        noAck: false,
       }
-    });
+    );
   }
 }

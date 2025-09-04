@@ -1,0 +1,38 @@
+{
+    "name": "rabbitmq-learning",
+    "version": "1.0.0",
+    "description": "RabbitMQ learning sandbox with examples",
+    "main": "index.js",
+    "scripts": {
+        "start:rabbitmq": "docker-compose up -d",
+        "stop:rabbitmq": "docker-compose down",
+        "logs": "docker-compose logs -f rabbitmq",
+        "monitor": "node monitor.js",
+        "publisher": "node 01-basic/publisher.js",
+        "consumer": "node 01-basic/consumer.js",
+        "work-queue:sender": "node 02-work-queues/sender.js",
+        "work-queue:worker": "node 02-work-queues/worker.js",
+        "pubsub:publisher": "node 03-publish-subscribe/publisher.js",
+        "pubsub:subscriber": "node 03-publish-subscribe/subscriber.js",
+        "routing:sender": "node 04-routing/sender.js",
+        "routing:receiver": "node 04-routing/receiver.js",
+        "topic:sender": "node 05-topics/sender.js",
+        "topic:receiver": "node 05-topics/receiver.js",
+        "rpc:client": "node 06-rpc/client.js",
+        "rpc:server": "node 06-rpc/server.js"
+    },
+    "keywords": [
+        "rabbitmq",
+        "message-queue",
+        "learning"
+    ],
+    "author": "",
+    "license": "ISC",
+    "dependencies": {
+        "amqplib": "^0.10.3",
+        "dotenv": "^16.3.1"
+    },
+    "devDependencies": {
+        "nodemon": "^3.0.2"
+    }
+}

@@ -16,8 +16,12 @@ class BasePublisher {
     }
     publish(data) {
         return __awaiter(this, void 0, void 0, function* () {
-            yield this.channel.assertExchange(this.exchangeName, 'direct');
-            this.channel.publish(this.exchangeName, this.routingKey, Buffer.from(JSON.stringify(data)));
+            yield this.channel.assertExchange(this.exchangeName, 'direct', {
+                durable: true,
+            });
+            this.channel.publish(this.exchangeName, this.routingKey, Buffer.from(JSON.stringify(data)), {
+                persistent: true,
+            });
             console.log(`Message published Exchange:${this.exchangeName} / RoutingKey: ${this.routingKey}`);
         });
     }

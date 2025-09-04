@@ -22,6 +22,7 @@ class BaseListener {
             const consumeQueue = yield this.channel.assertQueue(this.routingKey, {
                 durable: true,
             });
+            this.channel.prefetch(1);
             yield this.channel.bindQueue(consumeQueue.queue, this.exchangeName, this.routingKey);
             this.channel.consume(consumeQueue.queue, (msg) => __awaiter(this, void 0, void 0, function* () {
                 console.log(`Message received: ${this.exchangeName} / ${this.routingKey}`);
@@ -29,7 +30,9 @@ class BaseListener {
                     const parsedData = JSON.parse(msg.content.toString());
                     this.onMessage(parsedData, this.channel, msg);
                 }
-            }));
+            }), {
+                noAck: false,
+            });
         });
     }
 }

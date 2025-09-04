@@ -17,8 +17,12 @@ export abstract class BasePublisher<T extends Event> {
   }
 
   async publish(data: T['data']) {
-    await this.channel.assertExchange(this.exchangeName, 'direct');
-    this.channel.publish(this.exchangeName, this.routingKey, Buffer.from(JSON.stringify(data)));
+    await this.channel.assertExchange(this.exchangeName, 'direct', {
+      durable: true,
+    });
+    this.channel.publish(this.exchangeName, this.routingKey, Buffer.from(JSON.stringify(data)), {
+      persistent: true,
+    });
     console.log(`Message published Exchange:${this.exchangeName} / RoutingKey: ${this.routingKey}`);
   }
 }
