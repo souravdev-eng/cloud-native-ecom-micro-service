@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@ecom-micro/common':
-        specifier: ^2.0.47
-        version: 2.0.47
+        specifier: ^2.0.48
+        version: 2.0.48
       '@types/amqplib':
         specifier: ^0.10.5
         version: 0.10.7
@@ -390,8 +390,8 @@ packages:
   '@dabh/diagnostics@2.0.3':
     resolution: {integrity: sha512-hrlQOIi7hAfzsMqlGSFyVucrx38O+j6wiGOf//H2ecvIEqYN4ADBSS2iLMh5UFyDunCNniUIPk/q3riFv45xRA==}
 
-  '@ecom-micro/common@2.0.47':
-    resolution: {integrity: sha512-O/GB8tpbjTDoPc3Dt6GzXhJOcKXxiwFMFi0bB2ituT6gtmVPRFWCJMSWE9xqyT8VKNVFBPOXUmaR7ErYIu8uCA==}
+  '@ecom-micro/common@2.0.48':
+    resolution: {integrity: sha512-kI0rXt76uxIxF00cLKLWjCulXdS40ABlXaOQ4UhPRQTnSoN2JNe5FNhjeCnSjp+hEcNsUHu3Jm8g2pgjcgUvjw==}
 
   '@elastic/ecs-helpers@2.1.1':
     resolution: {integrity: sha512-ItoNazMnYdlUCmkBYTXc3SG6PF7UlVTbvMdHPvXkfTMPdwGv2G1Xtp5CjDHaGHGOZSwaDrW4RSCXvA/lMSU+rg==}
@@ -3600,7 +3600,7 @@ snapshots:
       enabled: 2.0.0
       kuler: 2.0.0
 
-  '@ecom-micro/common@2.0.47':
+  '@ecom-micro/common@2.0.48':
     dependencies:
       '@types/amqplib': 0.10.7
       '@types/cookie-session': 2.0.49

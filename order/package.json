@@ -10,7 +10,7 @@
     "d-pub": "npm run d-build && npm run d-push"
   },
   "dependencies": {
-    "@ecom-micro/common": "^2.0.47",
+    "@ecom-micro/common": "^2.0.48",
     "@types/amqplib": "^0.10.5",
     "@types/cookie-session": "^2.0.44",
     "@types/cors": "^2.8.12",
