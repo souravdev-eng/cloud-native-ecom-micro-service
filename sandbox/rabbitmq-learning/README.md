@@ -17,7 +17,9 @@ cd sandbox/rabbitmq-learning
 npm install
 ```
 
-### 2. Start RabbitMQ
+### 2. Start Services
+
+**Start All Services** (RabbitMQ + Redis):
 
 ```bash
 npm run start:rabbitmq
@@ -25,12 +27,11 @@ npm run start:rabbitmq
 docker-compose up -d
 ```
 
-RabbitMQ will be available at:
+**Services Available**:
 
-- **AMQP Port**: `localhost:5672`
-- **Management UI**: `http://localhost:15672`
-- **Username**: `admin`
-- **Password**: `admin123`
+- **RabbitMQ AMQP**: `localhost:5672`
+- **RabbitMQ Management UI**: `http://localhost:15672` (admin/admin123)
+- **Redis**: `localhost:6379`
 
 ### 3. View RabbitMQ Logs
 
@@ -40,7 +41,7 @@ npm run logs
 docker-compose logs -f rabbitmq
 ```
 
-### 4. Stop RabbitMQ
+### 4. Stop Services
 
 ```bash
 npm run stop:rabbitmq
@@ -254,6 +255,81 @@ node 06-rpc/client.js
 - Reply queues
 - Timeout handling
 
+---
+
+### 7. Dead Letter Exchange (DLX) ☠️
+
+Advanced error handling with automatic retry logic and poison message management.
+
+**Location**: `07-dead-letter-exchange/`
+
+**Run Publisher**:
+
+```bash
+npm run dlx:publisher
+# or
+node 07-dead-letter-exchange/publisher.js
+```
+
+**Run Consumer** (in another terminal):
+
+```bash
+npm run dlx:consumer
+# or
+node 07-dead-letter-exchange/consumer.js
+```
+
+**Message Flow**:
+
+1. Messages published to main exchange
+2. Failed messages automatically sent to Dead Letter Exchange
+3. After TTL expires, messages retry from DLX
+4. After max retries, poison messages stay in DLX for manual review
+
+**Key Concepts**:
+
+- Dead Letter Exchange configuration
+- Automatic retry with exponential backoff
+- Poison message handling
+- TTL (Time To Live) for retry delays
+- Max retry limits
+- Manual intervention for persistent failures
+
+---
+
+### 8. Idempotency (Message Deduplication) 🔄
+
+Ensures messages are processed exactly once using Redis-based deduplication.
+
+**Location**: `08-idempotency/`
+
+**Prerequisites**: Both RabbitMQ and Redis must be running (use `npm run start:rabbitmq`)
+
+**Run Publisher**:
+
+```bash
+npm run idempotency:publisher
+# or
+node 08-idempotency/publisher.js
+```
+
+**Run Consumer** (in another terminal):
+
+```bash
+npm run idempotency:consumer
+# or
+node 08-idempotency/consumer.js
+```
+
+**Key Concepts**:
+
+- Idempotency keys for message deduplication
+- Redis-based duplicate detection
+- Processing locks to prevent race conditions
+- Exactly-once processing guarantees
+- Handling duplicate messages gracefully
+- TTL for idempotency key cleanup
+
 ## 🏗️ Architecture Patterns
 
 ### Message Patterns Comparison
@@ -266,6 +342,8 @@ node 06-rpc/client.js
 | **Routing**      | Direct        | Selective routing        | Log levels               |
 | **Topics**       | Topic         | Pattern-based routing    | Multi-criteria filtering |
 | **RPC**          | Default       | Request/Reply            | Remote services          |
+| **DLX**          | Direct        | Error handling & retry   | Failed message recovery  |
+| **Idempotency**  | Direct        | Duplicate prevention     | Payment processing       |
 
 ## 🔍 Monitoring
 

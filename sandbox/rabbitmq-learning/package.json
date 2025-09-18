@@ -4,7 +4,7 @@
     "description": "RabbitMQ learning sandbox with examples",
     "main": "index.js",
     "scripts": {
-        "start:rabbitmq": "docker-compose up -d",
+        "start:rabbitmq": "docker-compose up",
         "stop:rabbitmq": "docker-compose down",
         "logs": "docker-compose logs -f rabbitmq",
         "monitor": "node monitor.js",
@@ -19,7 +19,11 @@
         "topic:sender": "node 05-topics/sender.js",
         "topic:receiver": "node 05-topics/receiver.js",
         "rpc:client": "node 06-rpc/client.js",
-        "rpc:server": "node 06-rpc/server.js"
+        "rpc:server": "node 06-rpc/server.js",
+        "dlx:publisher": "node 07-dead-letter-exchange/publisher.js",
+        "dlx:consumer": "node 07-dead-letter-exchange/consumer.js",
+        "idempotency:publisher": "node 08-idempotency/publisher.js",
+        "idempotency:consumer": "node 08-idempotency/consumer.js"
     },
     "keywords": [
         "rabbitmq",
@@ -30,7 +34,9 @@
     "license": "ISC",
     "dependencies": {
         "amqplib": "^0.10.3",
-        "dotenv": "^16.3.1"
+        "dotenv": "^16.3.1",
+        "redis": "^4.6.8",
+        "uuid": "^9.0.1"
     },
     "devDependencies": {
         "nodemon": "^3.0.2"

@@ -19,7 +19,6 @@ export class QueueConnection {
     } catch (error) {
       console.log('RabbitMQ server error createConnection() method:', error);
       process.exit(1);
-      return undefined;
     }
   }
 
