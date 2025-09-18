@@ -8,4 +8,5 @@ others
 .env
 config.MD
 @mf-types/
-build/ 
+build/
+.DS_Store 

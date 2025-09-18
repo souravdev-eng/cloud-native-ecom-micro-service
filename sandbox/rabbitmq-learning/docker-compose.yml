@@ -14,17 +14,37 @@ services:
       - rabbitmq_data:/var/lib/rabbitmq
       - rabbitmq_log:/var/log/rabbitmq
     networks:
-      - rabbitmq-network
+      - rabbitmq-learning-network
     healthcheck:
       test: ['CMD', 'rabbitmq-diagnostics', 'ping']
       interval: 10s
       timeout: 5s
       retries: 5
 
+  redis:
+    image: redis:7-alpine
+    container_name: rabbitmq-learning-redis
+    ports:
+      - '6379:6379'
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    environment:
+      - REDIS_PASSWORD=
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+    networks:
+      - rabbitmq-learning-network
+
 networks:
-  rabbitmq-network:
+  rabbitmq-learning-network:
     driver: bridge
 
 volumes:
   rabbitmq_data:
   rabbitmq_log:
+  redis_data:
