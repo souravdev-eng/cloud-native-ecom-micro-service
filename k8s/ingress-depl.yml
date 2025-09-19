@@ -4,10 +4,11 @@ metadata:
   name: ingress-service
   annotations:
     nginx.ingress.kubernetes.io/use-regex: 'true'
+    nginx.ingress.kubernetes.io/ssl-redirect: 'false'
 spec:
   ingressClassName: nginx
   rules:
-    - host: ecom.dev
+    - host: ecom.local
       http:
         paths:
           - path: /api/users/?(.*)
@@ -49,20 +50,50 @@ spec:
             pathType: ImplementationSpecific
             backend:
               service:
-                name: user-client-srv
+                name: mfe-host-srv
                 port:
                   number: 3000
-    - host: admin.ecom.dev
+    - host: admin.ecom.local
       http:
         paths:
           - path: /?(.*)
             pathType: ImplementationSpecific
             backend:
               service:
-                name: admin-client-srv
+                name: mfe-host-srv
                 port:
                   number: 3000
-    - host: kibana.ecom.dev
+    - host: mfe-user.ecom.local
+      http:
+        paths:
+          - path: /?(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: mfe-user-srv
+                port:
+                  number: 3001
+    - host: mfe-dashboard.ecom.local
+      http:
+        paths:
+          - path: /?(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: mfe-dashboard-srv
+                port:
+                  number: 3002
+    - host: mfe-shared.ecom.local
+      http:
+        paths:
+          - path: /?(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: mfe-shared-srv
+                port:
+                  number: 3003
+    - host: kibana.ecom.local
       http:
         paths:
           - path: /?(.*)

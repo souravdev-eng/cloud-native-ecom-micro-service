@@ -27,7 +27,7 @@ export default defineConfig({
   },
   output: {
     uniqueName: 'shared',
-    publicPath: 'http://localhost:3003/',
+    publicPath: isDev ? 'http://localhost:3003/' : 'http://mfe-shared.ecom.local/',
   },
 
   experiments: {

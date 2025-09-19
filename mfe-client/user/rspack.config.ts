@@ -4,9 +4,12 @@ import { rspack } from '@rspack/core';
 import * as RefreshPlugin from '@rspack/plugin-react-refresh';
 import { ModuleFederationPlugin } from '@module-federation/enhanced/rspack';
 
-import { mfConfig } from './module-federation.config';
-
 const isDev = process.env.NODE_ENV === 'development';
+
+// Import the appropriate module federation config
+const mfConfig = isDev
+  ? require('./module-federation.config').mfConfig
+  : require('./module-federation.config.prod').mfConfig;
 
 // Target browsers, see: https://github.com/browserslist/browserslist
 const targets = ['chrome >= 87', 'edge >= 88', 'firefox >= 78', 'safari >= 14'];
@@ -27,7 +30,7 @@ export default defineConfig({
   },
   output: {
     uniqueName: 'user',
-    publicPath: 'http://localhost:3001/',
+    publicPath: isDev ? 'http://localhost:3001/' : 'http://mfe-user.ecom.local/',
   },
 
   experiments: {
