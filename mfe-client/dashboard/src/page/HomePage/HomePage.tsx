@@ -8,13 +8,23 @@ const HomePage = () => {
 	const navigate = useNavigate();
 
 	return (
-		<div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-			{Array.from({ length: 10 }).map((_, index) => (
-				<ProductCard
-					key={index}
-					onClick={() => navigate(`/product/${index}`)}
-				/>
-			))}
+		<div style={{
+			display: 'flex', flexDirection: 'column', alignItems: 'center',
+			width: '100%'
+		}}>
+			<h3>FEATURED PRODUCTS</h3>
+			<div style={{
+				display: 'flex', gap: 20, flexWrap: 'wrap',
+				justifyContent: 'center', alignItems: 'center',
+				marginTop: 20
+			}}>
+				{Array.from({ length: 4 }).map((_, index) => (
+					<ProductCard
+						key={index}
+						onClick={() => navigate(`/product/${index}`)}
+					/>
+				))}
+			</div>
 		</div>
 	);
 };
