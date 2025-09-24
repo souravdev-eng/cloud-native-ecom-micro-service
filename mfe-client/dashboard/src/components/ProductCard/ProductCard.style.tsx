@@ -1,18 +1,63 @@
-import { styled } from '@mui/material';
+import { styled, Typography } from '@mui/material';
 
 export const Container = styled('div')({
-  display: 'flex',
-  border: '1px solid black',
-  width: 300,
-  flexDirection: 'column',
-  padding: 8,
-  justifyContent: 'center',
-  alignItems: 'center',
-  cursor: 'pointer',
+	display: 'flex',
+	// border: '1px solid black',
+	width: 300,
+	flexDirection: 'column',
+	paddingBottom: 8,
+	justifyContent: 'center',
+	alignItems: 'center',
+	cursor: 'pointer',
+	':hover': {
+		backgroundColor: '#ffff',
+		boxShadow: 'rgba(149, 157, 165, 0.2) 0px 8px 24px',
+		// box-shadow: ;
+		borderRadius: 6,
+	},
 });
 
 export const ProductImage = styled(`img`)({
-  width: '100%',
-  aspectRatio: 1 / 0.9,
-  objectFit: 'cover',
+	width: '100%',
+	aspectRatio: 1 / 0.9,
+	objectFit: 'cover',
+});
+
+export const Button = styled('div')({
+	cursor: 'pointer',
+	backgroundColor: '#f1f3f5',
+	color: '#868e96',
+	padding: '10px 16px',
+	marginTop: 12,
+	textAlign: 'center',
+	fontSize: 12,
+	textTransform: 'uppercase',
+	':hover': {
+		backgroundColor: '#212529',
+		color: '#fff',
+	},
+});
+
+export const ProductTag = styled(Typography)({
+	fontSize: '0.6rem',
+	fontWeight: 400,
+	color: '#868e96',
+	textAlign: 'center',
+
+	':hover': {
+		color: '#228be6',
+	},
+});
+export const ProductTitle = styled(Typography)({
+	fontSize: 18,
+	fontWeight: 400,
+	color: '#343a40',
+});
+
+export const ProductPrice = styled(Typography)({
+	fontSize: 18,
+	fontWeight: 600,
+	color: '#343a40',
+	textAlign: 'center',
+	marginTop: 6,
 });

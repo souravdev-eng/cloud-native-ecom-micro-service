@@ -12,18 +12,11 @@ const ProductCard = ({ onClick }: { onClick: () => void }) => {
 				/>
 			</div>
 			<div>
-				<h3>Brown Women Casual HandBag</h3>
-				<span>$209.00</span>
+				<Styled.ProductTag>CAMERA, BEST SELLING</Styled.ProductTag>
+				<Styled.ProductTitle>Brown Women Casual HandBag</Styled.ProductTitle>
+				<Styled.ProductPrice>$209.00</Styled.ProductPrice>
 			</div>
-			<div style={{
-				cursor: 'pointer',
-				backgroundColor: '#212529',
-				color: '#fff', padding: 10,
-				borderRadius: 6,
-				width: 120,
-				marginTop: 12,
-				textAlign: 'center'
-			}}>Add To Cart</div>
+			<Styled.Button>Add To Cart</Styled.Button>
 		</Styled.Container>
 	);
 };

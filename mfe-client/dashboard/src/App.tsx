@@ -16,7 +16,6 @@ const App = () => (
 				element={
 					<>
 						<HomePage />
-						<HomePage />
 					</>
 				}
 			/>
