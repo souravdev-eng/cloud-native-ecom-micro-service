@@ -1,0 +1,29 @@
+# Product Service Development Compose
+services:
+  product-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    container_name: ecom-product-dev
+    restart: unless-stopped
+    ports:
+      - '3002:3000'
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      MONGO_URI: mongodb://admin:password123@ecom-mongo-dev:27017/product_service?authSource=admin
+      REDIS_URL: redis://:password123@ecom-redis-dev:6379
+      RABBITMQ_URL: amqp://admin:password123@ecom-rabbitmq-dev:5672
+      JWT_KEY: your-jwt-secret-key
+    volumes:
+      - ./src:/app/src
+      - ./package.json:/app/package.json
+      - /app/node_modules
+    command: npm run dev
+    networks:
+      - cloud-native-ecom-micro-service_ecom-network
+
+networks:
+  cloud-native-ecom-micro-service_ecom-network:
+    external: true

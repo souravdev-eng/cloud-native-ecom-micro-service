@@ -1,0 +1,93 @@
+# Development Docker Compose - Infrastructure Services Only
+# Use this for running shared infrastructure when developing individual services
+version: '3.8'
+
+services:
+  # MongoDB for Auth and Product services
+  mongo:
+    image: mongo:7.0
+    container_name: ecom-mongo-dev
+    restart: unless-stopped
+    ports:
+      - '27017:27017'
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: password123
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - ecom-network
+
+  # PostgreSQL for Cart and Order services
+  postgres:
+    image: postgres:15
+    container_name: ecom-postgres-dev
+    restart: unless-stopped
+    ports:
+      - '5432:5432'
+    environment:
+      POSTGRES_DB: ecom_dev
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password123
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-multiple-databases.sh:/docker-entrypoint-initdb.d/init-multiple-databases.sh
+    networks:
+      - ecom-network
+
+  # Redis for caching and sessions
+  redis:
+    image: redis:7.2-alpine
+    container_name: ecom-redis-dev
+    restart: unless-stopped
+    ports:
+      - '6379:6379'
+    command: redis-server --appendonly yes --requirepass password123
+    volumes:
+      - redis_data:/data
+    networks:
+      - ecom-network
+
+  # RabbitMQ for event messaging
+  rabbitmq:
+    image: rabbitmq:3.12-management
+    container_name: ecom-rabbitmq-dev
+    restart: unless-stopped
+    ports:
+      - '5672:5672' # AMQP port
+      - '15672:15672' # Management UI
+    environment:
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: password123
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - ecom-network
+
+  # Elasticsearch for logging (optional)
+  elasticsearch:
+    image: elasticsearch:8.11.0
+    container_name: ecom-elasticsearch-dev
+    restart: unless-stopped
+    ports:
+      - '9200:9200'
+      - '9300:9300'
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - 'ES_JAVA_OPTS=-Xms512m -Xmx512m'
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    networks:
+      - ecom-network
+
+volumes:
+  mongo_data:
+  postgres_data:
+  redis_data:
+  rabbitmq_data:
+  elasticsearch_data:
+
+networks:
+  ecom-network:
+    driver: bridge
