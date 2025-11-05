@@ -27,12 +27,9 @@ router.put(
         if (!isPasswordMatch) {
             return next(new BadRequestError('Oops! Password not matched!'));
         }
-        console.log({ password, newPassword });
-        console.log('OLD--->', user.password);
-        user.password = await bcrypt.hash(newPassword, 12);
-        console.log('NEW--->', user);
-        // await user.save();
 
+        user.password = await bcrypt.hash(newPassword, 12);
+        await user.save();
         return res
             .status(200)
             .json({ message: 'Password updated successfully!' });

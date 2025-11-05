@@ -4,6 +4,7 @@ metadata:
   name: ingress-service
   annotations:
     nginx.ingress.kubernetes.io/use-regex: 'true'
+    nginx.ingress.kubernetes.io/ssl-redirect: 'false'
 spec:
   ingressClassName: nginx
   rules:
@@ -49,20 +50,20 @@ spec:
             pathType: ImplementationSpecific
             backend:
               service:
-                name: user-client-srv
+                name: client-srv
                 port:
                   number: 3000
-    - host: admin.ecom.dev
+    - host: admin.ecom.local
       http:
         paths:
           - path: /?(.*)
             pathType: ImplementationSpecific
             backend:
               service:
-                name: admin-client-srv
+                name: mfe-host-srv
                 port:
                   number: 3000
-    - host: kibana.ecom.dev
+    - host: kibana.ecom.local
       http:
         paths:
           - path: /?(.*)

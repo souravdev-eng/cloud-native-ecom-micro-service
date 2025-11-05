@@ -16,7 +16,16 @@ const app = express();
 // middleware
 app.set('trust proxy', true);
 app.use(express.json());
-app.use(cors());
+app.use(cors({
+  origin: [
+    'http://ecom.dev',
+    'http://localhost:3001', // MFE user service
+    'http://localhost:3000', // MFE host service  
+    'http://localhost:3002', // MFE dashboard service
+    'http://localhost:3003', // MFE shared service
+  ],
+  credentials: true,
+}));
 app.use(
   cookieSession({
     signed: false,

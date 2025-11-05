@@ -1,12 +1,19 @@
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
+import { getAuthUrl } from '../../../../shared/src/config/apiConfig';
 
 import * as Styled from './SignInPage.style';
 
 const SignupPage = () => {
 	const navigate = useNavigate();
 
-	const handleSignIn = () => {
-		navigate('/');
+	const handleSignIn = async () => {
+		const response = await axios.post(getAuthUrl('/login'), {
+			"email": "souravmajumdar.developer@gmail.com",
+			"password": "123456"
+		});
+		console.log(response);
+		// navigate('/');
 	};
 
 	return (
