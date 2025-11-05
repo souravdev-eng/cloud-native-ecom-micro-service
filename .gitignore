@@ -9,4 +9,4 @@ others
 config.MD
 @mf-types/
 build/
-.DS_Store 
+.DS_Store

@@ -8,7 +8,7 @@ metadata:
 spec:
   ingressClassName: nginx
   rules:
-    - host: ecom.local
+    - host: ecom.dev
       http:
         paths:
           - path: /api/users/?(.*)
@@ -50,7 +50,7 @@ spec:
             pathType: ImplementationSpecific
             backend:
               service:
-                name: mfe-host-srv
+                name: client-srv
                 port:
                   number: 3000
     - host: admin.ecom.local
@@ -63,36 +63,6 @@ spec:
                 name: mfe-host-srv
                 port:
                   number: 3000
-    - host: mfe-user.ecom.local
-      http:
-        paths:
-          - path: /?(.*)
-            pathType: ImplementationSpecific
-            backend:
-              service:
-                name: mfe-user-srv
-                port:
-                  number: 3001
-    - host: mfe-dashboard.ecom.local
-      http:
-        paths:
-          - path: /?(.*)
-            pathType: ImplementationSpecific
-            backend:
-              service:
-                name: mfe-dashboard-srv
-                port:
-                  number: 3002
-    - host: mfe-shared.ecom.local
-      http:
-        paths:
-          - path: /?(.*)
-            pathType: ImplementationSpecific
-            backend:
-              service:
-                name: mfe-shared-srv
-                port:
-                  number: 3003
     - host: kibana.ecom.local
       http:
         paths:

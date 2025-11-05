@@ -19,21 +19,21 @@ services:
       - ecom-network
 
   # PostgreSQL for Cart and Order services
-  postgres:
-    image: postgres:15
-    container_name: ecom-postgres-dev
-    restart: unless-stopped
-    ports:
-      - '5432:5432'
-    environment:
-      POSTGRES_DB: ecom_dev
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password123
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./scripts/init-multiple-databases.sh:/docker-entrypoint-initdb.d/init-multiple-databases.sh
-    networks:
-      - ecom-network
+  # postgres:
+  #   image: postgres:15
+  #   container_name: ecom-postgres-dev
+  #   restart: unless-stopped
+  #   ports:
+  #     - '5432:5432'
+  #   environment:
+  #     POSTGRES_DB: ecom_dev
+  #     POSTGRES_USER: postgres
+  #     POSTGRES_PASSWORD: password123
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+  #     - ./scripts/init-multiple-databases.sh:/docker-entrypoint-initdb.d/init-multiple-databases.sh
+  #   networks:
+  #     - ecom-network
 
   # Redis for caching and sessions
   redis:
@@ -65,28 +65,28 @@ services:
       - ecom-network
 
   # Elasticsearch for logging (optional)
-  elasticsearch:
-    image: elasticsearch:8.11.0
-    container_name: ecom-elasticsearch-dev
-    restart: unless-stopped
-    ports:
-      - '9200:9200'
-      - '9300:9300'
-    environment:
-      - discovery.type=single-node
-      - xpack.security.enabled=false
-      - 'ES_JAVA_OPTS=-Xms512m -Xmx512m'
-    volumes:
-      - elasticsearch_data:/usr/share/elasticsearch/data
-    networks:
-      - ecom-network
+  # elasticsearch:
+  #   image: elasticsearch:8.11.0
+  #   container_name: ecom-elasticsearch-dev
+  #   restart: unless-stopped
+  #   ports:
+  #     - '9200:9200'
+  #     - '9300:9300'
+  #   environment:
+  #     - discovery.type=single-node
+  #     - xpack.security.enabled=false
+  #     - 'ES_JAVA_OPTS=-Xms512m -Xmx512m'
+  #   volumes:
+  #     - elasticsearch_data:/usr/share/elasticsearch/data
+  #   networks:
+  #     - ecom-network
 
 volumes:
   mongo_data:
-  postgres_data:
+  # postgres_data:
   redis_data:
   rabbitmq_data:
-  elasticsearch_data:
+  # elasticsearch_data:
 
 networks:
   ecom-network:
