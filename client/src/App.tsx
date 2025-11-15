@@ -1,10 +1,10 @@
-import './App.css';
+import SignUp from './pages/SignUp/SignUp';
 
 const App = () => {
   return (
-    <div className="content">
-      <h1>This is the client application</h1>
-    </div>
+    <>
+      <SignUp />
+    </>
   );
 };
 
