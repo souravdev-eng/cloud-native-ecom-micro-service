@@ -3,36 +3,34 @@ import { useNavigate } from 'react-router-dom';
 import { authApi } from '../../api/baseUrl';
 import { useAuth } from '../../hooks/useAuth';
 
-export const useSignUp = () => {
+export const useLogin = () => {
   const navigate = useNavigate();
   const { checkAuth } = useAuth();
   const [formData, setFormData] = useState({
-    name: '',
     email: '',
     password: '',
-    passwordConform: '',
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const handleSignUp = async () => {
+  const handleLogin = async () => {
     setLoading(true);
     setError('');
     try {
-      const response = await authApi.post('/signup', formData);
-      if (response.status === 201) {
+      const response = await authApi.post('/login', formData);
+      if (response.status === 200) {
         // Refresh auth state to check if user is authenticated
         await checkAuth();
         navigate('/');
       }
     } catch (error: any) {
       setLoading(false);
-      if (error.response?.data?.message) {
+      if (error.response?.data?.errors?.length > 0) {
+        setError(error.response.data.errors.map((error: any) => error.message).join(', '));
+      } else if (error.response?.data?.message) {
         setError(error.response.data.message);
-      } else if (error.message) {
-        setError(error.message);
       } else {
-        setError('Something went wrong. Please try again.');
+        setError('Invalid email or password. Please try again.');
       }
     }
   };
@@ -41,5 +39,5 @@ export const useSignUp = () => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  return { formData, loading, error, handleFieldChange, handleSignUp };
+  return { formData, loading, error, handleFieldChange, handleLogin };
 };

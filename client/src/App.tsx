@@ -1,10 +1,12 @@
-import SignUp from './pages/SignUp/SignUp';
+import { RouterProvider } from 'react-router-dom';
+import { AuthProvider } from './hooks/useAuth';
+import rootRouter from './routers/RootRouter';
 
 const App = () => {
   return (
-    <>
-      <SignUp />
-    </>
+    <AuthProvider>
+      <RouterProvider router={rootRouter} />
+    </AuthProvider>
   );
 };
 
