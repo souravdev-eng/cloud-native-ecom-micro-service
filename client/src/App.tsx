@@ -1,10 +1,12 @@
-import './App.css';
+import { RouterProvider } from 'react-router-dom';
+import { AuthProvider } from './hooks/useAuth';
+import rootRouter from './routers/RootRouter';
 
 const App = () => {
   return (
-    <div className="content">
-      <h1>This is the client application</h1>
-    </div>
+    <AuthProvider>
+      <RouterProvider router={rootRouter} />
+    </AuthProvider>
   );
 };
 
