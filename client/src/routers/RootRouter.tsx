@@ -1,25 +1,29 @@
 import { createBrowserRouter } from 'react-router-dom';
 import AuthRouter from './AuthRouter';
 import ProtectedRoute from './ProtectedRoute';
+import Layout from './Layout';
 import SignUp from '../pages/SignUp/SignUp';
 import Login from '../pages/Login/Login';
+import HomePage from '../pages/Home/Home';
 
 const rootRouter = createBrowserRouter([
   {
     path: '/',
     element: (
       <ProtectedRoute>
-        <div>Hello World</div>
+        <Layout />
       </ProtectedRoute>
     ),
-  },
-  {
-    path: '/product',
-    element: (
-      <ProtectedRoute>
-        <div>Product</div>
-      </ProtectedRoute>
-    ),
+    children: [
+      {
+        index: true,
+        element: <HomePage />,
+      },
+      {
+        path: 'product',
+        element: <div>Product</div>,
+      },
+    ],
   },
   {
     path: '/auth',
