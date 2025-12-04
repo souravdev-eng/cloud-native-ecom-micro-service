@@ -1,17 +1,29 @@
 import { Box } from "@mui/material"
-import ProductCard from "../../molecules/ProductCard/ProductCard"
+import { useEffect, useState } from "react"
+
+import ProductList from "../../molecules/ProductList/ProductList"
+import { productApi } from "../../api/baseUrl"
 
 const HomePage = () => {
+    const [productList, setProductList] = useState([])
+
+    useEffect(() => {
+        productApi.get("/?fields=title, image, price, rating&limit=6").then((res) => {
+            setProductList(res?.data?.data)
+        }).catch((err) => {
+            console.log(err)
+        })
+    }, [])
+
     return (
-        <div>
-            <h1>Banner</h1>
-            <h1>List of product as catalog bases</h1>
-            <Box sx={{ display: 'flex', gap: '25px', flexWrap: 'wrap', margin: '10px' }}>
-                {Array.from({ length: 10 }).splice(0, 5).map((el, idx) => (
-                    <ProductCard key={idx} />
-                ))}
+        <Box>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: '25px', margin: '10px' }}>
+                <ProductList title="FEATURED PRODUCTS" products={productList} />
+                <ProductList title="NEW ARRIVALS" products={productList} />
+                <ProductList title="BEST SELLER" products={productList} />
+                <ProductList title="TOP RATED PRODUCTS" products={productList} />
             </Box>
-        </div>
+        </Box>
     )
 }
 
