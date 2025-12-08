@@ -1,0 +1,86 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: etl-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: etl
+  template:
+    metadata:
+      labels:
+        app: etl
+    spec:
+      containers:
+        - name: etl
+          image: souravdeveloper/ecom-etl
+          env:
+            - name: CART_DB_URL
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: CART_DB_URL
+            - name: PRODUCT_SERVICE_MONGODB_URL
+              valueFrom:
+                secretKeyRef:
+                  name: secret-credential
+                  key: PRODUCT_SERVICE_MONGODB_URL
+            - name: MONGO_USER
+              valueFrom:
+                secretKeyRef:
+                  name: secret-credential
+                  key: MONGO_USER
+            - name: MONGO_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: secret-credential
+                  key: MONGO_PASSWORD
+            - name: SYNC_CRON_SCHEDULE
+              value: "*/30 * * * *"
+            - name: HEALTH_CHECK_CRON_SCHEDULE
+              value: "*/5 * * * *"
+            - name: ENABLE_SCHEDULER
+              value: "true"
+            - name: SYNC_BATCH_SIZE
+              value: "100"
+            - name: TIMEZONE
+              value: "UTC"
+          envFrom:
+            - configMapRef:
+                name: ecom-global-config
+            - secretRef:
+                name: secret-credential
+          # livenessProbe:
+          #   httpGet:
+          #     path: /api/etl/live
+          #     port: 4000
+          #   initialDelaySeconds: 30
+          #   periodSeconds: 10
+          # readinessProbe:
+          #   httpGet:
+          #     path: /api/etl/ready
+          #     port: 4000
+          #   initialDelaySeconds: 5
+          #   periodSeconds: 5
+          # resources:
+          #   requests:
+          #     memory: "128Mi"
+          #     cpu: "100m"
+          #   limits:
+          #     memory: "512Mi"
+          #     cpu: "500m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: etl-srv
+spec:
+  selector:
+    app: etl
+  type: ClusterIP
+  ports:
+    - name: etl
+      targetPort: 4000
+      port: 4000
+      protocol: TCP

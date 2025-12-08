@@ -46,6 +46,13 @@ spec:
                 name: cart-srv
                 port:
                   number: 4000
+          - path: /api/etl/?(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: etl-srv
+                port:
+                  number: 4000
           - path: /?(.*)
             pathType: ImplementationSpecific
             backend:
