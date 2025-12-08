@@ -1,0 +1,48 @@
+{
+  "name": "etl-service",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "scripts": {
+    "start": "ts-node-dev --poll src/index.ts",
+    "d-build": "docker build -t souravdeveloper/ecom-etl .",
+    "d-push": "docker push souravdeveloper/ecom-etl",
+    "d-pub": "npm run d-build && npm run d-push",
+    "test": "jest --watchAll --no-cache",
+    "sync": "ts-node src/scripts/manualSync.ts"
+  },
+  "jest": {
+    "preset": "ts-jest",
+    "testEnvironment": "node",
+    "setupFilesAfterEnv": [
+      "./src/test/setup.ts"
+    ]
+  },
+  "dependencies": {
+    "@ecom-micro/common": "^2.0.48",
+    "@types/amqplib": "^0.10.5",
+    "@types/cookie-session": "^2.0.44",
+    "@types/cors": "^2.8.12",
+    "@types/express": "^4.17.14",
+    "@types/node-cron": "^3.0.11",
+    "cookie-session": "^2.0.0",
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "express-async-errors": "^3.1.1",
+    "express-validator": "^6.14.2",
+    "mongoose": "^6.7.2",
+    "node-cron": "^3.0.3",
+    "pg": "^8.8.0",
+    "ts-node-dev": "^2.0.0",
+    "typeorm": "^0.3.10",
+    "typescript": "^4.8.4"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.2.3",
+    "@types/supertest": "^2.0.12",
+    "jest": "^29.3.1",
+    "mongodb-memory-server": "^8.10.2",
+    "supertest": "^6.3.1",
+    "ts-jest": "^29.0.3"
+  }
+}

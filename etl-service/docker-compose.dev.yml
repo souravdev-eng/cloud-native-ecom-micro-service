@@ -1,0 +1,42 @@
+version: '3'
+services:
+  etl:
+    build: .
+    ports:
+      - '4005:4000'
+    environment:
+      - PRODUCT_SERVICE_MONGODB_URL=mongodb://product-mongo-srv:27017/product
+      - CART_DB_URL=postgresql://postgres:password@cart-postgres-srv:5432/cart
+      - MONGO_USER=admin
+      - MONGO_PASSWORD=password
+      - JWT_KEY=your-jwt-secret
+      - SYNC_CRON_SCHEDULE=*/30 * * * *
+      - HEALTH_CHECK_CRON_SCHEDULE=*/5 * * * *
+      - ENABLE_SCHEDULER=true
+      - SYNC_BATCH_SIZE=100
+      - TIMEZONE=UTC
+      - NODE_ENV=development
+    depends_on:
+      - product-mongo
+      - cart-postgres
+    volumes:
+      - /app/node_modules
+      - .:/app
+    command: npm start
+
+  product-mongo:
+    image: mongo
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=admin
+      - MONGO_INITDB_ROOT_PASSWORD=password
+    ports:
+      - '27017:27017'
+
+  cart-postgres:
+    image: postgres
+    environment:
+      - POSTGRES_DB=cart
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+    ports:
+      - '5432:5432'
