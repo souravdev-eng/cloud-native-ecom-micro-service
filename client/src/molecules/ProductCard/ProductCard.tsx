@@ -1,13 +1,14 @@
 import { Box, Typography } from '@mui/material'
 
 interface ProductCardProps {
-    id?: string
+    id: string
     title: string
     price: number
     image: string
+    handleAddToCart: (productId: string, quantity?: number) => void
 }
 
-const ProductCard = ({ title, price, image }: ProductCardProps) => {
+const ProductCard = ({ id, title, price, image, handleAddToCart }: ProductCardProps) => {
     return (
         <Box sx={{
             width: 300,
@@ -74,7 +75,9 @@ const ProductCard = ({ title, price, image }: ProductCardProps) => {
                     marginBottom: '6px',
                     cursor: 'pointer',
                     flexShrink: 0
-                }}>
+                }}
+                    onClick={() => handleAddToCart(id, 1)}
+                >
                     <Typography>Add To Cart</Typography>
                 </Box>
             </Box>

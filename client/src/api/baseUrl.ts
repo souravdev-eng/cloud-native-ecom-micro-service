@@ -13,3 +13,8 @@ export const productApi = axios.create({
     baseURL: `${baseUrl}/product`,
     withCredentials: true, // Send cookies with requests
 });
+
+export const cartApi = axios.create({
+    baseURL: `${baseUrl}/cart`,
+    withCredentials: true, // Send cookies with requests
+});
