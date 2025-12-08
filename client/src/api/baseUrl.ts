@@ -2,7 +2,7 @@ import axios from "axios";
 
 // Use protocol-relative URL to match the current page protocol (http/https)
 // This prevents mixed content errors
-const baseUrl = "//ecom.dev/api";
+export const baseUrl = "//ecom.dev/api";
 
 export const authApi = axios.create({
     baseURL: `${baseUrl}/users`,

@@ -5,6 +5,9 @@ import Layout from './Layout';
 import SignUp from '../pages/SignUp/SignUp';
 import Login from '../pages/Login/Login';
 import HomePage from '../pages/Home/Home';
+import ProductDetails from '../pages/ProductDetails/ProductDetails';
+import Cart from '../pages/Cart/Cart';
+import Checkout from '../pages/Checkout/Checkout';
 
 const rootRouter = createBrowserRouter([
   {
@@ -20,8 +23,16 @@ const rootRouter = createBrowserRouter([
         element: <HomePage />,
       },
       {
-        path: 'product',
-        element: <div>Product</div>,
+        path: 'product/:id',
+        element: <ProductDetails />,
+      },
+      {
+        path: 'cart',
+        element: <Cart />,
+      },
+      {
+        path: 'checkout',
+        element: <Checkout />,
       },
     ],
   },
