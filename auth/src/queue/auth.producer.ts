@@ -1,6 +1,6 @@
 import { Channel } from 'amqplib';
 import { queueConnection } from './connection';
-import { authChannel } from '..';
+import { authChannel } from './channel';
 import { logger } from '../utils/logger';
 
 export const publishDirectMessage = async (message: string, logMessage: string): Promise<void> => {
