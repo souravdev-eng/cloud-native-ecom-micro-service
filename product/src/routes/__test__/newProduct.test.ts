@@ -152,7 +152,7 @@ describe('New Product', () => {
         price: 150,
         image: 'https://images-na.ssl-images-amazon.com/images/I/51PWIy1rHUL._AA300_.jpg',
         category: 'book',
-        sellerId: '44925a0d-ead9-45a6-bd9b-7d636b119be5',
+        sellerId: '639b2164b5e8f3a21129d417',
       })
       .expect(403);
   });

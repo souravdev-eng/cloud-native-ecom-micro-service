@@ -10,6 +10,7 @@ import { Router, Response, Request, NextFunction } from 'express';
 import { Product } from '../models/productModel';
 import { ProductUpdatePub } from '../queues/publisher/productUpdatePub';
 import { rabbitMQWrapper } from '../rabbitMQWrapper';
+import { productUpdateValidation } from '../validation/productValidation';
 
 const router = Router();
 
@@ -17,9 +18,9 @@ router.patch(
   '/api/product/:id',
   requireAuth,
   restrictTo('seller', 'admin'),
+  productUpdateValidation,
   requestValidation,
   async (req: Request, res: Response, next: NextFunction) => {
-    const category = ['phone', 'book', 'Fashions', 'other'];
 
     const product = await Product.findById(req.params.id);
 

@@ -38,6 +38,7 @@ describe('SHOW PRODUCT BY ID', () => {
   });
 
   test('should return 404 if product does not found', async () => {
-    await request(app).get(`/api/product/dysgasg55454`).set('Cookie', userToken).expect(404);
+    // Use valid ObjectId format that doesn't exist in DB
+    await request(app).get(`/api/product/639b2164b5e8f3a21129d417`).set('Cookie', userToken).expect(404);
   });
 });

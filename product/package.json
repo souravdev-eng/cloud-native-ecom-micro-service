@@ -8,15 +8,12 @@
     "d-build": "docker build -t souravdeveloper/ecom-product .",
     "d-push": "docker push souravdeveloper/ecom-product",
     "d-pub": "npm run d-build && npm run d-push",
-    "test": "jest --watchAll --no-cache"
+    "test": "jest --watchAll --no-cache",
+    "test:ci": "jest"
   },
   "config": {
     "mongodbMemoryServer": {
-      "systemBinary": "/opt/homebrew/bin/mongod",
-      "arch": "x64",
-      "disablePostinstall": "1",
-      "version": "6.5.1",
-      "debug": "0"
+      "version": "7.0.14"
     }
   },
   "jest": {
@@ -28,6 +25,8 @@
     ]
   },
   "dependencies": {
+    "jsonwebtoken": "^8.5.1",
+    "@types/jsonwebtoken": "^8.5.9",
     "@ecom-micro/common": "^2.0.48",
     "@types/amqplib": "^0.10.5",
     "@types/cookie-session": "^2.0.44",
@@ -54,7 +53,7 @@
     "@types/node": "^18.11.15",
     "@types/supertest": "^2.0.12",
     "jest": "^29.3.1",
-    "mongodb-memory-server": "6.5.1",
+    "mongodb-memory-server": "^10.1.2",
     "supertest": "^6.3.1",
     "ts-jest": "^29.0.3"
   }
