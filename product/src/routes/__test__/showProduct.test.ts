@@ -59,7 +59,7 @@ describe('Show Product List', () => {
 
   it('should return product list length 3', async () => {
     const response = await request(app).get('/api/product').set('Cookie', global.signIn());
-    expect(response.body).toHaveLength(3);
+    expect(response.body.data).toHaveLength(3);
   });
 
   it('should return 403 if user is not logged in first', async () => {
