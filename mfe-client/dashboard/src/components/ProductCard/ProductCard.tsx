@@ -1,4 +1,3 @@
-import React from 'react';
 import { Box, Typography } from '@mui/material';
 
 import * as Styled from './ProductCard.style.tsx';
@@ -11,17 +10,25 @@ const ProductCard = ({ onClick }: { onClick: () => void }) => {
 					src="https://porto-demo.myshopify.com/cdn/shop/products/BrownWomenCasualHandBag_600x_crop_center.jpg?v=1606122820"
 					alt="Product"
 				/>
-				<Box sx={{
-					backgroundColor: '#d6336c', color: '#fff',
-					borderRadius: '100px',
-					width: '50px',
-					position: 'absolute',
-					top: '10px',
-					left: '5px',
-					zIndex: 100,
-					textAlign: 'center',
-				}}>
-					<Typography variant="subtitle1" sx={{ fontSize: '10px', fontWeight: 'bold' }}>Sale</Typography>
+				<Box
+					sx={{
+						backgroundColor: '#d6336c',
+						color: '#fff',
+						borderRadius: '100px',
+						width: '50px',
+						position: 'absolute',
+						top: '10px',
+						left: '5px',
+						zIndex: 100,
+						textAlign: 'center',
+					}}
+				>
+					<Typography
+						variant="subtitle1"
+						sx={{ fontSize: '10px', fontWeight: 'bold' }}
+					>
+						Sale
+					</Typography>
 				</Box>
 			</div>
 			<div>
@@ -30,7 +37,6 @@ const ProductCard = ({ onClick }: { onClick: () => void }) => {
 				<Styled.ProductPrice>$209.00</Styled.ProductPrice>
 			</div>
 			<Styled.Button>Add To Cart</Styled.Button>
-
 		</Styled.Container>
 	);
 };

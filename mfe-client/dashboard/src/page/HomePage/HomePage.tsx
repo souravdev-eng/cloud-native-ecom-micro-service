@@ -1,59 +1,63 @@
 import { Box, Typography } from '@mui/material';
 
 import BannerCard from '../../components/BannerCard/BannerCard';
-import ProductList from '../../components/ProductList/ProductList';
 import BrandList from '../../components/BrandList/BrandList';
+import ProductList from '../../components/ProductList/ProductList';
 import SmallProductCard from '../../components/SmallProductCard/SmallProductCard';
 import SmallProductCardList from '../../components/SmallProductCardList/SmallProductCardList';
-
 
 const products = [
 	{
 		id: '11',
 		title: 'Brown Women Casual HandBag',
 		price: 1100,
-		image: 'https://porto-demo.myshopify.com/cdn/shop/products/BrownWomenCasualHandBag_600x_crop_center.jpg?v=1606122820'
+		image:
+			'https://porto-demo.myshopify.com/cdn/shop/products/BrownWomenCasualHandBag_600x_crop_center.jpg?v=1606122820',
 	},
 
 	{
 		id: '12',
 		title: 'Brown Women Casual HandBag',
 		price: 1200,
-		image: 'https://porto-demo.myshopify.com/cdn/shop/products/BrownWomenCasualHandBag_600x_crop_center.jpg?v=1606122820'
+		image:
+			'https://porto-demo.myshopify.com/cdn/shop/products/BrownWomenCasualHandBag_600x_crop_center.jpg?v=1606122820',
 	},
 
 	{
 		id: '13',
 		title: 'Brown Women Casual HandBag',
 		price: 1300,
-		image: 'https://porto-demo.myshopify.com/cdn/shop/products/BrownWomenCasualHandBag_600x_crop_center.jpg?v=1606122820'
+		image:
+			'https://porto-demo.myshopify.com/cdn/shop/products/BrownWomenCasualHandBag_600x_crop_center.jpg?v=1606122820',
 	},
 
 	{
 		id: '14',
 		title: 'Brown Women Casual HandBag',
 		price: 1400,
-		image: 'https://porto-demo.myshopify.com/cdn/shop/products/BrownWomenCasualHandBag_600x_crop_center.jpg?v=1606122820'
-	}
-]
+		image:
+			'https://porto-demo.myshopify.com/cdn/shop/products/BrownWomenCasualHandBag_600x_crop_center.jpg?v=1606122820',
+	},
+];
 
-const SmallProductCardListData = [{
-	title: "FEATURED PRODUCTS",
-	data: products,
-},
-{
-	title: "NEW ARRIVALS",
-	data: products,
-},
-{
-	title: "BEST SELLER",
-	data: products,
-},
-{
-	title: "TOP RATED PRODUCTS",
-	data: products,
-},
-]
+const SmallProductCardListData = [
+	{
+		title: 'FEATURED PRODUCTS',
+		data: products,
+	},
+	{
+		title: 'NEW ARRIVALS',
+		data: products,
+	},
+	{
+		title: 'BEST SELLER',
+		data: products,
+	},
+	{
+		title: 'TOP RATED PRODUCTS',
+		data: products,
+	},
+];
 const HomePage = () => {
 	return (
 		<>
@@ -90,27 +94,27 @@ const HomePage = () => {
 				borderRadius={20}
 				style={{ margin: '20px auto' }}
 			/>
-			<Box sx={{ display: 'flex', gap: 6, flexDirection: 'row', justifyContent: 'center', alignItems: 'center' }}>
-
-				{
-					SmallProductCardListData.map((data) => (
-						<SmallProductCardList
-							key={data.title}
-							title={data.title}
-							products={
-								data.data.map((product) => (
-									{
-										id: product.id,
-										title: product.title,
-										price: product.price,
-										image: product.image,
-									}
-								))
-							}
-						/>
-					))
-				}
-
+			<Box
+				sx={{
+					display: 'flex',
+					gap: 6,
+					flexDirection: 'row',
+					justifyContent: 'center',
+					alignItems: 'center',
+				}}
+			>
+				{SmallProductCardListData.map((data) => (
+					<SmallProductCardList
+						key={data.title}
+						title={data.title}
+						products={data.data.map((product) => ({
+							id: product.id,
+							title: product.title,
+							price: product.price,
+							image: product.image,
+						}))}
+					/>
+				))}
 			</Box>
 		</>
 	);

@@ -5,7 +5,6 @@ import InstagramIcon from '@mui/icons-material/Instagram';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import XIcon from '@mui/icons-material/X';
 import { Divider, Typography } from '@mui/material';
-import { Link } from 'react-router-dom';
 
 import * as Styled from './Header.styles';
 
