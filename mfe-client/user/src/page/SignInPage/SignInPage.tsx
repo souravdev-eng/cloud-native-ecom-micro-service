@@ -2,8 +2,7 @@ import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 
 import * as Styled from './SignInPage.style';
-
-import { getAuthUrl } from '../../../../shared/src/config/apiConfig';
+import { getAuthUrl } from '../../api/baseUrl';
 
 const SignupPage = () => {
 	const navigate = useNavigate();

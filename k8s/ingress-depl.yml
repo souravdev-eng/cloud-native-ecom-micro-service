@@ -57,10 +57,40 @@ spec:
             pathType: ImplementationSpecific
             backend:
               service:
-                name: client-srv
+                name: mfe-host-srv
                 port:
                   number: 3000
-    - host: admin.ecom.local
+    - host: mfe-user.ecom.dev
+      http:
+        paths:
+          - path: /?(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: mfe-user-srv
+                port:
+                  number: 3000
+    - host: mfe-dashboard.ecom.dev
+      http:
+        paths:
+          - path: /?(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: mfe-dashboard-srv
+                port:
+                  number: 3000
+    - host: mfe-shared.ecom.dev
+      http:
+        paths:
+          - path: /?(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: mfe-shared-srv
+                port:
+                  number: 3000
+    - host: admin.ecom.dev
       http:
         paths:
           - path: /?(.*)

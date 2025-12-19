@@ -13,7 +13,8 @@
 		"useDefineForClassFields": true,
 		"allowImportingTsExtensions": true,
 		"paths": {
-			"*": ["./@user-types/*"]
+			"*": ["./@user-types/*"],
+			"@shared/config": ["../shared/src/config/apiConfig"]
 		}
 	},
 	"include": ["src"],
