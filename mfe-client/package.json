@@ -1,48 +1,49 @@
 {
-    "name": "mfe-client",
-    "private": true,
-    "scripts": {
-        "eslint": "eslint . --ext .js,.jsx,.ts,.tsx",
-        "lint": "eslint . --fix --max-warnings=0",
-        "lint:check": "eslint . --max-warnings=0",
-        "lint:fix": "eslint . --fix --max-warnings=0",
-        "format": "prettier . --write",
-        "format:check": "prettier . --check",
-        "lint-staged": "npx lint-staged",
-        "dev:auth": "cd user && npm run start",
-        "dev:dashboard": "cd dashboard && npm run start",
-        "dev:host": "cd host && npm run start",
-        "start:dev": "concurrently \"npm run dev:auth\" \"npm run dev:dashboard\" \"npm run dev:host\""
-    },
-    "devDependencies": {
-        "@trivago/prettier-plugin-sort-imports": "^5.2.2",
-        "@typescript-eslint/eslint-plugin": "^8.39.1",
-        "@typescript-eslint/parser": "^8.39.1",
-        "concurrently": "^8.2.2",
-        "eslint": "^9.33.0",
-        "eslint-config-prettier": "^10.1.8",
-        "eslint-config-standard": "^17.1.0",
-        "eslint-plugin-jest": "^29.0.1",
-        "eslint-plugin-jsx-a11y": "^6.10.2",
-        "eslint-plugin-prettier": "^5.5.4",
-        "eslint-plugin-react": "^7.37.5",
-        "eslint-plugin-react-hooks": "^5.2.0",
-        "eslint-plugin-react-refresh": "^0.4.20",
-        "eslint-plugin-security": "^3.0.1",
-        "globals": "^16.3.0",
-        "lint-staged": "^16.1.5",
-        "prettier": "^3.6.2"
-    },
-    "lint-staged": {
-        "*.{js,jsx,ts,tsx}": [
-            "eslint --fix --max-warnings=0 --no-ignore",
-            "prettier --write"
-        ],
-        "*.{json,css,scss,md,yaml,yml}": [
-            "prettier --write"
-        ],
-        "*.{html,htm}": [
-            "prettier --write"
-        ]
-    }
+	"name": "mfe-client",
+	"private": true,
+	"scripts": {
+		"eslint": "eslint . --ext .js,.jsx,.ts,.tsx",
+		"lint": "eslint . --fix --max-warnings=0",
+		"lint:check": "eslint . --max-warnings=0",
+		"lint:fix": "eslint . --fix --max-warnings=0",
+		"format": "prettier . --write",
+		"format:check": "prettier . --check",
+		"lint-staged": "npx lint-staged",
+		"dev:auth": "cd user && npm run start",
+		"dev:dashboard": "cd dashboard && npm run start",
+		"dev:host": "cd host && npm run start",
+		"start:dev": "concurrently \"npm run dev:auth\" \"npm run dev:dashboard\" \"npm run dev:host\"",
+		"install:all": "cd user && pnpm install && cd ../dashboard && pnpm install && cd ../host && pnpm install"
+	},
+	"devDependencies": {
+		"@trivago/prettier-plugin-sort-imports": "^5.2.2",
+		"@typescript-eslint/eslint-plugin": "^8.39.1",
+		"@typescript-eslint/parser": "^8.39.1",
+		"concurrently": "^8.2.2",
+		"eslint": "^9.33.0",
+		"eslint-config-prettier": "^10.1.8",
+		"eslint-config-standard": "^17.1.0",
+		"eslint-plugin-jest": "^29.0.1",
+		"eslint-plugin-jsx-a11y": "^6.10.2",
+		"eslint-plugin-prettier": "^5.5.4",
+		"eslint-plugin-react": "^7.37.5",
+		"eslint-plugin-react-hooks": "^5.2.0",
+		"eslint-plugin-react-refresh": "^0.4.20",
+		"eslint-plugin-security": "^3.0.1",
+		"globals": "^16.3.0",
+		"lint-staged": "^16.1.5",
+		"prettier": "^3.6.2"
+	},
+	"lint-staged": {
+		"*.{js,jsx,ts,tsx}": [
+			"eslint --fix --max-warnings=0 --no-ignore",
+			"prettier --write"
+		],
+		"*.{json,css,scss,md,yaml,yml}": [
+			"prettier --write"
+		],
+		"*.{html,htm}": [
+			"prettier --write"
+		]
+	}
 }

@@ -1,96 +1,98 @@
-import * as path from 'node:path';
+import { ModuleFederationPlugin } from '@module-federation/enhanced/rspack';
 import { defineConfig } from '@rspack/cli';
 import { rspack } from '@rspack/core';
 import * as RefreshPlugin from '@rspack/plugin-react-refresh';
-import { ModuleFederationPlugin } from '@module-federation/enhanced/rspack';
+import * as path from 'node:path';
 
 const isDev = process.env.NODE_ENV === 'development';
 
 // Import the appropriate module federation config
 const mfConfig = isDev
-  ? require('./module-federation.config').mfConfig
-  : require('./module-federation.config.prod').mfConfig;
+	? require('./module-federation.config').mfConfig
+	: require('./module-federation.config.prod').mfConfig;
 
 // Target browsers, see: https://github.com/browserslist/browserslist
 const targets = ['chrome >= 87', 'edge >= 88', 'firefox >= 78', 'safari >= 14'];
 
 export default defineConfig({
-  context: __dirname,
-  entry: {
-    main: './src/index.ts',
-  },
-  resolve: {
-    extensions: ['...', '.ts', '.tsx', '.jsx'],
-  },
+	context: __dirname,
+	entry: {
+		main: './src/index.ts',
+	},
+	resolve: {
+		extensions: ['...', '.ts', '.tsx', '.jsx'],
+	},
 
-  devServer: {
-    port: 3002,
-    historyApiFallback: true,
-    watchFiles: [path.resolve(__dirname, 'src')],
-  },
-  output: {
-    uniqueName: 'dashboard',
-    publicPath: isDev ? 'http://localhost:3002/' : 'http://mfe-dashboard.ecom.local/',
-  },
+	devServer: {
+		port: 3002,
+		historyApiFallback: true,
+		watchFiles: [path.resolve(__dirname, 'src')],
+	},
+	output: {
+		uniqueName: 'dashboard',
+		publicPath: isDev
+			? 'http://localhost:3002/'
+			: 'http://mfe-dashboard.ecom.local/',
+	},
 
-  experiments: {
-    css: true,
-  },
+	experiments: {
+		css: true,
+	},
 
-  module: {
-    rules: [
-      {
-        test: /\.svg$/,
-        type: 'asset',
-      },
-      {
-        test: /\.(png|jpe?g|gif|webp)$/i,
-        type: 'asset/resource',
-      },
-      {
-        test: /\.css$/,
-        use: ['postcss-loader'],
-        type: 'css',
-      },
-      {
-        test: /\.(jsx?|tsx?)$/,
-        use: [
-          {
-            loader: 'builtin:swc-loader',
-            options: {
-              jsc: {
-                parser: {
-                  syntax: 'typescript',
-                  tsx: true,
-                },
-                transform: {
-                  react: {
-                    runtime: 'automatic',
-                    development: isDev,
-                    refresh: isDev,
-                  },
-                },
-              },
-              env: { targets },
-            },
-          },
-        ],
-      },
-    ],
-  },
-  plugins: [
-    new rspack.HtmlRspackPlugin({
-      template: './index.html',
-    }),
-    new ModuleFederationPlugin(mfConfig),
-    isDev ? new RefreshPlugin() : null,
-  ].filter(Boolean),
-  optimization: {
-    minimizer: [
-      new rspack.SwcJsMinimizerRspackPlugin(),
-      new rspack.LightningCssMinimizerRspackPlugin({
-        minimizerOptions: { targets },
-      }),
-    ],
-  },
+	module: {
+		rules: [
+			{
+				test: /\.svg$/,
+				type: 'asset',
+			},
+			{
+				test: /\.(png|jpe?g|gif|webp)$/i,
+				type: 'asset/resource',
+			},
+			{
+				test: /\.css$/,
+				use: ['postcss-loader'],
+				type: 'css',
+			},
+			{
+				test: /\.(jsx?|tsx?)$/,
+				use: [
+					{
+						loader: 'builtin:swc-loader',
+						options: {
+							jsc: {
+								parser: {
+									syntax: 'typescript',
+									tsx: true,
+								},
+								transform: {
+									react: {
+										runtime: 'automatic',
+										development: isDev,
+										refresh: isDev,
+									},
+								},
+							},
+							env: { targets },
+						},
+					},
+				],
+			},
+		],
+	},
+	plugins: [
+		new rspack.HtmlRspackPlugin({
+			template: './index.html',
+		}),
+		new ModuleFederationPlugin(mfConfig),
+		isDev ? new RefreshPlugin() : null,
+	].filter(Boolean),
+	optimization: {
+		minimizer: [
+			new rspack.SwcJsMinimizerRspackPlugin(),
+			new rspack.LightningCssMinimizerRspackPlugin({
+				minimizerOptions: { targets },
+			}),
+		],
+	},
 });
