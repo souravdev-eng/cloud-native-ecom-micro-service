@@ -32,7 +32,7 @@ export default defineConfig({
 		uniqueName: 'dashboard',
 		publicPath: isDev
 			? 'http://localhost:3002/'
-			: 'http://mfe-dashboard.ecom.local/',
+			: 'https://mfe-dashboard.ecom.dev/',
 	},
 
 	experiments: {

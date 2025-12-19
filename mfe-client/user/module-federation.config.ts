@@ -11,5 +11,10 @@ export const mfConfig = {
 			eager: true,
 			requiredVersion: '19.1.1',
 		},
+		'react-router-dom': {
+			singleton: true,
+			eager: true,
+			requiredVersion: '^7.7.1',
+		},
 	},
 };

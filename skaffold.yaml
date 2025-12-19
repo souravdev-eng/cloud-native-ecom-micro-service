@@ -19,8 +19,9 @@ build:
             dest: .
       docker:
         dockerfile: Dockerfile
-    - image: souravdeveloper/ecom-client
-      context: client
+    # MFE Host Application
+    - image: souravdeveloper/ecom-mfe-host
+      context: mfe-client/host
       sync:
         manual:
           - src: src/**/*.ts
@@ -29,7 +30,47 @@ build:
             dest: .
           - src: src/**/*.css
             dest: .
-          - src: src/**/*.json
+      docker:
+        dockerfile: Dockerfile
+    
+    # MFE User Application
+    - image: souravdeveloper/ecom-mfe-user
+      context: mfe-client/user
+      sync:
+        manual:
+          - src: src/**/*.ts
+            dest: .
+          - src: src/**/*.tsx
+            dest: .
+          - src: src/**/*.css
+            dest: .
+      docker:
+        dockerfile: Dockerfile
+    
+    # MFE Dashboard Application
+    - image: souravdeveloper/ecom-mfe-dashboard
+      context: mfe-client/dashboard
+      sync:
+        manual:
+          - src: src/**/*.ts
+            dest: .
+          - src: src/**/*.tsx
+            dest: .
+          - src: src/**/*.css
+            dest: .
+      docker:
+        dockerfile: Dockerfile
+    
+    # MFE Shared Library
+    - image: souravdeveloper/ecom-mfe-shared
+      context: mfe-client/shared
+      sync:
+        manual:
+          - src: src/**/*.ts
+            dest: .
+          - src: src/**/*.tsx
+            dest: .
+          - src: src/**/*.css
             dest: .
       docker:
         dockerfile: Dockerfile

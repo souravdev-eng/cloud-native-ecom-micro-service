@@ -32,7 +32,7 @@ export default defineConfig({
 		uniqueName: 'user',
 		publicPath: isDev
 			? 'http://localhost:3001/'
-			: 'http://mfe-user.ecom.local/',
+			: 'https://mfe-user.ecom.dev/',
 	},
 
 	experiments: {
