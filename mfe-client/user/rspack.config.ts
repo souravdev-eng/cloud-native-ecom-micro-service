@@ -30,9 +30,7 @@ export default defineConfig({
 	},
 	output: {
 		uniqueName: 'user',
-		publicPath: isDev
-			? 'http://localhost:3001/'
-			: 'https://mfe-user.ecom.dev/',
+		publicPath: 'http://localhost:3001/',
 	},
 
 	experiments: {

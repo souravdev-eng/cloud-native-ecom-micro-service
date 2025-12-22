@@ -1,13 +1,15 @@
 import { useNavigate } from 'react-router-dom';
 
 import * as Styled from './SignupPage.style';
+import { useSignUp } from './SignUp.hooks';
 
 const SignupPage = () => {
 	const navigate = useNavigate();
+	const { handleSignUp } = useSignUp();
 
-	const handleSignUp = () => {
-		navigate('/');
-	};
+	// const handleSignUp = () => {
+	// 	navigate('/');
+	// };
 
 	return (
 		<Styled.Container>
@@ -16,7 +18,7 @@ const SignupPage = () => {
 				<Styled.Input type="email" placeholder="Email" />
 				<Styled.Input type="password" placeholder="Password" />
 				<Styled.Input type="password" placeholder="Confirm Password" />
-				<Styled.Button type="submit" onClick={handleSignUp}>
+				<Styled.Button type="submit" onClick={(e: any) => handleSignUp(e)}>
 					Sign Up
 				</Styled.Button>
 				<Styled.DontHaveAccount>

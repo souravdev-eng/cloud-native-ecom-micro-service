@@ -2,20 +2,20 @@ apiVersion: skaffold/v4beta2
 kind: Config
 
 # ============================================================
-# PROFILES FOR DIFFERENT DEVELOPMENT SCENARIOS
+# SKAFFOLD PROFILES FOR BACKEND DEVELOPMENT
 # ============================================================
+# MFEs run locally: cd mfe-client && ./scripts/start-dev.sh
+#
 # Usage:
-#   skaffold dev                    # runs 'minimal' profile by default
-#   skaffold dev -p minimal         # minimal - core services only
-#   skaffold dev -p backend         # backend services + infrastructure
-#   skaffold dev -p full            # everything including ELK stack
+#   skaffold dev              # minimal - core services (default)
+#   skaffold dev -p backend   # all backend services
+#   skaffold dev -p full      # everything including ELK
 # ============================================================
 
 profiles:
   # ----------------------------------------------------------
-  # MINIMAL PROFILE - For everyday development
-  # Runs: Auth, Product, Cart + PostgreSQL, RabbitMQ, Redis
-  # Excludes: Elasticsearch, Kibana, ETL, Notification, Order, MFEs
+  # MINIMAL (default) - Core services for everyday dev
+  # Pods: Auth, Product, Cart + PostgreSQL, RabbitMQ, Redis
   # ----------------------------------------------------------
   - name: minimal
     activation:
@@ -67,8 +67,8 @@ profiles:
         push: false
 
   # ----------------------------------------------------------
-  # BACKEND PROFILE - All backend services without MFEs
-  # Runs: All microservices + infrastructure (no ELK, no MFEs)
+  # BACKEND - All backend services
+  # Adds: Notification, Order, ETL
   # ----------------------------------------------------------
   - name: backend
     manifests:
@@ -137,111 +137,8 @@ profiles:
         push: false
 
   # ----------------------------------------------------------
-  # MFE PROFILE - Frontend development only
-  # Runs: MFE apps + minimal backend (auth, product, cart)
-  # ----------------------------------------------------------
-  - name: mfe
-    manifests:
-      rawYaml:
-        - ./k8s/secret/*
-        - ./k8s/config/*
-        - ./k8s/volumes/postgres-pv.yml
-        - ./k8s/volumes/postgres-pvc.yml
-        - ./k8s/volumes/redis-pv.yml
-        - ./k8s/volumes/redis-pvc.yml
-        - ./k8s/postgres-depl.yml
-        - ./k8s/rabbitmq-depl.yml
-        - ./k8s/product-redis-depl.yml
-        - ./k8s/auth-depl.yml
-        - ./k8s/product-depl.yml
-        - ./k8s/cart-depl.yml
-        - ./k8s/mfe-host-depl.yml
-        - ./k8s/mfe-user-depl.yml
-        - ./k8s/mfe-dashboard-depl.yml
-        - ./k8s/mfe-shared-depl.yml
-        - ./k8s/ingress-depl.yml
-    deploy:
-      kubectl: {}
-    build:
-      artifacts:
-        - image: souravdeveloper/ecom-auth
-          context: auth
-          sync:
-            manual:
-              - src: src/**/*.ts
-                dest: .
-          docker:
-            dockerfile: Dockerfile
-        - image: souravdeveloper/ecom-product
-          context: product
-          sync:
-            manual:
-              - src: src/**/*.ts
-                dest: .
-          docker:
-            dockerfile: Dockerfile
-        - image: souravdeveloper/ecom-cart
-          context: cart
-          sync:
-            manual:
-              - src: src/**/*.ts
-                dest: .
-          docker:
-            dockerfile: Dockerfile
-        - image: souravdeveloper/ecom-mfe-host
-          context: mfe-client/host
-          sync:
-            manual:
-              - src: src/**/*.ts
-                dest: .
-              - src: src/**/*.tsx
-                dest: .
-              - src: src/**/*.css
-                dest: .
-          docker:
-            dockerfile: Dockerfile
-        - image: souravdeveloper/ecom-mfe-user
-          context: mfe-client/user
-          sync:
-            manual:
-              - src: src/**/*.ts
-                dest: .
-              - src: src/**/*.tsx
-                dest: .
-              - src: src/**/*.css
-                dest: .
-          docker:
-            dockerfile: Dockerfile
-        - image: souravdeveloper/ecom-mfe-dashboard
-          context: mfe-client/dashboard
-          sync:
-            manual:
-              - src: src/**/*.ts
-                dest: .
-              - src: src/**/*.tsx
-                dest: .
-              - src: src/**/*.css
-                dest: .
-          docker:
-            dockerfile: Dockerfile
-        - image: souravdeveloper/ecom-mfe-shared
-          context: mfe-client/shared
-          sync:
-            manual:
-              - src: src/**/*.ts
-                dest: .
-              - src: src/**/*.tsx
-                dest: .
-              - src: src/**/*.css
-                dest: .
-          docker:
-            dockerfile: Dockerfile
-      local:
-        push: false
-
-  # ----------------------------------------------------------
-  # FULL PROFILE - Everything including ELK stack
-  # Use only when you need logging/monitoring
+  # FULL - Everything including ELK stack
+  # Use for production-like testing (MFEs run locally)
   # ----------------------------------------------------------
   - name: full
     manifests:
@@ -259,54 +156,6 @@ profiles:
           sync:
             manual:
               - src: src/**/*.ts
-                dest: .
-          docker:
-            dockerfile: Dockerfile
-        - image: souravdeveloper/ecom-mfe-host
-          context: mfe-client/host
-          sync:
-            manual:
-              - src: src/**/*.ts
-                dest: .
-              - src: src/**/*.tsx
-                dest: .
-              - src: src/**/*.css
-                dest: .
-          docker:
-            dockerfile: Dockerfile
-        - image: souravdeveloper/ecom-mfe-user
-          context: mfe-client/user
-          sync:
-            manual:
-              - src: src/**/*.ts
-                dest: .
-              - src: src/**/*.tsx
-                dest: .
-              - src: src/**/*.css
-                dest: .
-          docker:
-            dockerfile: Dockerfile
-        - image: souravdeveloper/ecom-mfe-dashboard
-          context: mfe-client/dashboard
-          sync:
-            manual:
-              - src: src/**/*.ts
-                dest: .
-              - src: src/**/*.tsx
-                dest: .
-              - src: src/**/*.css
-                dest: .
-          docker:
-            dockerfile: Dockerfile
-        - image: souravdeveloper/ecom-mfe-shared
-          context: mfe-client/shared
-          sync:
-            manual:
-              - src: src/**/*.ts
-                dest: .
-              - src: src/**/*.tsx
-                dest: .
-              - src: src/**/*.css
                 dest: .
           docker:
             dockerfile: Dockerfile

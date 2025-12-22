@@ -1,11 +1,18 @@
 // API Configuration for MFE Applications
+// Backend via port-forward (run: ./scripts/start-backend.sh)
+
+const AUTH_API = 'http://localhost:3100';
+const PRODUCT_API = 'http://localhost:4100';
+const CART_API = 'http://localhost:4200';
+
 export const getAuthUrl = (endpoint: string = '') => {
-	const baseUrl = process.env.REACT_APP_API_BASE_URL || 'http://localhost';
-	const isDev = process.env.NODE_ENV === 'development';
+	return `${AUTH_API}/api/users${endpoint}`;
+};
 
-	if (isDev && baseUrl.includes('localhost')) {
-		return `${baseUrl}:3001/api/users${endpoint}`;
-	}
+export const getProductUrl = (endpoint: string = '') => {
+	return `${PRODUCT_API}/api/product${endpoint}`;
+};
 
-	return `${baseUrl}/api/users${endpoint}`;
+export const getCartUrl = (endpoint: string = '') => {
+	return `${CART_API}/api/cart${endpoint}`;
 };

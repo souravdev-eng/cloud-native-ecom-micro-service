@@ -14,13 +14,7 @@ const app = express();
 app.set('trust proxy', true); //? because we transfer our request via ingress proxy
 app.use(express.json());
 app.use(cors({
-  origin: [
-    'http://ecom.dev',
-    'http://localhost:3001', // MFE user service
-    'http://localhost:3000', // MFE host service  
-    'http://localhost:3002', // MFE dashboard service
-    'http://localhost:3003', // MFE shared service
-  ],
+  origin: ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002', 'http://localhost:3003'],
   credentials: true,
 }));
 app.use(
