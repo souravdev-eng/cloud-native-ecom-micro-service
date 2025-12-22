@@ -2,17 +2,17 @@ import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 
 import * as Styled from './SignInPage.style';
-import { getAuthUrl } from '../../api/baseUrl';
+// import { getAuthUrl } from '../../api/baseUrl';
 
 const SignupPage = () => {
 	const navigate = useNavigate();
 
 	const handleSignIn = async () => {
-		const response = await axios.post(getAuthUrl('/login'), {
-			email: 'souravmajumdar.developer@gmail.com',
-			password: '123456',
-		});
-		console.log(response);
+		// const response = await axios.post(getAuthUrl('/login'), {
+		// 	email: 'souravmajumdar.developer@gmail.com',
+		// 	password: '123456',
+		// });
+		console.log("response");
 		// navigate('/');
 	};
 
