@@ -18,11 +18,43 @@ export const ContentWrapper = styled('div')({
     },
 });
 
+export const PageHeader = styled('div')({
+    display: 'flex',
+    alignItems: 'center',
+    gap: 16,
+    marginBottom: 8,
+});
+
+export const BackButton = styled('button')({
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 42,
+    height: 42,
+    borderRadius: '50%',
+    border: 'none',
+    backgroundColor: '#fff',
+    color: '#1a1a2e',
+    cursor: 'pointer',
+    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
+    transition: 'all 0.2s ease',
+    flexShrink: 0,
+    '&:hover': {
+        backgroundColor: '#1a1a2e',
+        color: '#fff',
+        transform: 'translateX(-2px)',
+        boxShadow: '0 4px 12px rgba(26, 26, 46, 0.2)',
+    },
+    '&:active': {
+        transform: 'translateX(-1px)',
+    },
+});
+
 export const PageTitle = styled(Typography)({
     fontSize: 28,
     fontWeight: 600,
     color: '#1a1a2e',
-    marginBottom: 8,
+    marginBottom: 0,
     fontFamily: '"Playfair Display", serif',
 });
 
@@ -30,6 +62,7 @@ export const ItemCount = styled(Typography)({
     fontSize: 14,
     color: '#868e96',
     marginBottom: 32,
+    marginLeft: 58,
 });
 
 // Cart Items Section

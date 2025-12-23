@@ -6,11 +6,14 @@ import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import ShoppingBagOutlinedIcon from '@mui/icons-material/ShoppingBagOutlined';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import CloseIcon from '@mui/icons-material/Close';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import { useNavigate } from 'react-router-dom';
 
 import * as Styled from './CartPage.style';
 import { useCart } from './CartPage.hook';
 
 const CartPage = () => {
+    const navigate = useNavigate();
     const {
         items,
         loading,
@@ -27,6 +30,10 @@ const CartPage = () => {
         removeItem,
         updateQuantity,
     } = useCart();
+
+    const handleGoBack = () => {
+        navigate('/');
+    };
 
     if (loading) {
         return (
@@ -86,7 +93,12 @@ const CartPage = () => {
             )}
 
             <div style={{ maxWidth: 1200, margin: '0 auto' }}>
-                <Styled.PageTitle>Shopping Cart</Styled.PageTitle>
+                <Styled.PageHeader>
+                    <Styled.BackButton onClick={handleGoBack} aria-label="Go back">
+                        <ArrowBackIcon />
+                    </Styled.BackButton>
+                    <Styled.PageTitle>Shopping Cart</Styled.PageTitle>
+                </Styled.PageHeader>
                 <Styled.ItemCount>
                     {itemCount} {itemCount === 1 ? 'item' : 'items'} in your cart
                 </Styled.ItemCount>
