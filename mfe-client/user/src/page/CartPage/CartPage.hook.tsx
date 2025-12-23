@@ -1,7 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import axios from 'axios';
-
-const CART_API = 'http://localhost:4200';
+import { cartApi } from '../../api/baseUrl';
 
 interface CartItem {
     product_id: string;
@@ -20,6 +18,30 @@ interface CartState {
     error: string | null;
 }
 
+// Helper function to parse error response
+// Handles: { errors: [{ message: "..." }] } format
+const parseErrorMessage = (err: any): string => {
+    // Handle { errors: [{ message: "..." }] } format
+    if (err.response?.data?.errors && Array.isArray(err.response.data.errors)) {
+        const messages = err.response.data.errors
+            .map((e: any) => e.message)
+            .filter(Boolean);
+        if (messages.length > 0) {
+            return messages.join('. ');
+        }
+    }
+    // Handle { message: "..." } format
+    if (err.response?.data?.message) {
+        return err.response.data.message;
+    }
+    // Handle { error: "..." } format
+    if (err.response?.data?.error) {
+        return err.response.data.error;
+    }
+    // Default fallback
+    return 'Something went wrong. Please try again.';
+};
+
 export const useCart = () => {
     const [cartState, setCartState] = useState<CartState>({
         items: [],
@@ -28,13 +50,17 @@ export const useCart = () => {
         error: null,
     });
     const [removingId, setRemovingId] = useState<string | null>(null);
+    const [actionError, setActionError] = useState<string | null>(null);
+    const [updatingId, setUpdatingId] = useState<string | null>(null);
+
+    const clearActionError = useCallback(() => {
+        setActionError(null);
+    }, []);
 
     const fetchCart = useCallback(async () => {
         try {
             setCartState((prev) => ({ ...prev, loading: true, error: null }));
-            const response = await axios.get(`${CART_API}/api/cart`, {
-                withCredentials: true,
-            });
+            const response = await cartApi.get("/");
             setCartState({
                 items: response.data.carts || [],
                 total: response.data.total || 0,
@@ -45,7 +71,7 @@ export const useCart = () => {
             setCartState((prev) => ({
                 ...prev,
                 loading: false,
-                error: err.response?.data?.message || 'Failed to fetch cart',
+                error: parseErrorMessage(err),
             }));
         }
     }, []);
@@ -53,62 +79,44 @@ export const useCart = () => {
     const removeItem = async (cartId: string) => {
         try {
             setRemovingId(cartId);
-            await axios.delete(`${CART_API}/api/cart/${cartId}`, {
-                withCredentials: true,
-            });
-            // Update local state optimistically
-            setCartState((prev) => {
-                const updatedItems = prev.items.filter((item) => item.cart_id !== cartId);
-                const updatedTotal = updatedItems.reduce((sum, item) => sum + item.total, 0);
-                return {
-                    ...prev,
-                    items: updatedItems,
-                    total: updatedTotal,
-                };
-            });
-        } catch (err: any) {
-            // Refetch cart on error to sync state
+            setActionError(null);
+            await cartApi.delete(`/${cartId}`);
             await fetchCart();
+        } catch (err: any) {
+            setActionError(parseErrorMessage(err));
         } finally {
             setRemovingId(null);
         }
     };
 
-    const updateQuantity = async (cartId: string, newQuantity: number) => {
+    const updateQuantity = async (productId: string, newQuantity: number) => {
         if (newQuantity < 1) return;
 
-        // Optimistic update
-        setCartState((prev) => {
-            const updatedItems = prev.items.map((item) => {
-                if (item.cart_id === cartId) {
-                    const updatedItem = {
-                        ...item,
-                        quantity: newQuantity,
-                        total: item.price * newQuantity,
-                    };
-                    return updatedItem;
-                }
-                return item;
-            });
-            const updatedTotal = updatedItems.reduce((sum, item) => sum + item.total, 0);
-            return {
-                ...prev,
-                items: updatedItems,
-                total: updatedTotal,
-            };
-        });
-
-        // TODO: Call API to update quantity when endpoint is available
-        // try {
-        //   await axios.patch(`${CART_API}/api/cart/${cartId}`, { quantity: newQuantity }, { withCredentials: true });
-        // } catch (err) {
-        //   await fetchCart();
-        // }
+        try {
+            setUpdatingId(productId);
+            setActionError(null);
+            await cartApi.post("/", { productId, quantity: newQuantity });
+            await fetchCart();
+        } catch (err: any) {
+            setActionError(parseErrorMessage(err));
+        } finally {
+            setUpdatingId(null);
+        }
     };
+
+    // Auto-dismiss action error after 5 seconds
+    useEffect(() => {
+        if (actionError) {
+            const timer = setTimeout(() => {
+                setActionError(null);
+            }, 5000);
+            return () => clearTimeout(timer);
+        }
+    }, [actionError]);
 
     useEffect(() => {
         fetchCart();
-    }, [fetchCart]);
+    }, []);
 
     const itemCount = cartState.items.reduce((sum, item) => sum + item.quantity, 0);
     const subtotal = cartState.total;
@@ -124,9 +132,11 @@ export const useCart = () => {
         tax,
         grandTotal,
         removingId,
+        updatingId,
+        actionError,
+        clearActionError,
         removeItem,
         updateQuantity,
         refetch: fetchCart,
     };
 };
-

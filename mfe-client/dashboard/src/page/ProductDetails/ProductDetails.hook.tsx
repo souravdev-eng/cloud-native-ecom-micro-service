@@ -26,7 +26,7 @@ export const useProductDetails = () => {
 
     const handleAddToCart = async () => {
         try {
-            const res = await cartApi.post(`/`, { id, quantity: 1 })
+            const res = await cartApi.post(`/`, { productId: id, quantity: 1 })
             if (res) {
                 console.log("Product added to cart", res)
             }

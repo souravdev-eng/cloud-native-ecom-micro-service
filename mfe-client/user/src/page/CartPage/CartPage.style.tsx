@@ -337,3 +337,69 @@ export const SkeletonText = styled('div')<{ width?: string | number }>(({ width 
     marginBottom: 8,
 }));
 
+// Error Toast/Alert
+export const ErrorToast = styled('div')({
+    position: 'fixed',
+    top: 20,
+    right: 20,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: '16px 20px',
+    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)',
+    display: 'flex',
+    alignItems: 'flex-start',
+    gap: 12,
+    maxWidth: 400,
+    zIndex: 1000,
+    borderLeft: '4px solid #e03131',
+    animation: 'slideIn 0.3s ease',
+    '@keyframes slideIn': {
+        from: {
+            transform: 'translateX(100%)',
+            opacity: 0,
+        },
+        to: {
+            transform: 'translateX(0)',
+            opacity: 1,
+        },
+    },
+});
+
+export const ErrorIconWrapper = styled('div')({
+    width: 36,
+    height: 36,
+    borderRadius: '50%',
+    backgroundColor: '#fff5f5',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+    color: '#e03131',
+});
+
+export const ErrorContent = styled('div')({
+    flex: 1,
+});
+
+export const ErrorTitle = styled(Typography)({
+    fontSize: 14,
+    fontWeight: 600,
+    color: '#1a1a2e',
+    marginBottom: 4,
+});
+
+export const ErrorMessage = styled(Typography)({
+    fontSize: 13,
+    color: '#495057',
+    lineHeight: 1.4,
+});
+
+export const ErrorCloseButton = styled(IconButton)({
+    padding: 4,
+    marginLeft: 8,
+    color: '#868e96',
+    '&:hover': {
+        backgroundColor: '#f8f9fa',
+    },
+});
+

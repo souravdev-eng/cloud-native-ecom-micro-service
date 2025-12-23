@@ -61,6 +61,7 @@ const SmallProductCardListData = [
 ];
 const HomePage = () => {
 	const { productList } = useHomePage()
+	console.log(productList)
 	return (
 		<>
 			{/* Hero banner with custom aspect ratio */}

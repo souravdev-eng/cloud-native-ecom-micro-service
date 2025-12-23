@@ -4,6 +4,8 @@ import RemoveIcon from '@mui/icons-material/Remove';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import ShoppingBagOutlinedIcon from '@mui/icons-material/ShoppingBagOutlined';
+import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
+import CloseIcon from '@mui/icons-material/Close';
 
 import * as Styled from './CartPage.style';
 import { useCart } from './CartPage.hook';
@@ -19,6 +21,9 @@ const CartPage = () => {
         tax,
         grandTotal,
         removingId,
+        updatingId,
+        actionError,
+        clearActionError,
         removeItem,
         updateQuantity,
     } = useCart();
@@ -64,6 +69,22 @@ const CartPage = () => {
 
     return (
         <Styled.PageContainer>
+            {/* Error Toast */}
+            {actionError && (
+                <Styled.ErrorToast>
+                    <Styled.ErrorIconWrapper>
+                        <ErrorOutlineIcon fontSize="small" />
+                    </Styled.ErrorIconWrapper>
+                    <Styled.ErrorContent>
+                        <Styled.ErrorTitle>Action Failed</Styled.ErrorTitle>
+                        <Styled.ErrorMessage>{actionError}</Styled.ErrorMessage>
+                    </Styled.ErrorContent>
+                    <Styled.ErrorCloseButton onClick={clearActionError}>
+                        <CloseIcon fontSize="small" />
+                    </Styled.ErrorCloseButton>
+                </Styled.ErrorToast>
+            )}
+
             <div style={{ maxWidth: 1200, margin: '0 auto' }}>
                 <Styled.PageTitle>Shopping Cart</Styled.PageTitle>
                 <Styled.ItemCount>
@@ -97,19 +118,24 @@ const CartPage = () => {
                                         <Styled.QuantityControl>
                                             <Styled.QuantityButton
                                                 onClick={() =>
-                                                    updateQuantity(item.cart_id, item.quantity - 1)
+                                                    updateQuantity(item.product_id, item.quantity - 1)
                                                 }
-                                                disabled={item.quantity <= 1}
+                                                disabled={item.quantity <= 1 || updatingId === item.product_id}
                                             >
                                                 <RemoveIcon fontSize="small" />
                                             </Styled.QuantityButton>
                                             <Styled.QuantityValue>
-                                                {item.quantity}
+                                                {updatingId === item.product_id ? (
+                                                    <CircularProgress size={14} sx={{ color: '#1a1a2e' }} />
+                                                ) : (
+                                                    item.quantity
+                                                )}
                                             </Styled.QuantityValue>
                                             <Styled.QuantityButton
                                                 onClick={() =>
-                                                    updateQuantity(item.cart_id, item.quantity + 1)
+                                                    updateQuantity(item.product_id, item.quantity + 1)
                                                 }
+                                                disabled={updatingId === item.product_id}
                                             >
                                                 <AddIcon fontSize="small" />
                                             </Styled.QuantityButton>

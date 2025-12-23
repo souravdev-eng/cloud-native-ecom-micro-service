@@ -9,7 +9,7 @@ spec:
   ingressClassName: nginx
   rules:
     # Backend API routes only (MFEs run locally)
-    - host: ecom.local
+    - host: ecom.dev
       http:
         paths:
           - path: /api/users/?(.*)
