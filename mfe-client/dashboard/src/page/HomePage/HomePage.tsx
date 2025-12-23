@@ -5,6 +5,7 @@ import BrandList from '../../components/BrandList/BrandList';
 import ProductList from '../../components/ProductList/ProductList';
 import SmallProductCard from '../../components/SmallProductCard/SmallProductCard';
 import SmallProductCardList from '../../components/SmallProductCardList/SmallProductCardList';
+import { useHomePage } from './HomePage.hook';
 
 const products = [
 	{
@@ -59,6 +60,7 @@ const SmallProductCardListData = [
 	},
 ];
 const HomePage = () => {
+	const { productList } = useHomePage()
 	return (
 		<>
 			{/* Hero banner with custom aspect ratio */}
@@ -83,8 +85,8 @@ const HomePage = () => {
 
 			{/* Custom sized banner with min/max height constraints */}
 
-			<ProductList title="FEATURED PRODUCTS" />
-			<ProductList title="NEW ARRIVALS" isTint={false} />
+			<ProductList title="FEATURED PRODUCTS" products={productList} />
+			<ProductList title="NEW ARRIVALS" products={productList} isTint={false} />
 			<BrandList />
 			<BannerCard
 				width="80%"

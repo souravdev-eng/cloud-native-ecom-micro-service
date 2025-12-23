@@ -1,28 +1,26 @@
 import { useParams } from 'react-router-dom';
 
 import * as Styled from './ProductDetails.styles';
+import { useProductDetails } from './ProductDetails.hook';
 
 const ProductDetails = () => {
-	const { id } = useParams();
+	const { product, handleAddToCart } = useProductDetails()
 
 	return (
 		<Styled.Container>
 			<Styled.ProductImageContainer>
 				<Styled.ProductImage
-					src="https://porto-demo.myshopify.com/cdn/shop/products/BrownWomenCasualHandBag_600x_crop_center.jpg?v=1606122820"
+					src={product?.image}
 					alt="Product"
 				/>
 			</Styled.ProductImageContainer>
 			<Styled.ProductDetailsContainer>
-				<Styled.ProductTitle>Brown Women Casual HandBag</Styled.ProductTitle>
-				<Styled.ProductPrice>$209.00</Styled.ProductPrice>
+				<Styled.ProductTitle>{product?.title}</Styled.ProductTitle>
+				<Styled.ProductPrice>${product?.price}</Styled.ProductPrice>
 				<Styled.ProductDescription>
-					Lorem ipsum dolor sit amet consectetur adipisicing elit. Quisquam,
-					quos. Lorem ipsum dolor sit amet consectetur adipisicing elit.
-					Quisquam, quos. Lorem ipsum dolor sit amet consectetur adipisicing
-					elit. Quisquam, quos.
+					{product?.description || 'No description available'}
 				</Styled.ProductDescription>
-				<Styled.AddToCartButton>Add To Cart</Styled.AddToCartButton>
+				<Styled.AddToCartButton onClick={() => handleAddToCart()}>Add To Cart</Styled.AddToCartButton>
 			</Styled.ProductDetailsContainer>
 		</Styled.Container>
 	);

@@ -23,8 +23,7 @@ export const useSignUp = () => {
       if (response.status === 201) {
         // Refresh auth state to check if user is authenticated
         // await checkAuth();
-        // navigate('/');`
-        console.log(response);
+        navigate('/');
       }
     } catch (error: any) {
       setLoading(false);

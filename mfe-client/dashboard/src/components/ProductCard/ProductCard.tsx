@@ -2,12 +2,20 @@ import { Box, Typography } from '@mui/material';
 
 import * as Styled from './ProductCard.style.tsx';
 
-const ProductCard = ({ onClick }: { onClick: () => void }) => {
+export interface IProductCard {
+	id: string
+	title: string
+	price: number
+	image: string
+	onClick: () => void
+}
+
+const ProductCard = ({ id, title, price, image, onClick }: IProductCard) => {
 	return (
 		<Styled.Container onClick={onClick}>
 			<div style={{ position: 'relative' }}>
 				<Styled.ProductImage
-					src="https://porto-demo.myshopify.com/cdn/shop/products/BrownWomenCasualHandBag_600x_crop_center.jpg?v=1606122820"
+					src={image}
 					alt="Product"
 				/>
 				<Box
@@ -31,11 +39,11 @@ const ProductCard = ({ onClick }: { onClick: () => void }) => {
 					</Typography>
 				</Box>
 			</div>
-			<div>
+			<Styled.ProductContent>
 				<Styled.ProductTag>CAMERA, BEST SELLING</Styled.ProductTag>
-				<Styled.ProductTitle>Brown Women Casual HandBag</Styled.ProductTitle>
-				<Styled.ProductPrice>$209.00</Styled.ProductPrice>
-			</div>
+				<Styled.ProductTitle>{title}</Styled.ProductTitle>
+				<Styled.ProductPrice>${price}</Styled.ProductPrice>
+			</Styled.ProductContent>
 			<Styled.Button>Add To Cart</Styled.Button>
 		</Styled.Container>
 	);

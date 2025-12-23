@@ -5,13 +5,14 @@ import { useNavigate } from 'react-router-dom';
 import * as Styled from './ProductList.style';
 
 import ProductCard from '../ProductCard/ProductCard';
-
+import { IProductCard } from '../ProductCard/ProductCard';
 interface IProps {
 	title: string;
 	isTint?: boolean;
+	products: IProductCard[]
 }
 
-const ProductList = ({ title, isTint = true }: IProps) => {
+const ProductList = ({ title, products, isTint = true, }: IProps) => {
 	const navigate = useNavigate();
 	return (
 		<Styled.Container isTint={isTint}>
@@ -22,10 +23,14 @@ const ProductList = ({ title, isTint = true }: IProps) => {
 					</Divider>
 				</Box>
 				<Styled.ProductContainerWrapper>
-					{Array.from({ length: 4 }).map((_, index) => (
+					{products.map((product) => (
 						<ProductCard
-							key={index}
-							onClick={() => navigate(`/product/${index}`)}
+							key={product.id}
+							id={product.id}
+							title={product.title}
+							price={product.price}
+							image={product.image}
+							onClick={() => navigate(`/product/${product?.id}`)}
 						/>
 					))}
 				</Styled.ProductContainerWrapper>

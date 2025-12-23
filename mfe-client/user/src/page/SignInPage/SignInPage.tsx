@@ -1,28 +1,17 @@
-import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
-
+import { CircularProgress } from '@mui/material';
 import * as Styled from './SignInPage.style';
-// import { getAuthUrl } from '../../api/baseUrl';
+import { useSignIn } from './SignIn.hook';
 
 const SignupPage = () => {
-	const navigate = useNavigate();
-
-	const handleSignIn = async () => {
-		// const response = await axios.post(getAuthUrl('/login'), {
-		// 	email: 'souravmajumdar.developer@gmail.com',
-		// 	password: '123456',
-		// });
-		console.log("response");
-		// navigate('/');
-	};
+	const { formData, loading, error, handleFieldChange, handleSignIn } = useSignIn();
 
 	return (
 		<Styled.Container>
 			<Styled.Form>
-				<Styled.Input type="email" placeholder="Email" />
-				<Styled.Input type="password" placeholder="Password" />
-				<Styled.Button type="submit" onClick={handleSignIn}>
-					Sign In
+				<Styled.Input name="email" type="email" placeholder="Email" value={formData.email} onChange={handleFieldChange} />
+				<Styled.Input name="password" type="password" placeholder="Password" value={formData.password} onChange={handleFieldChange} />
+				<Styled.Button type="submit" onClick={(e: any) => handleSignIn(e)} disabled={loading}>
+					{loading ? <CircularProgress size={20} /> : 'Sign In'}
 				</Styled.Button>
 				<Styled.DontHaveAccount>
 					Don't have an account?
