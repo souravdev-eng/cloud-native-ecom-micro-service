@@ -1,4 +1,4 @@
-import { Box, Typography } from '@mui/material';
+import { Typography } from '@mui/material';
 
 import * as Styled from './ProductCard.style.tsx';
 
@@ -7,10 +7,11 @@ export interface IProductCard {
 	title: string
 	price: number
 	image: string
+	tags: string[]
 	onClick: () => void
 }
 
-const ProductCard = ({ id, title, price, image, onClick }: IProductCard) => {
+const ProductCard = ({ id, title, price, image, tags, onClick }: IProductCard) => {
 	return (
 		<Styled.Container onClick={onClick}>
 			<div style={{ position: 'relative' }}>
@@ -18,29 +19,14 @@ const ProductCard = ({ id, title, price, image, onClick }: IProductCard) => {
 					src={image}
 					alt="Product"
 				/>
-				<Box
-					sx={{
-						backgroundColor: '#d6336c',
-						color: '#fff',
-						borderRadius: '100px',
-						width: '50px',
-						position: 'absolute',
-						top: '10px',
-						left: '5px',
-						zIndex: 100,
-						textAlign: 'center',
-					}}
-				>
-					<Typography
-						variant="subtitle1"
-						sx={{ fontSize: '10px', fontWeight: 'bold' }}
-					>
+				<Styled.SaleChip>
+					<Typography variant="subtitle1" sx={{ fontSize: '10px', fontWeight: 'bold' }}>
 						Sale
 					</Typography>
-				</Box>
+				</Styled.SaleChip>
 			</div>
 			<Styled.ProductContent>
-				<Styled.ProductTag>CAMERA, BEST SELLING</Styled.ProductTag>
+				<Styled.ProductTag>{tags?.slice(0, 4).join(', ').toUpperCase()}</Styled.ProductTag>
 				<Styled.ProductTitle>{title}</Styled.ProductTitle>
 				<Styled.ProductPrice>${price}</Styled.ProductPrice>
 			</Styled.ProductContent>

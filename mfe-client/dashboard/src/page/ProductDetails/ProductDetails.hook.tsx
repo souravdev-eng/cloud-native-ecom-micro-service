@@ -9,6 +9,7 @@ export interface IProductDetails {
     price: number
     image: string
     description: string
+    rating: number
 }
 
 export const useProductDetails = () => {
@@ -17,6 +18,7 @@ export const useProductDetails = () => {
 
     useEffect(() => {
         productApi.get(`/${id}`).then((res) => {
+            console.log("product details", res?.data)
             setProduct(res?.data)
         }).catch((err) => {
             console.log(err)

@@ -6,6 +6,7 @@ import * as Styled from './ProductList.style';
 
 import ProductCard from '../ProductCard/ProductCard';
 import { IProductCard } from '../ProductCard/ProductCard';
+
 interface IProps {
 	title: string;
 	isTint?: boolean;
@@ -30,6 +31,7 @@ const ProductList = ({ title, products, isTint = true, }: IProps) => {
 							title={product.title}
 							price={product.price}
 							image={product.image}
+							tags={product.tags}
 							onClick={() => navigate(`/product/${product?.id}`)}
 						/>
 					))}

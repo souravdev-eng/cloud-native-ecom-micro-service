@@ -2,7 +2,6 @@ import { Box, styled, Typography } from '@mui/material';
 import { Link } from 'react-router-dom';
 
 export const Container = styled(Box)({
-	// backgroundColor: 'pink',
 	marginBottom: 10,
 });
 
@@ -25,6 +24,19 @@ export const MenuItemLink = styled(Link)({
 	fontSize: 12,
 	color: '#868e96',
 	fontWeight: 700,
+});
+
+export const MenuItemButton = styled('button')({
+	fontSize: 12,
+	color: '#868e96',
+	fontWeight: 700,
+	background: 'none',
+	border: 'none',
+	cursor: 'pointer',
+	padding: 0,
+	'&:hover': {
+		color: '#495057',
+	},
 });
 
 export const SubHeaderTitle = styled(Typography)({
