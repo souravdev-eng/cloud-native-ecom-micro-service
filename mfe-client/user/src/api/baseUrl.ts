@@ -1,12 +1,21 @@
 // API Configuration for MFE Applications
+import axios from "axios";
 
-export const getAuthUrl = (endpoint: string = '') => {
-    const baseUrl = process.env.REACT_APP_API_BASE_URL || 'http://localhost';
-    const isDev = process.env.NODE_ENV === 'development';
+// Backend via port-forward (run: ./scripts/start-backend.sh)
+const AUTH_API_URL = 'http://localhost:3100';
+const CART_API_URL = 'http://localhost:4200';
 
-    if (isDev && baseUrl.includes('localhost')) {
-        return `${baseUrl}:3001/api/users${endpoint}`;
-    }
+export const baseUrl = axios.create({
+    baseURL: AUTH_API_URL,
+    withCredentials: true,
+});
 
-    return `${baseUrl}/api/users${endpoint}`;
-};
+export const userServiceApi = axios.create({
+    baseURL: `${AUTH_API_URL}/api/users`,
+    withCredentials: true,
+});
+
+export const cartApi = axios.create({
+    baseURL: `${CART_API_URL}/api/cart`,
+    withCredentials: true,
+});

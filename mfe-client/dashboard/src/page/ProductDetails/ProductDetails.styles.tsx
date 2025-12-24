@@ -11,11 +11,9 @@ export const Container = styled('div')({
 });
 
 export const ProductImageContainer = styled('div')({
-	width: 500,
-	height: 500,
-	objectFit: 'cover',
 	borderRadius: 12,
 	overflow: 'hidden',
+	objectPosition: 'center',
 });
 
 export const ProductDetailsContainer = styled('div')({
@@ -23,10 +21,11 @@ export const ProductDetailsContainer = styled('div')({
 });
 
 export const ProductImage = styled('img')({
-	width: 500,
-	height: 500,
-	objectFit: 'cover',
+	width: 400,
+	height: 300,
+	objectFit: 'contain',
 	borderRadius: 12,
+	objectPosition: 'center',
 });
 
 export const ProductTitle = styled('h1')({

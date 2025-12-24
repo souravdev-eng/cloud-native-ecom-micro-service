@@ -32,7 +32,7 @@ const MenuItem = [
 	{
 		id: 5,
 		title: 'Cart',
-		path: '/cart',
+		path: '/user/cart',
 	},
 	{
 		id: 6,

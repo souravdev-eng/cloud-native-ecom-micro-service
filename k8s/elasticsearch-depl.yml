@@ -19,7 +19,7 @@ spec:
             - name: discovery.type
               value: single-node
             - name: ES_JAVA_OPTS
-              value: "-Xms512m -Xmx512m"
+              value: "-Xms256m -Xmx256m"
             - name: xpack.security.enabled
               value: "false"
             - name: xpack.security.enrollment.enabled
@@ -32,11 +32,11 @@ spec:
               mountPath: /usr/share/elasticsearch/data
           resources:
             limits:
-              memory: "1Gi"
-              cpu: "1000m"
-            requests:
               memory: "512Mi"
               cpu: "500m"
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
       volumes:
         - name: elasticsearch-storage
           persistentVolumeClaim:

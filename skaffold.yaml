@@ -1,134 +1,195 @@
 apiVersion: skaffold/v4beta2
 kind: Config
-manifests:
-  rawYaml:
-    - ./k8s/secret/*
-    - ./k8s/config/*
-    - ./k8s/volumes/*
-    - ./k8s/*
 
-deploy:
-  kubectl: {}
-build:
-  artifacts:
-    - image: souravdeveloper/ecom-auth
-      context: auth
-      sync:
-        manual:
-          - src: src/**/*.ts
-            dest: .
-      docker:
-        dockerfile: Dockerfile
-    # MFE Host Application
-    - image: souravdeveloper/ecom-mfe-host
-      context: mfe-client/host
-      sync:
-        manual:
-          - src: src/**/*.ts
-            dest: .
-          - src: src/**/*.tsx
-            dest: .
-          - src: src/**/*.css
-            dest: .
-      docker:
-        dockerfile: Dockerfile
-    
-    # MFE User Application
-    - image: souravdeveloper/ecom-mfe-user
-      context: mfe-client/user
-      sync:
-        manual:
-          - src: src/**/*.ts
-            dest: .
-          - src: src/**/*.tsx
-            dest: .
-          - src: src/**/*.css
-            dest: .
-      docker:
-        dockerfile: Dockerfile
-    
-    # MFE Dashboard Application
-    - image: souravdeveloper/ecom-mfe-dashboard
-      context: mfe-client/dashboard
-      sync:
-        manual:
-          - src: src/**/*.ts
-            dest: .
-          - src: src/**/*.tsx
-            dest: .
-          - src: src/**/*.css
-            dest: .
-      docker:
-        dockerfile: Dockerfile
-    
-    # MFE Shared Library
-    - image: souravdeveloper/ecom-mfe-shared
-      context: mfe-client/shared
-      sync:
-        manual:
-          - src: src/**/*.ts
-            dest: .
-          - src: src/**/*.tsx
-            dest: .
-          - src: src/**/*.css
-            dest: .
-      docker:
-        dockerfile: Dockerfile
-    - image: souravdeveloper/ecom-notification
-      context: notification
-      sync:
-        manual:
-          - src: src/**/*.ts
-            dest: .
-      docker:
-        dockerfile: Dockerfile
+# ============================================================
+# SKAFFOLD PROFILES FOR BACKEND DEVELOPMENT
+# ============================================================
+# MFEs run locally: cd mfe-client && ./scripts/start-dev.sh
+#
+# Usage:
+#   skaffold dev              # minimal - core services (default)
+#   skaffold dev -p backend   # all backend services
+#   skaffold dev -p full      # everything including ELK
+# ============================================================
 
-    # - image: souravdeveloper/ecom-review
-    #   context: review
-    #   sync:
-    #     manual:
-    #       - src: main.go
-    #         dest: .
-    #       - src: src/**/*.go
-    #         dest: .
-    #   docker:
-    #     dockerfile: Dockerfile
+profiles:
+  # ----------------------------------------------------------
+  # MINIMAL (default) - Core services for everyday dev
+  # Pods: Auth, Product, Cart + PostgreSQL, RabbitMQ, Redis
+  # ----------------------------------------------------------
+  - name: minimal
+    activation:
+      - command: dev
+    manifests:
+      rawYaml:
+        - ./k8s/secret/*
+        - ./k8s/config/*
+        - ./k8s/volumes/postgres-pv.yml
+        - ./k8s/volumes/postgres-pvc.yml
+        - ./k8s/volumes/redis-pv.yml
+        - ./k8s/volumes/redis-pvc.yml
+        - ./k8s/postgres-depl.yml
+        - ./k8s/rabbitmq-depl.yml
+        - ./k8s/product-redis-depl.yml
+        - ./k8s/auth-depl.yml
+        - ./k8s/product-depl.yml
+        - ./k8s/cart-depl.yml
+        - ./k8s/ingress-depl.yml
+    deploy:
+      kubectl: {}
+    build:
+      artifacts:
+        - image: souravdeveloper/ecom-auth
+          context: auth
+          sync:
+            manual:
+              - src: src/**/*.ts
+                dest: .
+          docker:
+            dockerfile: Dockerfile
+        - image: souravdeveloper/ecom-product
+          context: product
+          sync:
+            manual:
+              - src: src/**/*.ts
+                dest: .
+          docker:
+            dockerfile: Dockerfile
+        - image: souravdeveloper/ecom-cart
+          context: cart
+          sync:
+            manual:
+              - src: src/**/*.ts
+                dest: .
+          docker:
+            dockerfile: Dockerfile
+      local:
+        push: false
 
-    - image: souravdeveloper/ecom-product
-      context: product
-      sync:
-        manual:
-          - src: src/**/*.ts
-            dest: .
-      docker:
-        dockerfile: Dockerfile
+  # ----------------------------------------------------------
+  # BACKEND - All backend services
+  # Adds: Notification, Order, ETL
+  # ----------------------------------------------------------
+  - name: backend
+    manifests:
+      rawYaml:
+        - ./k8s/secret/*
+        - ./k8s/config/*
+        - ./k8s/volumes/postgres-pv.yml
+        - ./k8s/volumes/postgres-pvc.yml
+        - ./k8s/volumes/redis-pv.yml
+        - ./k8s/volumes/redis-pvc.yml
+        - ./k8s/postgres-depl.yml
+        - ./k8s/rabbitmq-depl.yml
+        - ./k8s/product-redis-depl.yml
+        - ./k8s/auth-depl.yml
+        - ./k8s/product-depl.yml
+        - ./k8s/cart-depl.yml
+        - ./k8s/notification-depl.yml
+        - ./k8s/order-depl.yml
+        - ./k8s/etl-depl.yml
+        - ./k8s/ingress-depl.yml
+    deploy:
+      kubectl: {}
+    build:
+      artifacts:
+        - image: souravdeveloper/ecom-auth
+          context: auth
+          sync:
+            manual:
+              - src: src/**/*.ts
+                dest: .
+          docker:
+            dockerfile: Dockerfile
+        - image: souravdeveloper/ecom-product
+          context: product
+          sync:
+            manual:
+              - src: src/**/*.ts
+                dest: .
+          docker:
+            dockerfile: Dockerfile
+        - image: souravdeveloper/ecom-cart
+          context: cart
+          sync:
+            manual:
+              - src: src/**/*.ts
+                dest: .
+          docker:
+            dockerfile: Dockerfile
+        - image: souravdeveloper/ecom-notification
+          context: notification
+          sync:
+            manual:
+              - src: src/**/*.ts
+                dest: .
+          docker:
+            dockerfile: Dockerfile
+        - image: souravdeveloper/ecom-etl
+          context: etl-service
+          sync:
+            manual:
+              - src: src/**/*.ts
+                dest: .
+          docker:
+            dockerfile: Dockerfile
+      local:
+        push: false
 
-    - image: souravdeveloper/ecom-cart
-      context: cart
-      sync:
-        manual:
-          - src: src/**/*.ts
-            dest: .
-      docker:
-        dockerfile: Dockerfile
-
-    - image: souravdeveloper/ecom-etl
-      context: etl-service
-      sync:
-        manual:
-          - src: src/**/*.ts
-            dest: .
-      docker:
-        dockerfile: Dockerfile
-
-    # - image: souravdeveloper/ecom-order
-    #   context: order
-    #   sync:
-    #     manual:
-    #       - src: src/**/*.ts
-    #         dest: .
-    #   docker:
-    #     dockerfile: Dockerfile
-
-  local:
-    push: false
+  # ----------------------------------------------------------
+  # FULL - Everything including ELK stack
+  # Use for production-like testing (MFEs run locally)
+  # ----------------------------------------------------------
+  - name: full
+    manifests:
+      rawYaml:
+        - ./k8s/secret/*
+        - ./k8s/config/*
+        - ./k8s/volumes/*
+        - ./k8s/*
+    deploy:
+      kubectl: {}
+    build:
+      artifacts:
+        - image: souravdeveloper/ecom-auth
+          context: auth
+          sync:
+            manual:
+              - src: src/**/*.ts
+                dest: .
+          docker:
+            dockerfile: Dockerfile
+        - image: souravdeveloper/ecom-notification
+          context: notification
+          sync:
+            manual:
+              - src: src/**/*.ts
+                dest: .
+          docker:
+            dockerfile: Dockerfile
+        - image: souravdeveloper/ecom-product
+          context: product
+          sync:
+            manual:
+              - src: src/**/*.ts
+                dest: .
+          docker:
+            dockerfile: Dockerfile
+        - image: souravdeveloper/ecom-cart
+          context: cart
+          sync:
+            manual:
+              - src: src/**/*.ts
+                dest: .
+          docker:
+            dockerfile: Dockerfile
+        - image: souravdeveloper/ecom-etl
+          context: etl-service
+          sync:
+            manual:
+              - src: src/**/*.ts
+                dest: .
+          docker:
+            dockerfile: Dockerfile
+      local:
+        push: false

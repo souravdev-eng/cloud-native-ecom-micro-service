@@ -30,7 +30,7 @@ export default defineConfig({
 	},
 	output: {
 		uniqueName: 'host',
-		publicPath: isDev ? 'http://localhost:3000/' : 'https://ecom.dev/',
+		publicPath: 'http://localhost:3000/',
 	},
 
 	experiments: {

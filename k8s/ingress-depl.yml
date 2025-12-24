@@ -8,6 +8,7 @@ metadata:
 spec:
   ingressClassName: nginx
   rules:
+    # Backend API routes only (MFEs run locally)
     - host: ecom.dev
       http:
         paths:
@@ -53,60 +54,3 @@ spec:
                 name: etl-srv
                 port:
                   number: 4000
-          - path: /?(.*)
-            pathType: ImplementationSpecific
-            backend:
-              service:
-                name: mfe-host-srv
-                port:
-                  number: 3000
-    - host: mfe-user.ecom.dev
-      http:
-        paths:
-          - path: /?(.*)
-            pathType: ImplementationSpecific
-            backend:
-              service:
-                name: mfe-user-srv
-                port:
-                  number: 3000
-    - host: mfe-dashboard.ecom.dev
-      http:
-        paths:
-          - path: /?(.*)
-            pathType: ImplementationSpecific
-            backend:
-              service:
-                name: mfe-dashboard-srv
-                port:
-                  number: 3000
-    - host: mfe-shared.ecom.dev
-      http:
-        paths:
-          - path: /?(.*)
-            pathType: ImplementationSpecific
-            backend:
-              service:
-                name: mfe-shared-srv
-                port:
-                  number: 3000
-    - host: admin.ecom.dev
-      http:
-        paths:
-          - path: /?(.*)
-            pathType: ImplementationSpecific
-            backend:
-              service:
-                name: mfe-host-srv
-                port:
-                  number: 3000
-    - host: kibana.ecom.local
-      http:
-        paths:
-          - path: /?(.*)
-            pathType: ImplementationSpecific
-            backend:
-              service:
-                name: kibana-srv
-                port:
-                  number: 5601
