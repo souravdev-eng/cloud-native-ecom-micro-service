@@ -7,6 +7,7 @@ import { errorHandler, NotFoundError, currentUser } from '@ecom-micro/common';
 import { syncRoutes } from './routes/syncRoutes';
 import { healthRoutes } from './routes/healthRoutes';
 import { schedulerRoutes } from './routes/schedulerRoutes';
+import { cartSyncRoutes } from './routes/cartSyncRoutes';
 
 const app = express();
 
@@ -23,7 +24,8 @@ app.use(
 app.use(currentUser);
 
 // Routes
-app.use(syncRoutes);
+app.use(syncRoutes);          // Product sync routes
+app.use(cartSyncRoutes);      // Cart → Order sync routes
 app.use(healthRoutes);
 app.use(schedulerRoutes);
 

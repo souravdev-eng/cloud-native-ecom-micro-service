@@ -1,4 +1,4 @@
-import { styled, Typography } from '@mui/material';
+import { Box, styled, Typography } from '@mui/material';
 
 export const Container = styled('div')({
 	display: 'flex',
@@ -77,4 +77,16 @@ export const ProductPrice = styled(Typography)({
 	color: '#343a40',
 	textAlign: 'center',
 	marginTop: 6,
+});
+
+export const SaleChip = styled(Box)({
+	backgroundColor: '#d6336c',
+	color: '#fff',
+	borderRadius: '100px',
+	width: '50px',
+	position: 'absolute',
+	top: '10px',
+	left: '5px',
+	zIndex: 100,
+	textAlign: 'center',
 });

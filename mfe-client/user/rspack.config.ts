@@ -78,6 +78,11 @@ export default defineConfig({
 		new rspack.HtmlRspackPlugin({
 			template: './index.html',
 		}),
+		new rspack.DefinePlugin({
+			STRIPE_PUBLISHABLE_KEY: JSON.stringify(
+				process.env.STRIPE_PUBLISHABLE_KEY || 'pk_test_YOUR_KEY_HERE'
+			),
+		}),
 		new ModuleFederationPlugin(mfConfig),
 		isDev ? new RefreshPlugin() : null,
 	].filter(Boolean),

@@ -53,7 +53,7 @@ export const orderValidation = [
 
   body('paymentMethod')
     .notEmpty()
-    .isIn(['credit_card', 'debit_card', 'paypal', 'stripe', 'razorpay', 'cash_on_delivery'])
+    .isIn(['card', 'credit_card', 'debit_card', 'paypal', 'stripe', 'razorpay', 'cash_on_delivery'])
     .withMessage('Payment method is required and must be a valid option'),
 
   body('notes')
