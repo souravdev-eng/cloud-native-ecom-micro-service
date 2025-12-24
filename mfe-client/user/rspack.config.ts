@@ -79,8 +79,8 @@ export default defineConfig({
 			template: './index.html',
 		}),
 		new rspack.DefinePlugin({
-			'process.env.STRIPE_PUBLISHABLE_KEY': JSON.stringify(
-				process.env.STRIPE_PUBLISHABLE_KEY || ''
+			STRIPE_PUBLISHABLE_KEY: JSON.stringify(
+				process.env.STRIPE_PUBLISHABLE_KEY || 'pk_test_YOUR_KEY_HERE'
 			),
 		}),
 		new ModuleFederationPlugin(mfConfig),

@@ -40,7 +40,7 @@ const initialShippingAddress: ShippingAddress = {
     city: '',
     state: '',
     postalCode: '',
-    country: 'US',
+    country: 'IN', // Default to India
     phone: '',
 };
 
@@ -144,46 +144,76 @@ export const useCheckout = () => {
         setPaymentError(null);
 
         try {
-            // Step 1: Create payment method with Stripe
-            const { error: stripeError, paymentMethod } = await stripe.createPaymentMethod({
-                type: 'card',
-                card: cardElement,
-                billing_details: {
-                    name: shippingAddress.fullName,
-                    phone: shippingAddress.phone,
-                    address: {
-                        line1: shippingAddress.addressLine1,
-                        line2: shippingAddress.addressLine2 || undefined,
-                        city: shippingAddress.city,
-                        state: shippingAddress.state,
-                        postal_code: shippingAddress.postalCode,
-                        country: shippingAddress.country,
-                    },
+            // Step 1: Create order with backend first
+            const cartIds = checkoutState.items.map((item) => item.cart_id);
+            const orderResponse = await orderApi.post('/order', {
+                cartIds,
+                shippingAddress: {
+                    ...shippingAddress,
+                    phoneNumber: shippingAddress.phone,
                 },
+                paymentMethod: 'card',
+                notes: '',
             });
 
-            if (stripeError) {
-                setPaymentError(stripeError.message || 'Payment failed');
+            if (!orderResponse.data.success) {
+                setPaymentError(orderResponse.data.message || 'Order creation failed');
                 setProcessing(false);
                 return;
             }
 
-            // Step 2: Create order with backend
-            const cartIds = checkoutState.items.map((item) => item.cart_id);
-            const orderResponse = await orderApi.post('/order', {
-                cartIds,
-                shippingAddress,
-                paymentMethod: 'card',
-                paymentMethodId: paymentMethod?.id,
-                notes: '',
+            const createdOrderId = orderResponse.data.order.id;
+            setOrderId(createdOrderId);
+
+            // Step 2: Create payment intent for the order
+            // Currency: INR for Indian export regulations compliance
+            const paymentIntentResponse = await orderApi.post(`/order/${createdOrderId}/payment-intent`, {
+                currency: 'inr',
             });
 
-            if (orderResponse.data.success) {
-                setOrderId(orderResponse.data.order.id);
+            if (!paymentIntentResponse.data.success) {
+                setPaymentError(paymentIntentResponse.data.message || 'Failed to initialize payment');
+                setProcessing(false);
+                return;
+            }
+
+            const { clientSecret, paymentIntentId } = paymentIntentResponse.data;
+
+            // Step 3: Confirm payment with Stripe using client secret
+            const { error: confirmError, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
+                payment_method: {
+                    card: cardElement,
+                    billing_details: {
+                        name: shippingAddress.fullName,
+                        phone: shippingAddress.phone,
+                        address: {
+                            line1: shippingAddress.addressLine1,
+                            line2: shippingAddress.addressLine2 || undefined,
+                            city: shippingAddress.city,
+                            state: shippingAddress.state,
+                            postal_code: shippingAddress.postalCode,
+                            country: shippingAddress.country,
+                        },
+                    },
+                },
+            });
+
+            if (confirmError) {
+                setPaymentError(confirmError.message || 'Payment failed');
+                setProcessing(false);
+                return;
+            }
+
+            // Step 4: Confirm payment with backend
+            if (paymentIntent?.status === 'succeeded') {
+                await orderApi.post(`/order/${createdOrderId}/confirm-payment`, {
+                    paymentIntentId,
+                });
+
                 setPaymentSuccess(true);
                 setActiveStep(2);
             } else {
-                setPaymentError(orderResponse.data.message || 'Order creation failed');
+                setPaymentError(`Payment status: ${paymentIntent?.status}. Please try again.`);
             }
         } catch (err: any) {
             const errorMessage =

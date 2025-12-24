@@ -9,10 +9,10 @@ import { useNavigate } from 'react-router-dom';
 
 import * as Styled from './CheckoutPage.style';
 import { useCheckout } from './CheckoutPage.hook';
-import { STRIPE_CONFIG } from '../../config/stripe';
 
-// Initialize Stripe with publishable key from config
-const stripePromise = loadStripe(STRIPE_CONFIG.publishableKey);
+// Get your PUBLISHABLE key from: https://dashboard.stripe.com/apikeys
+// It starts with pk_test_ (test mode) or pk_live_ (production)
+const stripePromise = loadStripe('pk_test_51JOBJnSA4EPPqs66VxVusJrEerUnYWuDGHkzasE78kNncq9UgLx4PwQdU8XPpn41qwz1vhNsxcY14rSQ7fC0c0gt00lNQYG9wa');
 
 const CARD_ELEMENT_OPTIONS = {
     style: {

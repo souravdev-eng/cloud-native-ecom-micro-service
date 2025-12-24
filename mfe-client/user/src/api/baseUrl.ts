@@ -4,7 +4,7 @@ import axios from "axios";
 // Backend via port-forward (run: ./scripts/start-backend.sh)
 const AUTH_API_URL = 'http://localhost:3100';
 const CART_API_URL = 'http://localhost:4200';
-const ORDER_API_URL = 'http://localhost:4000';
+const ORDER_API_URL = 'http://localhost:4300';
 
 export const baseUrl = axios.create({
     baseURL: AUTH_API_URL,
