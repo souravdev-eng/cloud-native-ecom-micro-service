@@ -1,0 +1,200 @@
+.marketing-page {
+	max-width: 1600px;
+	margin: 0 auto;
+}
+
+/* Marketing Stats */
+.marketing-stats {
+	display: grid;
+	grid-template-columns: repeat(4, 1fr);
+	gap: 16px;
+	margin-bottom: 24px;
+}
+
+.marketing-stat {
+	background: var(--bg-secondary);
+	border: 1px solid var(--border-subtle);
+	border-radius: var(--radius-md);
+	padding: 20px;
+	display: flex;
+	align-items: center;
+	gap: 16px;
+}
+
+.marketing-stat .stat-icon {
+	width: 48px;
+	height: 48px;
+	border-radius: var(--radius-md);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.marketing-stat .stat-icon svg {
+	width: 24px;
+	height: 24px;
+}
+
+.marketing-stat .stat-content {
+	display: flex;
+	flex-direction: column;
+}
+
+.marketing-stat .stat-value {
+	font-size: 1.5rem;
+	font-weight: 700;
+	font-family: var(--font-mono);
+	color: var(--text-primary);
+}
+
+.marketing-stat .stat-label {
+	font-size: 0.813rem;
+	color: var(--text-muted);
+}
+
+/* Campaigns List */
+.campaigns-list {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+
+.campaign-item {
+	display: flex;
+	align-items: center;
+	gap: 16px;
+	padding: 16px;
+	background: var(--bg-tertiary);
+	border-radius: var(--radius-md);
+	transition: all var(--transition-fast);
+}
+
+.campaign-item:hover {
+	background: var(--bg-hover);
+}
+
+.campaign-icon {
+	width: 44px;
+	height: 44px;
+	border-radius: var(--radius-md);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex-shrink: 0;
+}
+
+.campaign-icon[data-type='email'] {
+	background: rgba(59, 130, 246, 0.15);
+	color: #3b82f6;
+}
+
+.campaign-icon[data-type='discount'] {
+	background: rgba(245, 158, 11, 0.15);
+	color: #f59e0b;
+}
+
+.campaign-icon[data-type='social'] {
+	background: rgba(139, 92, 246, 0.15);
+	color: #8b5cf6;
+}
+
+.campaign-icon svg {
+	width: 22px;
+	height: 22px;
+}
+
+.campaign-info {
+	flex: 1;
+	min-width: 0;
+}
+
+.campaign-name {
+	font-size: 0.875rem;
+	font-weight: 600;
+	color: var(--text-primary);
+	margin-bottom: 2px;
+}
+
+.campaign-dates {
+	font-size: 0.75rem;
+	color: var(--text-muted);
+}
+
+.campaign-metrics {
+	display: flex;
+	gap: 32px;
+}
+
+.campaign-metrics .metric {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+}
+
+.campaign-metrics .metric-value {
+	font-size: 1rem;
+	font-weight: 600;
+	font-family: var(--font-mono);
+	color: var(--text-primary);
+}
+
+.campaign-metrics .metric-label {
+	font-size: 0.625rem;
+	color: var(--text-muted);
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+}
+
+.campaign-actions {
+	display: flex;
+	gap: 4px;
+}
+
+.action-btn {
+	width: 32px;
+	height: 32px;
+	border: none;
+	background: transparent;
+	color: var(--text-muted);
+	border-radius: var(--radius-sm);
+	cursor: pointer;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	transition: all var(--transition-fast);
+}
+
+.action-btn:hover {
+	background: var(--bg-secondary);
+	color: var(--text-primary);
+}
+
+.action-btn svg {
+	width: 18px;
+	height: 18px;
+}
+
+.badge-muted {
+	background: rgba(113, 113, 122, 0.1);
+	color: var(--text-muted);
+}
+
+@media (max-width: 1200px) {
+	.marketing-stats {
+		grid-template-columns: repeat(2, 1fr);
+	}
+
+	.campaign-metrics {
+		display: none;
+	}
+}
+
+@media (max-width: 768px) {
+	.marketing-stats {
+		grid-template-columns: 1fr;
+	}
+
+	.campaign-item {
+		flex-wrap: wrap;
+	}
+}
