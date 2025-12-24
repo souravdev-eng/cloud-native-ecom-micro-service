@@ -201,7 +201,10 @@ const CartPage = () => {
                             <Styled.ApplyButton>Apply</Styled.ApplyButton>
                         </Styled.PromoCodeWrapper>
 
-                        <Styled.CheckoutButton disabled={items.length === 0}>
+                        <Styled.CheckoutButton
+                            disabled={items.length === 0}
+                            onClick={() => navigate('/user/checkout')}
+                        >
                             Proceed to Checkout
                         </Styled.CheckoutButton>
 
