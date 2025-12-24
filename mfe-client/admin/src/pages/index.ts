@@ -9,3 +9,5 @@ export { default as Storefront } from './Storefront/Storefront';
 export { default as Settings } from './Settings/Settings';
 export { default as Support } from './Support/Support';
 
+// Auth pages
+export { Login, Signup, ForgotPassword, AuthLayout } from './Auth';

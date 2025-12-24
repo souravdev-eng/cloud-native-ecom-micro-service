@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, useLocation } from 'react-router-dom';
 
 import './styles/index.css';
 import Sidebar from './components/Sidebar/Sidebar';
@@ -16,8 +16,26 @@ import Storefront from './pages/Storefront/Storefront';
 import Settings from './pages/Settings/Settings';
 import Support from './pages/Support/Support';
 
+// Auth Pages
+import { Login, Signup, ForgotPassword } from './pages/Auth';
+
 const App: React.FC = () => {
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+    const location = useLocation();
+
+    // Check if current route is an auth route
+    const isAuthRoute = location.pathname.startsWith('/auth');
+
+    // Render auth pages without the sidebar layout
+    if (isAuthRoute) {
+        return (
+            <Routes>
+                <Route path="/auth/login" element={<Login />} />
+                <Route path="/auth/signup" element={<Signup />} />
+                <Route path="/auth/forgot-password" element={<ForgotPassword />} />
+            </Routes>
+        );
+    }
 
     return (
         <div className="admin-layout">
