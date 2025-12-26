@@ -1,4 +1,6 @@
 import { useState, useRef } from 'react';
+import { productServiceApi } from '../api/baseUrl';
+import { convertFileToBase64 } from '../utils/convertFileToBase64';
 
 export interface ProductFormData {
     title: string;
@@ -24,15 +26,15 @@ export interface ProductFormErrors {
 }
 
 const initialFormData: ProductFormData = {
-    title: '',
+    title: 'test title',
     image: null,
     imagePreview: '',
-    category: '',
-    description: '',
-    sellingPrice: '',
-    originalPrice: '',
-    quantity: '',
-    tags: [],
+    category: 'ipad',
+    description: 'test description for ipad',
+    sellingPrice: 100,
+    originalPrice: 100,
+    quantity: 10,
+    tags: ['ipad', 'apple'],
 };
 
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
@@ -229,41 +231,40 @@ export const useCreateProduct = (onSuccess?: () => void) => {
         setError('');
 
         try {
-            // Prepare FormData for file upload
-            const formDataToSend = new FormData();
-            formDataToSend.append('title', formData.title);
-            formDataToSend.append('category', formData.category);
-            formDataToSend.append('description', formData.description);
-            formDataToSend.append('sellingPrice', String(formData.sellingPrice));
-            formDataToSend.append('originalPrice', String(formData.originalPrice));
-            formDataToSend.append('quantity', String(formData.quantity));
-            formDataToSend.append('tags', JSON.stringify(formData.tags));
-
+            // Convert image file to base64
+            let imageBase64 = '';
+            let contentType = 'image/jpeg';
             if (formData.image) {
-                formDataToSend.append('image', formData.image);
+                const dataUrl = await convertFileToBase64(formData.image);
+                const matches = dataUrl.match(/^data:(.+);base64,(.+)$/);
+                if (matches) {
+                    contentType = matches[1];
+                    imageBase64 = matches[2];
+                }
             }
 
-            // TODO: Replace with actual API call
-            // const response = await productApi.post('/products', formDataToSend, {
-            //     headers: { 'Content-Type': 'multipart/form-data' }
-            // });
-            console.log('Creating product with FormData');
-
-            // Simulate API call
-            await new Promise(resolve => setTimeout(resolve, 1000));
-
-            // Cleanup preview URL
-            if (formData.imagePreview) {
-                URL.revokeObjectURL(formData.imagePreview);
+            // Send product data with base64 image
+            const response = await productServiceApi.post('/new', {
+                title: formData.title,
+                category: formData.category,
+                description: formData.description,
+                price: Number(formData.sellingPrice),
+                image: imageBase64,
+                contentType,
+                quantity: Number(formData.quantity),
+                tags: formData.tags,
+            });
+            if (response.status === 201) {
+                console.log('response is', response);
+                // Reset form on success
+                setFormData(initialFormData);
+                setTagInput('');
+                if (fileInputRef.current) {
+                    fileInputRef.current.value = '';
+                }
+                onSuccess?.();
             }
 
-            // Reset form on success
-            setFormData(initialFormData);
-            setTagInput('');
-            if (fileInputRef.current) {
-                fileInputRef.current.value = '';
-            }
-            onSuccess?.();
         } catch (err: any) {
             if (err.response?.data?.errors?.[0]?.message) {
                 setError(err.response.data.errors[0].message);
