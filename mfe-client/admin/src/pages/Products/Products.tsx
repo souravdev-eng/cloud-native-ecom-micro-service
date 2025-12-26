@@ -9,6 +9,8 @@ import DeleteIcon from '@mui/icons-material/DeleteOutlineRounded';
 import MoreVertIcon from '@mui/icons-material/MoreVertRounded';
 import ImageIcon from '@mui/icons-material/ImageRounded';
 
+import { CreateProductModal } from '../../components';
+
 interface Product {
     id: string;
     name: string;
@@ -49,6 +51,7 @@ const getStockClass = (stock: number) => {
 const Products: React.FC = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
+    const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
     const filteredProducts = mockProducts.filter(product =>
         product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -76,7 +79,7 @@ const Products: React.FC = () => {
                     <h1 className="page-title">Products</h1>
                     <p className="page-subtitle">Manage your product inventory and catalog</p>
                 </div>
-                <button className="btn btn-primary">
+                <button className="btn btn-primary" onClick={() => setIsCreateModalOpen(true)}>
                     <AddIcon />
                     Add Product
                 </button>
@@ -211,6 +214,12 @@ const Products: React.FC = () => {
                     </div>
                 </div>
             </div>
+
+            {/* Create Product Modal */}
+            <CreateProductModal
+                isOpen={isCreateModalOpen}
+                onClose={() => setIsCreateModalOpen(false)}
+            />
         </div>
     );
 };
