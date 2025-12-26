@@ -1,70 +1,20 @@
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React from 'react';
+import { Link } from 'react-router-dom';
 import AuthLayout from './AuthLayout';
+import { useLogin } from '../../hooks/useLogin';
 import './AuthLayout.css';
 
-interface LoginFormData {
-    email: string;
-    password: string;
-    rememberMe: boolean;
-}
-
 const Login: React.FC = () => {
-    const navigate = useNavigate();
-    const [formData, setFormData] = useState<LoginFormData>({
-        email: '',
-        password: '',
-        rememberMe: false,
-    });
-    const [showPassword, setShowPassword] = useState(false);
-    const [loading, setLoading] = useState(false);
-    const [errors, setErrors] = useState<Partial<LoginFormData>>({});
-
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const { name, value, type, checked } = e.target;
-        setFormData(prev => ({
-            ...prev,
-            [name]: type === 'checkbox' ? checked : value,
-        }));
-        // Clear error when user starts typing
-        if (errors[name as keyof LoginFormData]) {
-            setErrors(prev => ({ ...prev, [name]: '' }));
-        }
-    };
-
-    const validateForm = (): boolean => {
-        const newErrors: Partial<LoginFormData> = {};
-
-        if (!formData.email) {
-            newErrors.email = 'Email is required' as any;
-        } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-            newErrors.email = 'Please enter a valid email' as any;
-        }
-
-        if (!formData.password) {
-            newErrors.password = 'Password is required' as any;
-        } else if (formData.password.length < 6) {
-            newErrors.password = 'Password must be at least 6 characters' as any;
-        }
-
-        setErrors(newErrors);
-        return Object.keys(newErrors).length === 0;
-    };
-
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-
-        if (!validateForm()) return;
-
-        setLoading(true);
-
-        // Simulate API call
-        await new Promise(resolve => setTimeout(resolve, 1500));
-
-        // On success, navigate to dashboard
-        navigate('/');
-        setLoading(false);
-    };
+    const {
+        formData,
+        loading,
+        error,
+        errors,
+        showPassword,
+        setShowPassword,
+        handleChange,
+        handleSubmit,
+    } = useLogin();
 
     return (
         <AuthLayout
@@ -72,6 +22,17 @@ const Login: React.FC = () => {
             subtitle="Sign in to your admin account to continue"
         >
             <form className="auth-form" onSubmit={handleSubmit}>
+                {error && (
+                    <div className="api-error">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <circle cx="12" cy="12" r="10" />
+                            <line x1="12" y1="8" x2="12" y2="12" />
+                            <line x1="12" y1="16" x2="12.01" y2="16" />
+                        </svg>
+                        {error}
+                    </div>
+                )}
+
                 <div className="form-group">
                     <label className="form-label" htmlFor="email">Email</label>
                     <div className="input-with-icon">
@@ -198,4 +159,3 @@ const Login: React.FC = () => {
 };
 
 export default Login;
-

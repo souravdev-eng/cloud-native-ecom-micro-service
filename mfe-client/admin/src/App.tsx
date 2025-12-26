@@ -3,6 +3,8 @@ import { Routes, Route, useLocation } from 'react-router-dom';
 
 import './styles/index.css';
 import Sidebar from './components/Sidebar/Sidebar';
+import { ProtectedRoute } from './components';
+import { AuthProvider } from './hooks';
 
 // Pages
 import Dashboard from './pages/Dashboard/Dashboard';
@@ -19,7 +21,7 @@ import Support from './pages/Support/Support';
 // Auth Pages
 import { Login, Signup, ForgotPassword } from './pages/Auth';
 
-const App: React.FC = () => {
+const AppContent: React.FC = () => {
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
     const location = useLocation();
 
@@ -38,29 +40,31 @@ const App: React.FC = () => {
     }
 
     return (
-        <div className="admin-layout">
-            <Sidebar
-                collapsed={sidebarCollapsed}
-                onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
-            />
-            <main className={`admin-main ${sidebarCollapsed ? 'collapsed' : ''}`}>
-                <div className="admin-content">
-                    <Routes>
-                        <Route path="/" element={<Dashboard />} />
-                        <Route path="/products" element={<Products />} />
-                        <Route path="/orders" element={<Orders />} />
-                        <Route path="/customers" element={<Customers />} />
-                        <Route path="/analytics" element={<Analytics />} />
-                        <Route path="/shipping" element={<Shipping />} />
-                        <Route path="/marketing" element={<Marketing />} />
-                        <Route path="/storefront" element={<Storefront />} />
-                        <Route path="/settings" element={<Settings />} />
-                        <Route path="/support" element={<Support />} />
-                        <Route path="*" element={<NotFound />} />
-                    </Routes>
-                </div>
-            </main>
-        </div>
+        <ProtectedRoute>
+            <div className="admin-layout">
+                <Sidebar
+                    collapsed={sidebarCollapsed}
+                    onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
+                />
+                <main className={`admin-main ${sidebarCollapsed ? 'collapsed' : ''}`}>
+                    <div className="admin-content">
+                        <Routes>
+                            <Route path="/" element={<Dashboard />} />
+                            <Route path="/products" element={<Products />} />
+                            <Route path="/orders" element={<Orders />} />
+                            <Route path="/customers" element={<Customers />} />
+                            <Route path="/analytics" element={<Analytics />} />
+                            <Route path="/shipping" element={<Shipping />} />
+                            <Route path="/marketing" element={<Marketing />} />
+                            <Route path="/storefront" element={<Storefront />} />
+                            <Route path="/settings" element={<Settings />} />
+                            <Route path="/support" element={<Support />} />
+                            <Route path="*" element={<NotFound />} />
+                        </Routes>
+                    </div>
+                </main>
+            </div>
+        </ProtectedRoute>
     );
 };
 
@@ -71,5 +75,12 @@ const NotFound: React.FC = () => (
     </div>
 );
 
-export default App;
+const App: React.FC = () => {
+    return (
+        <AuthProvider>
+            <AppContent />
+        </AuthProvider>
+    );
+};
 
+export default App;

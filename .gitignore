@@ -10,3 +10,4 @@ config.MD
 @mf-types/
 build/
 .DS_Store
+k8s/secret/*

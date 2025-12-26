@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
+import React from 'react';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { useAuth } from '../../hooks/useAuth';
 import './Sidebar.css';
 
 // Icons
@@ -50,6 +51,27 @@ interface SidebarProps {
 
 const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
     const location = useLocation();
+    const navigate = useNavigate();
+    const { user, logout } = useAuth();
+
+    const handleLogout = async () => {
+        await logout();
+        navigate('/auth/login');
+    };
+
+    // Get user initials from name or email
+    const getUserInitials = () => {
+        if (user?.name) {
+            const names = user.name.split(' ');
+            return names.length >= 2
+                ? `${names[0][0]}${names[1][0]}`.toUpperCase()
+                : names[0].substring(0, 2).toUpperCase();
+        }
+        if (user?.email) {
+            return user.email.substring(0, 2).toUpperCase();
+        }
+        return 'AD';
+    };
 
     const renderNavItem = (item: NavItem, index: number) => {
         const isActive = location.pathname === item.path;
@@ -141,16 +163,16 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
                 {/* User Profile */}
                 <div className="user-profile">
                     <div className="user-avatar">
-                        <span>SM</span>
+                        <span>{getUserInitials()}</span>
                     </div>
                     {!collapsed && (
                         <div className="user-info">
-                            <span className="user-name">Saurav Majumdar</span>
-                            <span className="user-role">Administrator</span>
+                            <span className="user-name">{user?.name || user?.email || 'Admin User'}</span>
+                            <span className="user-role">{user?.role || 'Administrator'}</span>
                         </div>
                     )}
                     {!collapsed && (
-                        <button className="logout-btn" title="Logout">
+                        <button className="logout-btn" title="Logout" onClick={handleLogout}>
                             <LogoutIcon />
                         </button>
                     )}

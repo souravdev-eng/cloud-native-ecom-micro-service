@@ -625,3 +625,24 @@
 	width: 18px;
 	height: 18px;
 }
+
+/* API Error Message */
+.api-error {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	padding: 14px 16px;
+	background: rgba(239, 68, 68, 0.1);
+	border: 1px solid rgba(239, 68, 68, 0.3);
+	border-radius: var(--radius-md);
+	color: var(--error);
+	font-size: 0.875rem;
+	font-weight: 500;
+	margin-bottom: 8px;
+}
+
+.api-error svg {
+	width: 20px;
+	height: 20px;
+	flex-shrink: 0;
+}
