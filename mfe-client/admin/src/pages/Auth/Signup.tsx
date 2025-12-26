@@ -1,121 +1,23 @@
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React from 'react';
+import { Link } from 'react-router-dom';
 import AuthLayout from './AuthLayout';
+import { useSignup } from '../../hooks/useSignup';
 import './AuthLayout.css';
 
-interface SignupFormData {
-    firstName: string;
-    lastName: string;
-    email: string;
-    password: string;
-    confirmPassword: string;
-    agreeTerms: boolean;
-}
-
-interface FormErrors {
-    firstName?: string;
-    lastName?: string;
-    email?: string;
-    password?: string;
-    confirmPassword?: string;
-    agreeTerms?: string;
-}
-
 const Signup: React.FC = () => {
-    const navigate = useNavigate();
-    const [formData, setFormData] = useState<SignupFormData>({
-        firstName: '',
-        lastName: '',
-        email: '',
-        password: '',
-        confirmPassword: '',
-        agreeTerms: false,
-    });
-    const [showPassword, setShowPassword] = useState(false);
-    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-    const [loading, setLoading] = useState(false);
-    const [errors, setErrors] = useState<FormErrors>({});
-
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const { name, value, type, checked } = e.target;
-        setFormData(prev => ({
-            ...prev,
-            [name]: type === 'checkbox' ? checked : value,
-        }));
-        if (errors[name as keyof FormErrors]) {
-            setErrors(prev => ({ ...prev, [name]: undefined }));
-        }
-    };
-
-    const validateForm = (): boolean => {
-        const newErrors: FormErrors = {};
-
-        if (!formData.firstName.trim()) {
-            newErrors.firstName = 'First name is required';
-        }
-
-        if (!formData.lastName.trim()) {
-            newErrors.lastName = 'Last name is required';
-        }
-
-        if (!formData.email) {
-            newErrors.email = 'Email is required';
-        } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-            newErrors.email = 'Please enter a valid email';
-        }
-
-        if (!formData.password) {
-            newErrors.password = 'Password is required';
-        } else if (formData.password.length < 8) {
-            newErrors.password = 'Password must be at least 8 characters';
-        } else if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(formData.password)) {
-            newErrors.password = 'Password must include uppercase, lowercase, and number';
-        }
-
-        if (!formData.confirmPassword) {
-            newErrors.confirmPassword = 'Please confirm your password';
-        } else if (formData.password !== formData.confirmPassword) {
-            newErrors.confirmPassword = 'Passwords do not match';
-        }
-
-        if (!formData.agreeTerms) {
-            newErrors.agreeTerms = 'You must agree to the terms';
-        }
-
-        setErrors(newErrors);
-        return Object.keys(newErrors).length === 0;
-    };
-
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-
-        if (!validateForm()) return;
-
-        setLoading(true);
-
-        // Simulate API call
-        await new Promise(resolve => setTimeout(resolve, 1500));
-
-        // On success, navigate to login
-        navigate('/auth/login');
-        setLoading(false);
-    };
-
-    const getPasswordStrength = (): { level: number; label: string; color: string } => {
-        const { password } = formData;
-        if (!password) return { level: 0, label: '', color: '' };
-
-        let strength = 0;
-        if (password.length >= 8) strength++;
-        if (/[a-z]/.test(password)) strength++;
-        if (/[A-Z]/.test(password)) strength++;
-        if (/\d/.test(password)) strength++;
-        if (/[!@#$%^&*(),.?":{}|<>]/.test(password)) strength++;
-
-        if (strength <= 2) return { level: strength, label: 'Weak', color: 'var(--error)' };
-        if (strength <= 3) return { level: strength, label: 'Medium', color: 'var(--warning)' };
-        return { level: strength, label: 'Strong', color: 'var(--success)' };
-    };
+    const {
+        formData,
+        loading,
+        error,
+        errors,
+        showPassword,
+        showConfirmPassword,
+        setShowPassword,
+        setShowConfirmPassword,
+        handleChange,
+        handleSubmit,
+        getPasswordStrength,
+    } = useSignup();
 
     const passwordStrength = getPasswordStrength();
 
@@ -125,6 +27,17 @@ const Signup: React.FC = () => {
             subtitle="Join EcomAdmin and start managing your store"
         >
             <form className="auth-form" onSubmit={handleSubmit}>
+                {error && (
+                    <div className="api-error">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <circle cx="12" cy="12" r="10" />
+                            <line x1="12" y1="8" x2="12" y2="12" />
+                            <line x1="12" y1="16" x2="12.01" y2="16" />
+                        </svg>
+                        {error}
+                    </div>
+                )}
+
                 <div className="form-row">
                     <div className="form-group">
                         <label className="form-label" htmlFor="firstName">First name</label>
@@ -337,4 +250,3 @@ const Signup: React.FC = () => {
 };
 
 export default Signup;
-
