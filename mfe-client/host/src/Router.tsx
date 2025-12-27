@@ -2,6 +2,7 @@ import { createBrowserRouter, Link, Outlet } from 'react-router-dom';
 
 import DashboardModule from './modules/DashboardModule';
 import UserModule from './modules/UserModule';
+import AdminModule from './modules/AdminModule';
 
 const Layout = () => {
 	return (
@@ -34,6 +35,10 @@ const router = createBrowserRouter([
 			{
 				path: 'user/*',
 				element: <UserModule />,
+			},
+			{
+				path: 'admin/*',
+				element: <AdminModule />,
 			},
 		],
 	},

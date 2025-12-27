@@ -77,9 +77,11 @@ const NotFound: React.FC = () => (
 
 const App: React.FC = () => {
     return (
-        <AuthProvider>
-            <AppContent />
-        </AuthProvider>
+        <div className="admin-mfe">
+            <AuthProvider>
+                <AppContent />
+            </AuthProvider>
+        </div>
     );
 };
 
