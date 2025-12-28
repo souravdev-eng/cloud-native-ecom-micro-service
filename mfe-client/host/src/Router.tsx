@@ -29,6 +29,10 @@ const router = createBrowserRouter([
 				element: <DashboardModule />,
 			},
 			{
+				path: 'products',
+				element: <DashboardModule />,
+			},
+			{
 				path: 'product/*',
 				element: <DashboardModule />,
 			},
