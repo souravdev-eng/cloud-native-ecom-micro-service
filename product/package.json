@@ -5,6 +5,7 @@
   "license": "MIT",
   "scripts": {
     "start": "ts-node-dev --poll src/index.ts",
+    "seed": "ts-node src/seeds/seedProducts.ts",
     "d-build": "docker build -t souravdeveloper/ecom-product .",
     "d-push": "docker push souravdeveloper/ecom-product",
     "d-pub": "npm run d-build && npm run d-push",

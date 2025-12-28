@@ -51,7 +51,7 @@ const AppContent: React.FC = () => {
                 <main className={`admin-main ${sidebarCollapsed ? 'collapsed' : ''}`}>
                     <div className="admin-content">
                         <Routes>
-                            <Route path="/admin" element={<Dashboard />} />
+                            <Route path="/admin/dashboard" element={<Dashboard />} />
                             <Route path="/admin/products" element={<Products />} />
                             <Route path="/admin/orders" element={<Orders />} />
                             <Route path="/admin/customers" element={<Customers />} />
