@@ -20,6 +20,8 @@ import Support from './pages/Support/Support';
 
 // Auth Pages
 import { Login, Signup, ForgotPassword } from './pages/Auth';
+import { ThemeProvider } from '@emotion/react';
+import { adminTheme } from './themes';
 
 const AppContent: React.FC = () => {
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -32,9 +34,9 @@ const AppContent: React.FC = () => {
     if (isAuthRoute) {
         return (
             <Routes>
-                <Route path="/auth/login" element={<Login />} />
-                <Route path="/auth/signup" element={<Signup />} />
-                <Route path="/auth/forgot-password" element={<ForgotPassword />} />
+                <Route path="/admin/auth/login" element={<Login />} />
+                <Route path="/admin/auth/signup" element={<Signup />} />
+                <Route path="/admin/auth/forgot-password" element={<ForgotPassword />} />
             </Routes>
         );
     }
@@ -49,16 +51,16 @@ const AppContent: React.FC = () => {
                 <main className={`admin-main ${sidebarCollapsed ? 'collapsed' : ''}`}>
                     <div className="admin-content">
                         <Routes>
-                            <Route path="/" element={<Dashboard />} />
-                            <Route path="/products" element={<Products />} />
-                            <Route path="/orders" element={<Orders />} />
-                            <Route path="/customers" element={<Customers />} />
-                            <Route path="/analytics" element={<Analytics />} />
-                            <Route path="/shipping" element={<Shipping />} />
-                            <Route path="/marketing" element={<Marketing />} />
-                            <Route path="/storefront" element={<Storefront />} />
-                            <Route path="/settings" element={<Settings />} />
-                            <Route path="/support" element={<Support />} />
+                            <Route path="/admin" element={<Dashboard />} />
+                            <Route path="/admin/products" element={<Products />} />
+                            <Route path="/admin/orders" element={<Orders />} />
+                            <Route path="/admin/customers" element={<Customers />} />
+                            <Route path="/admin/analytics" element={<Analytics />} />
+                            <Route path="/admin/shipping" element={<Shipping />} />
+                            <Route path="/admin/marketing" element={<Marketing />} />
+                            <Route path="/admin/storefront" element={<Storefront />} />
+                            <Route path="/admin/settings" element={<Settings />} />
+                            <Route path="/admin/support" element={<Support />} />
                             <Route path="*" element={<NotFound />} />
                         </Routes>
                     </div>
@@ -77,11 +79,13 @@ const NotFound: React.FC = () => (
 
 const App: React.FC = () => {
     return (
-        <div className="admin-mfe">
-            <AuthProvider>
-                <AppContent />
-            </AuthProvider>
-        </div>
+        <ThemeProvider theme={adminTheme}>
+            <div className="admin-mfe">
+                <AuthProvider>
+                    <AppContent />
+                </AuthProvider>
+            </div>
+        </ThemeProvider>
     );
 };
 

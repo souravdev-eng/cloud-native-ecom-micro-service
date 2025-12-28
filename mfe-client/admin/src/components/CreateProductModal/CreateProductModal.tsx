@@ -5,6 +5,7 @@ import CloudUploadIcon from '@mui/icons-material/CloudUploadRounded';
 import DeleteIcon from '@mui/icons-material/DeleteOutlineRounded';
 import { useCreateProduct } from '../../hooks/useCreateProduct';
 import './CreateProductModal.css';
+import ImageUpload from '../../atoms/ImageUpload/ImageUpload';
 
 interface CreateProductModalProps {
     isOpen: boolean;
@@ -193,19 +194,14 @@ const CreateProductModal: React.FC<CreateProductModalProps> = ({ isOpen, onClose
 
                                 {/* Upload Area */}
                                 {!formData.imagePreview ? (
-                                    <div
-                                        className={`image-upload-zone ${isDragging ? 'dragging' : ''} ${errors.image ? 'error' : ''}`}
-                                        onClick={triggerFileInput}
-                                        onDragOver={handleDragOver}
-                                        onDragLeave={handleDragLeave}
-                                        onDrop={handleDrop}
-                                    >
-                                        <CloudUploadIcon className="upload-icon" />
-                                        <p className="upload-text">
-                                            <span className="upload-link">Click to upload</span> or drag and drop
-                                        </p>
-                                        <p className="upload-hint">PNG, JPG, GIF or WebP (max 5MB)</p>
-                                    </div>
+                                    <ImageUpload
+                                        isDragging={isDragging}
+                                        errors={errors}
+                                        handleDrop={handleDrop}
+                                        handleDragOver={handleDragOver}
+                                        handleDragLeave={handleDragLeave}
+                                        triggerFileInput={triggerFileInput}
+                                    />
                                 ) : (
                                     <div className="image-preview-container">
                                         <img
