@@ -10,7 +10,7 @@ import { showProductDetailByIdRouter } from './routes/showProductDetailById';
 import { productUpdateRouter } from './routes/updateProduct';
 import { productDeleteRouter } from './routes/deleteProduct';
 import { productSellerIdUpdateRouter } from './routes/updateAllSellerId';
-import { showAdminProduct } from './routes/showMyProducts';
+import { showAllSellerProducts } from './routes/showAllSellerProducts';
 
 const app = express();
 
@@ -42,7 +42,7 @@ app.use(currentUser);
 // routes
 app.use(newProductRouter);
 app.use(showProductRouter);
-app.use(showAdminProduct); // Must be before :id routes (specific routes first)
+app.use(showAllSellerProducts); // Must be before :id routes (specific routes first)
 app.use(showProductDetailByIdRouter);
 app.use(productUpdateRouter);
 app.use(productDeleteRouter);

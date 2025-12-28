@@ -21,4 +21,4 @@ router.get(
   }
 );
 
-export { router as showAdminProduct };
+export { router as showAllSellerProducts };

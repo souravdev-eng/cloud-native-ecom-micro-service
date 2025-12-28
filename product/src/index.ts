@@ -38,9 +38,6 @@ const start = async () => {
 
   try {
     mongoose.set('strictQuery', false);
-    console.log('process.env.PRODUCT_SERVICE_MONGODB_URL', process.env.PRODUCT_SERVICE_MONGODB_URL);
-    console.log('process.env.MONGO_USER', process.env.MONGO_USER);
-    console.log('process.env.MONGO_PASSWORD', process.env.MONGO_PASSWORD);
     mongoose
       .connect(process.env.PRODUCT_SERVICE_MONGODB_URL, {
         user: process.env.MONGO_USER,

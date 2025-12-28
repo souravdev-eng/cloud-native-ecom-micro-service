@@ -27,7 +27,18 @@ const getStockClass = (stock: number) => {
 };
 
 const Products: React.FC = () => {
-    const { productList, isLoading, totalProducts, handlePageChange, currentPage, setCurrentPage } = useProduct();
+    const {
+        productList,
+        isLoading,
+        meta,
+        currentPage,
+        hasNextPage,
+        hasPrevPage,
+        handleNextPage,
+        handlePrevPage,
+        handleFirstPage,
+        refreshProducts,
+    } = useProduct();
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -187,16 +198,32 @@ const Products: React.FC = () => {
 
                         {/* Pagination */}
                         <div className="pagination">
-                            <span className="pagination-info">Showing 1-8 of {filteredProducts.length} products</span>
+                            <span className="pagination-info">
+                                Showing {meta.count} products · Page {currentPage}
+                            </span>
                             <div className="pagination-controls">
-                                <button className="btn btn-ghost" disabled={currentPage === 1} onClick={() => handlePageChange(currentPage - 1)}>Previous</button>
+                                {currentPage > 1 && (
+                                    <button className="btn btn-ghost" onClick={handleFirstPage}>
+                                        First
+                                    </button>
+                                )}
+                                <button
+                                    className="btn btn-ghost"
+                                    disabled={!hasPrevPage}
+                                    onClick={handlePrevPage}
+                                >
+                                    Previous
+                                </button>
                                 <div className="page-numbers">
-                                    {Array.from({ length: Math.ceil(totalProducts / 20) }, (_, index) => (
-                                        <button className={`page-btn ${currentPage === index + 1 ? 'active' : ''}`}
-                                            key={index} onClick={() => handlePageChange(index + 1)}>{index + 1}</button>
-                                    ))}
+                                    <button className="page-btn active">{currentPage}</button>
                                 </div>
-                                <button className="btn btn-ghost" disabled={currentPage === totalProducts} onClick={() => handlePageChange(currentPage + 1)}>Next</button>
+                                <button
+                                    className="btn btn-ghost"
+                                    disabled={!hasNextPage}
+                                    onClick={handleNextPage}
+                                >
+                                    Next
+                                </button>
                             </div>
                         </div>
                     </div>
