@@ -3,13 +3,13 @@ import { Link } from 'react-router-dom';
 import AuthLayout from './AuthLayout';
 import { useLogin } from '../../hooks/useLogin';
 import './AuthLayout.css';
+import { UserErrorProps } from '../../store/reducers/user.reducer';
 
 const Login: React.FC = () => {
     const {
         formData,
         loading,
         error,
-        errors,
         showPassword,
         setShowPassword,
         handleChange,
@@ -29,7 +29,9 @@ const Login: React.FC = () => {
                             <line x1="12" y1="8" x2="12" y2="12" />
                             <line x1="12" y1="16" x2="12.01" y2="16" />
                         </svg>
-                        {error}
+                        {error && Array.isArray(error) && error.map((err: UserErrorProps, index: number) => (
+                            <span key={index} className="form-error">{err?.message}</span>
+                        ))}
                     </div>
                 )}
 
@@ -46,14 +48,14 @@ const Login: React.FC = () => {
                             id="email"
                             name="email"
                             type="email"
-                            className={`form-input ${errors.email ? 'error' : ''}`}
+                            className={`form-input ${error && Array.isArray(error) && error.find((err: UserErrorProps) => err.field === 'email') ? 'error' : ''}`}
                             placeholder="admin@example.com"
                             value={formData.email}
                             onChange={handleChange}
                             autoComplete="email"
                         />
                     </div>
-                    {errors.email && <span className="form-error">{errors.email}</span>}
+                    {error && Array.isArray(error) && error.find((err: UserErrorProps) => err.field === 'email') && <span className="form-error">{error.find((err: UserErrorProps) => err.field === 'email')?.message}</span>}
                 </div>
 
                 <div className="form-group">
@@ -69,7 +71,7 @@ const Login: React.FC = () => {
                             id="password"
                             name="password"
                             type={showPassword ? 'text' : 'password'}
-                            className={`form-input ${errors.password ? 'error' : ''}`}
+                            className={`form-input ${error && Array.isArray(error) && error.find((err: UserErrorProps) => err.field === 'password') ? 'error' : ''}`}
                             placeholder="Enter your password"
                             value={formData.password}
                             onChange={handleChange}
@@ -94,7 +96,7 @@ const Login: React.FC = () => {
                             )}
                         </button>
                     </div>
-                    {errors.password && <span className="form-error">{errors.password}</span>}
+                    {error && Array.isArray(error) && error.find((err: UserErrorProps) => err.field === 'password') && <span className="form-error">{error.find((err: UserErrorProps) => err.field === 'password')?.message}</span>}
                 </div>
 
                 <div className="form-options">

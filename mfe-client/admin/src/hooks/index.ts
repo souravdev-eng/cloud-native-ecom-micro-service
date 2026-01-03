@@ -1,5 +1,5 @@
 export { AuthProvider, useAuth } from './useAuth';
-export type { User } from './useAuth';
+// export type { User } from './useAuth';
 export { useLogin } from './useLogin';
 export type { LoginFormData, LoginFormErrors } from './useLogin';
 export { useSignup } from './useSignup';

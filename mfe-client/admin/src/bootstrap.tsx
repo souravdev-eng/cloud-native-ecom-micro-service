@@ -1,4 +1,5 @@
 import React from 'react';
+import { Provider } from 'react-redux'
 
 import ReactDomClient from 'react-dom/client';
 import {
@@ -8,6 +9,7 @@ import {
 } from 'react-router-dom';
 
 import App from './App';
+import { store } from './store/store';
 
 interface MountOptions {
 	onNavigation?: (location: { pathname: string }) => void;
@@ -43,7 +45,11 @@ const mount = (
 	}
 
 	const root = ReactDomClient.createRoot(el);
-	root.render(<RouterProvider router={router} />);
+	root.render(
+		<Provider store={store}>
+			<RouterProvider router={router} />
+		</Provider>
+	);
 
 	return {
 		onParentNavigate: (location: { pathname: string }): void => {

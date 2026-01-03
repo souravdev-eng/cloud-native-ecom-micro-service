@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { Routes, Route, useLocation } from 'react-router-dom';
+import { Routes, Route, useLocation, Navigate } from 'react-router-dom';
 
 import './styles/index.css';
 import Sidebar from './components/Sidebar/Sidebar';
 import { ProtectedRoute } from './components';
-import { AuthProvider } from './hooks';
+import { AuthProvider, useAuth } from './hooks';
 
 // Pages
 import Dashboard from './pages/Dashboard/Dashboard';
@@ -26,9 +26,15 @@ import { adminTheme } from './themes';
 const AppContent: React.FC = () => {
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
     const location = useLocation();
+    const { user } = useAuth();
 
-    // Check if current route is an auth route
-    const isAuthRoute = location.pathname.startsWith('/auth');
+    // Check if current route is an auth route (routes are /admin/auth/...)
+    const isAuthRoute = location.pathname.includes('/auth');
+
+    // If user is authenticated and on auth route, redirect to dashboard
+    if (isAuthRoute && user) {
+        return <Navigate to="/admin/dashboard" replace />;
+    }
 
     // Render auth pages without the sidebar layout
     if (isAuthRoute) {
@@ -51,7 +57,7 @@ const AppContent: React.FC = () => {
                 <main className={`admin-main ${sidebarCollapsed ? 'collapsed' : ''}`}>
                     <div className="admin-content">
                         <Routes>
-                            <Route path="/admin/dashboard" element={<Dashboard />} />
+                            <Route path="/admin/dashboard" element={<Dashboard />} index />
                             <Route path="/admin/products" element={<Products />} />
                             <Route path="/admin/orders" element={<Orders />} />
                             <Route path="/admin/customers" element={<Customers />} />
