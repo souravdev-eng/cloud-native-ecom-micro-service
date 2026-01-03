@@ -6,6 +6,8 @@
 
 ## 📊 Progress Tracker
 
+### 🖥️ Backend (Microservices)
+
 | #   | Topic                               | Status        | Priority  | Complexity | Est. Time |
 | --- | ----------------------------------- | ------------- | --------- | ---------- | --------- |
 | ✅  | RabbitMQ Messaging                  | **COMPLETED** | -         | ⭐⭐       | -         |
@@ -21,6 +23,15 @@
 | 9   | Kubernetes Deep Dive                | 🔲 Pending    | 🟡 Medium | ⭐⭐⭐⭐   | 2 weeks   |
 | 10  | Security & OAuth2 Patterns          | 🔲 Pending    | 🟡 Medium | ⭐⭐⭐     | 1.5 weeks |
 
+### 🎨 Frontend (Micro-Frontends)
+
+| #   | Topic                                | Status     | Priority  | Complexity | Est. Time |
+| --- | ------------------------------------ | ---------- | --------- | ---------- | --------- |
+| 11  | **Micro-Frontend Architecture**      | 🔲 Pending | 🔴 High   | ⭐⭐⭐⭐   | 1.5 weeks |
+| 12  | Module Federation Deep Dive          | 🔲 Pending | 🔴 High   | ⭐⭐⭐     | 1 week    |
+| 13  | MFE State Management & Communication | 🔲 Pending | 🔴 High   | ⭐⭐⭐     | 1 week    |
+| 14  | MFE Deployment & Versioning          | 🔲 Pending | 🟡 Medium | ⭐⭐⭐     | 1 week    |
+
 **Legend:**
 
 - 🔴 High Priority = Immediately useful in your e-commerce project
@@ -33,48 +44,43 @@
 ## 🗺️ Visual Learning Path
 
 ```
-                    ┌─────────────────────────────────────┐
-                    │     YOUR LEARNING JOURNEY           │
-                    └─────────────────────────────────────┘
-                                    │
-         ┌──────────────────────────┼──────────────────────────┐
-         │                          │                          │
-         ▼                          ▼                          ▼
-   ✅ COMPLETED              FOUNDATION PHASE            ADVANCED PHASE
-   ─────────────             ────────────────            ──────────────
-   • RabbitMQ                 Week 1-4                    Week 8+
-   • ETL Patterns             ────────                    ────────
-                              │                           │
-                              ▼                           ▼
-                    ┌─────────────────┐         ┌─────────────────┐
-                    │ 1. Redis Cache  │         │ 7. Event        │
-                    │    Patterns     │         │    Sourcing     │
-                    └────────┬────────┘         └─────────────────┘
-                             │                           │
-                             ▼                           ▼
-                    ┌─────────────────┐         ┌─────────────────┐
-                    │ 2. Circuit      │         │ 8. gRPC         │
-                    │    Breaker      │         │                 │
-                    └────────┬────────┘         └─────────────────┘
-                             │                           │
-                             ▼                           ▼
-                    ┌─────────────────┐         ┌─────────────────┐
-                    │ 3. Observabil-  │         │ 9. Kubernetes   │
-                    │    ity Stack    │         │    Deep Dive    │
-                    └────────┬────────┘         └─────────────────┘
-                             │                           │
-                             ▼                           ▼
-                    ┌─────────────────┐         ┌─────────────────┐
-                    │ 4. Saga         │         │ 10. Security    │
-                    │    Pattern      │         │     OAuth2      │
-                    └────────┬────────┘         └─────────────────┘
-                             │
-              ┌──────────────┴──────────────┐
-              ▼                             ▼
-     ┌─────────────────┐          ┌─────────────────┐
-     │ 5. Elastic-     │          │ 6. API Gateway  │
-     │    search       │          │    Patterns     │
-     └─────────────────┘          └─────────────────┘
+┌────────────────────────────────────────────────────────────────────────────────┐
+│                           YOUR LEARNING JOURNEY                                 │
+│                                                                                 │
+│                    BACKEND                             FRONTEND                 │
+│               (Microservices)                     (Micro-Frontends)             │
+│                      │                                   │                      │
+│   ✅ COMPLETED       │                                   │                      │
+│   ─────────────      │                                   │                      │
+│   • RabbitMQ         │                                   │                      │
+│   • ETL Patterns     │                                   │                      │
+│                      │                                   │                      │
+│            ┌─────────┴─────────┐             ┌──────────┴──────────┐            │
+│            ▼                   ▼             ▼                     ▼            │
+│   ┌────────────────┐  ┌────────────────┐  ┌────────────────┐  ┌──────────────┐ │
+│   │ 1. Redis Cache │  │ 2. Circuit     │  │ 11. MFE        │  │ 12. Module   │ │
+│   │                │  │    Breaker     │  │   Architecture │  │   Federation │ │
+│   └───────┬────────┘  └───────┬────────┘  └───────┬────────┘  └──────┬───────┘ │
+│           │                   │                   │                  │          │
+│           ▼                   ▼                   ▼                  ▼          │
+│   ┌────────────────┐  ┌────────────────┐  ┌────────────────┐  ┌──────────────┐ │
+│   │ 3. Observabil- │  │ 4. Saga        │  │ 13. MFE State  │  │ 14. MFE      │ │
+│   │    ity Stack   │  │    Pattern     │  │   Communication│  │   Deployment │ │
+│   └───────┬────────┘  └───────┬────────┘  └────────────────┘  └──────────────┘ │
+│           │                   │                                                 │
+│           ▼                   ▼                                                 │
+│   ┌────────────────┐  ┌────────────────┐                                        │
+│   │ 5. Elastic-    │  │ 6. API         │       ADVANCED (Later)                 │
+│   │    search      │  │    Gateway     │       ────────────────                 │
+│   └────────────────┘  └────────────────┘       • Event Sourcing                 │
+│                                                • gRPC                           │
+│                                                • Kubernetes Deep Dive           │
+│                                                • Security & OAuth2              │
+│                                                                                 │
+└────────────────────────────────────────────────────────────────────────────────┘
+
+💡 TIP: You can learn Backend & Frontend tracks IN PARALLEL!
+   Start with: Redis (Backend) + MFE Architecture (Frontend)
 ```
 
 ---
@@ -593,23 +599,399 @@ sandbox/security-learning/
 
 ---
 
+## 🎨 FRONTEND TRACK: Micro-Frontend Architecture
+
+---
+
+### 1️⃣1️⃣ Micro-Frontend Architecture (High-Level Thinking)
+
+**Status:** 🔲 Pending | **Priority:** 🔴 High | **Complexity:** ⭐⭐⭐⭐
+
+#### Why Learn This?
+
+- You ALREADY have a Module Federation MFE setup!
+- Understand the architectural decisions behind it
+- Scale frontend teams independently
+- Deploy features without full releases
+
+#### Your Current MFE Architecture
+
+```
+┌───────────────────────────────────────────────────────────────────────┐
+│                    YOUR MICRO-FRONTEND SETUP                          │
+│                                                                       │
+│                        ┌─────────────────┐                            │
+│                        │      HOST       │                            │
+│                        │   (Shell App)   │                            │
+│                        │   Port: 3000    │                            │
+│                        └────────┬────────┘                            │
+│                                 │                                     │
+│         ┌───────────────────────┼───────────────────────┐             │
+│         │                       │                       │             │
+│         ▼                       ▼                       ▼             │
+│   ┌─────────────┐         ┌─────────────┐         ┌─────────────┐    │
+│   │    USER     │         │  DASHBOARD  │         │    ADMIN    │    │
+│   │  Port:3001  │         │  Port:3002  │         │  Port:3004  │    │
+│   │             │         │             │         │             │    │
+│   │ • Sign In   │         │ • Home Page │         │ • Products  │    │
+│   │ • Sign Up   │         │ • Products  │         │ • Orders    │    │
+│   │ • Cart      │         │ • Details   │         │ • Analytics │    │
+│   │ • Checkout  │         │ • Filters   │         │ • Settings  │    │
+│   └─────────────┘         └─────────────┘         └─────────────┘    │
+│         │                       │                       │             │
+│         └───────────────────────┼───────────────────────┘             │
+│                                 │                                     │
+│                        ┌────────▼────────┐                            │
+│                        │     SHARED      │                            │
+│                        │  • Components   │                            │
+│                        │  • Themes       │                            │
+│                        │  • Configs      │                            │
+│                        │  • Utils        │                            │
+│                        └─────────────────┘                            │
+│                                                                       │
+└───────────────────────────────────────────────────────────────────────┘
+```
+
+#### What You'll Learn
+
+```
+sandbox/mfe-architecture/
+├── 01-why-micro-frontends/           # When to use (and when NOT to)
+│   ├── monolith-vs-mfe.md
+│   ├── team-topology.md              # Conway's Law
+│   └── decision-framework.md
+│
+├── 02-integration-patterns/          # How MFEs connect
+│   ├── build-time-integration.md
+│   ├── runtime-integration.md        # Your approach!
+│   ├── server-side-composition.md
+│   └── comparison-matrix.md
+│
+├── 03-module-federation-concepts/    # The technology you use
+│   ├── how-it-works.md
+│   ├── host-vs-remote.md
+│   ├── shared-dependencies.md
+│   ├── version-conflicts.md
+│   └── dynamic-remotes.md
+│
+├── 04-routing-strategies/            # Navigation across MFEs
+│   ├── shell-based-routing.md
+│   ├── mfe-internal-routing.md
+│   └── deep-linking.md
+│
+├── 05-shared-concerns/               # Cross-cutting stuff
+│   ├── authentication-flow.md
+│   ├── shared-state.md
+│   ├── design-system.md
+│   └── error-boundaries.md
+│
+├── 06-deployment-strategies/         # Ship independently
+│   ├── independent-deployments.md
+│   ├── versioning-strategy.md
+│   ├── rollback-procedures.md
+│   └── canary-releases.md
+│
+├── 07-performance/                   # Keep it fast
+│   ├── bundle-size-optimization.md
+│   ├── lazy-loading.md
+│   ├── caching-strategies.md
+│   └── core-web-vitals.md
+│
+└── 08-testing-strategies/            # Test in isolation & integration
+    ├── unit-testing-mfes.md
+    ├── integration-testing.md
+    ├── contract-testing.md
+    └── e2e-testing.md
+```
+
+#### Key Architectural Decisions to Understand
+
+| Decision        | Options                            | Your Choice                 |
+| --------------- | ---------------------------------- | --------------------------- |
+| **Integration** | Build-time / Runtime / Server-side | Runtime (Module Federation) |
+| **Routing**     | Shell-controlled / Independent     | Shell-controlled (Host)     |
+| **Styling**     | Shared / Isolated / CSS-in-JS      | Mixed (Shared themes)       |
+| **State**       | Global / Per-MFE / Hybrid          | Per-MFE with shared auth    |
+| **Deployment**  | Mono-repo / Multi-repo             | Mono-repo                   |
+| **Bundler**     | Webpack / Rspack / Vite            | Rspack                      |
+
+#### When to Use Micro-Frontends
+
+```
+┌───────────────────────────────────────────────────────────────────────┐
+│                       DECISION FRAMEWORK                              │
+│                                                                       │
+│   ✅ USE MFE WHEN:                   ❌ DON'T USE MFE WHEN:           │
+│   ─────────────────                  ──────────────────────           │
+│   • Multiple teams working           • Single team                    │
+│     on same app                      • Small application              │
+│   • Need independent                 • Tight coupling needed          │
+│     deployments                      • Simple requirements            │
+│   • Different tech stacks            • Premature optimization         │
+│   • Scale teams, not just code       • No clear domain boundaries     │
+│   • Legacy modernization                                              │
+│                                                                       │
+│   YOUR CASE: ✅ E-commerce with distinct domains                      │
+│   (Admin, Storefront, User Account) = Perfect for MFE!                │
+│                                                                       │
+└───────────────────────────────────────────────────────────────────────┘
+```
+
+#### Prerequisites
+
+- ✅ React fundamentals
+- ✅ Basic understanding of bundlers
+
+---
+
+### 1️⃣2️⃣ Module Federation Deep Dive
+
+**Status:** 🔲 Pending | **Priority:** 🔴 High | **Complexity:** ⭐⭐⭐
+
+#### Why Learn This?
+
+- Understand what's happening under the hood
+- Debug federation issues confidently
+- Optimize shared dependencies
+- Handle version conflicts
+
+#### What You'll Learn
+
+```
+sandbox/module-federation-learning/
+├── 01-core-concepts/
+│   ├── what-is-module-federation.md
+│   ├── host-container-pattern.md
+│   ├── remote-entry-explained.md
+│   └── shared-scope.md
+│
+├── 02-configuration-deep-dive/
+│   ├── exposes-config.md
+│   ├── remotes-config.md
+│   ├── shared-config.md
+│   └── singleton-vs-multiple.md
+│
+├── 03-runtime-behavior/
+│   ├── how-loading-works.md
+│   ├── chunk-loading.md
+│   ├── failure-handling.md
+│   └── dynamic-remotes.md
+│
+├── 04-shared-dependencies/
+│   ├── version-negotiation.md
+│   ├── singleton-pattern.md
+│   ├── eager-vs-async.md
+│   └── handling-conflicts.md
+│
+├── 05-typescript-support/
+│   ├── type-sharing.md
+│   ├── mf-types-plugin.md
+│   └── contract-types.md
+│
+└── 06-debugging-guide/
+    ├── common-errors.md
+    ├── network-debugging.md
+    └── devtools-tips.md
+```
+
+#### Your Module Federation Config Explained
+
+```typescript
+// host/module-federation.config.ts
+export const mfConfig = {
+  name: 'host', // This app's identity
+  filename: 'remoteEntry.js', // Entry point for consumers
+
+  remotes: {
+    // Remote apps to load at runtime
+    user: 'user@http://localhost:3001/remoteEntry.js',
+    dashboard: 'dashboard@http://localhost:3002/remoteEntry.js',
+    admin: 'admin@http://localhost:3004/remoteEntry.js',
+  },
+
+  shared: {
+    // Libraries shared between all MFEs (loaded ONCE)
+    react: { singleton: true, eager: true, requiredVersion: '19.1.1' },
+    'react-dom': { singleton: true, eager: true, requiredVersion: '19.1.1' },
+    'react-router-dom': { singleton: true, eager: true, requiredVersion: '^7.7.1' },
+  },
+};
+```
+
+#### Prerequisites
+
+- ✅ Completed: MFE Architecture fundamentals
+
+---
+
+### 1️⃣3️⃣ MFE State Management & Communication
+
+**Status:** 🔲 Pending | **Priority:** 🔴 High | **Complexity:** ⭐⭐⭐
+
+#### Why Learn This?
+
+- How does User MFE know user is logged in?
+- How does Cart update when product is added?
+- Cross-MFE communication patterns
+- Avoid tight coupling
+
+#### What You'll Learn
+
+```
+sandbox/mfe-communication/
+├── 01-communication-patterns/
+│   ├── props-drilling.md             # Simple but limited
+│   ├── custom-events.md              # Browser events
+│   ├── shared-state-store.md         # Redux/Zustand in shell
+│   ├── pub-sub-pattern.md            # Event bus
+│   └── url-based-state.md            # Query params
+│
+├── 02-authentication-flow/
+│   ├── where-to-authenticate.md      # Shell vs dedicated MFE
+│   ├── token-sharing.md              # How to share JWT
+│   ├── protected-routes.md           # Cross-MFE protection
+│   └── logout-everywhere.md          # Coordinated logout
+│
+├── 03-shared-state-patterns/
+│   ├── global-vs-local-state.md
+│   ├── state-contracts.md            # Define what's shared
+│   ├── state-sync-strategies.md
+│   └── optimistic-updates.md
+│
+├── 04-event-driven-communication/
+│   ├── custom-event-bus.md
+│   ├── typed-events.md
+│   ├── event-contracts.md
+│   └── debugging-events.md
+│
+└── 05-practical-examples/
+    ├── cart-update-flow.md
+    ├── user-login-flow.md
+    └── notification-system.md
+```
+
+#### Communication Patterns Comparison
+
+```
+┌───────────────────────────────────────────────────────────────────────┐
+│                   MFE COMMUNICATION PATTERNS                          │
+│                                                                       │
+│   Pattern            │ Coupling │ Complexity │ Use Case               │
+│   ────────────────────────────────────────────────────────────────    │
+│   Props (via Shell)  │ Low      │ Low        │ Simple data passing    │
+│   Custom Events      │ Low      │ Medium     │ Fire-and-forget        │
+│   Shared Store       │ Medium   │ Medium     │ Reactive state         │
+│   URL/Query Params   │ Very Low │ Low        │ Shareable state        │
+│   Pub/Sub Bus        │ Low      │ Medium     │ Decoupled messaging    │
+│   Shared Service     │ High     │ High       │ Complex operations     │
+│                                                                       │
+│   RECOMMENDATION: Start with Custom Events + Shared Auth Store        │
+│                                                                       │
+└───────────────────────────────────────────────────────────────────────┘
+```
+
+#### Prerequisites
+
+- ✅ Completed: Module Federation Deep Dive
+- ✅ Understanding of React state management
+
+---
+
+### 1️⃣4️⃣ MFE Deployment & Versioning
+
+**Status:** 🔲 Pending | **Priority:** 🟡 Medium | **Complexity:** ⭐⭐⭐
+
+#### Why Learn This?
+
+- Deploy MFEs independently (the main benefit!)
+- Handle version mismatches
+- Rollback safely
+- Blue-green deployments for MFEs
+
+#### What You'll Learn
+
+```
+sandbox/mfe-deployment/
+├── 01-independent-deployments/
+│   ├── why-independent.md
+│   ├── ci-cd-pipeline.md
+│   ├── deployment-order.md
+│   └── health-checks.md
+│
+├── 02-versioning-strategies/
+│   ├── semantic-versioning.md
+│   ├── remote-url-versioning.md
+│   ├── manifest-based.md
+│   └── feature-flags.md
+│
+├── 03-production-patterns/
+│   ├── cdn-deployment.md
+│   ├── nginx-configuration.md        # You have this!
+│   ├── docker-multi-stage.md
+│   └── kubernetes-mfe.md
+│
+├── 04-rollback-strategies/
+│   ├── instant-rollback.md
+│   ├── version-pinning.md
+│   └── canary-releases.md
+│
+└── 05-monitoring/
+    ├── error-tracking.md
+    ├── performance-monitoring.md
+    └── user-impact-metrics.md
+```
+
+#### Your Docker Setup
+
+```dockerfile
+# You already have this pattern!
+# Each MFE builds and deploys independently
+
+# admin/Dockerfile
+FROM node:18-alpine AS builder
+WORKDIR /app
+COPY package*.json ./
+RUN npm install
+COPY . .
+RUN npm run build
+
+FROM nginx:alpine
+COPY --from=builder /app/dist /usr/share/nginx/html
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+```
+
+#### Prerequisites
+
+- ✅ Completed: MFE State Management
+- ✅ Basic Docker knowledge
+
+---
+
 ## 📅 Suggested Timeline
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    12-WEEK LEARNING PLAN                     │
-│                                                              │
-│  Week 1-2:   Redis Caching Patterns                         │
-│  Week 3-4:   Circuit Breaker & Resilience                   │
-│  Week 5-6:   Distributed Tracing & Observability            │
-│  Week 7-9:   Saga Pattern (complex, needs more time)        │
-│  Week 10:    Elasticsearch & Search                         │
-│  Week 11:    API Gateway                                    │
-│  Week 12+:   Advanced topics (Event Sourcing, gRPC, etc.)  │
-│                                                              │
-│  Note: Adjust based on your pace and project needs!         │
-│                                                              │
-└─────────────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────────────────┐
+│                   16-WEEK PARALLEL LEARNING PLAN                      │
+│                                                                       │
+│          BACKEND TRACK             │       FRONTEND TRACK             │
+│          ─────────────             │       ──────────────             │
+│                                    │                                  │
+│  Week 1-2:   Redis Caching         │  Week 1-2:  MFE Architecture    │
+│  Week 3-4:   Circuit Breaker       │  Week 3:    Module Federation   │
+│  Week 5-6:   Observability         │  Week 4-5:  MFE State & Comms   │
+│  Week 7-9:   Saga Pattern          │  Week 6:    MFE Deployment      │
+│  Week 10:    Elasticsearch         │                                  │
+│  Week 11:    API Gateway           │                                  │
+│  Week 12+:   Advanced (Event       │                                  │
+│              Sourcing, gRPC, etc.) │                                  │
+│                                    │                                  │
+│  ──────────────────────────────────────────────────────────────────   │
+│                                                                       │
+│  💡 PARALLEL APPROACH: Learn both tracks simultaneously!              │
+│     Morning: Backend topic | Evening: Frontend topic                  │
+│     OR: Alternate weeks between tracks                                │
+│                                                                       │
+└───────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -658,17 +1040,39 @@ cat learning-roadmap/README.md | grep "Status"
 
 ## 🎯 Next Action
 
-**Ready to start?** Let me know and I'll create the complete learning sandbox for:
+**Ready to start?** Let me know which track you want to begin with:
+
+### Option A: Backend First
 
 **→ Topic #1: Redis Caching Patterns**
 
-This will include:
+- Cache-aside, write-through, distributed locks
+- Rate limiting, session management
+- Direct integration with your Product Service
+
+### Option B: Frontend First
+
+**→ Topic #11: Micro-Frontend Architecture**
+
+- Understand YOUR existing Module Federation setup
+- When to split, communication patterns
+- Deployment and versioning strategies
+
+### Option C: Parallel (Recommended! 🚀)
+
+**→ Both tracks simultaneously**
+
+- Morning: Redis | Evening: MFE Architecture
+- OR: Alternate weeks between tracks
+
+Each sandbox will include:
 
 - 📚 Detailed documentation (like ETL docs)
 - 💻 Working code examples
 - 🧪 Hands-on exercises
-- 🔗 Integration with your e-commerce project
+- 🔗 Direct integration with YOUR e-commerce project
 
 ---
 
-_Last Updated: January 2026_ _Total Estimated Learning Time: 12-16 weeks_
+_Last Updated: January 2026_  
+_Total Estimated Learning Time: 16-20 weeks (both tracks)_
