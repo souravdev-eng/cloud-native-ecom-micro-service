@@ -11,8 +11,9 @@
 		"lint-staged": "npx lint-staged",
 		"dev:user": "cd user && npm run start",
 		"dev:dashboard": "cd dashboard && npm run start",
+		"dev:admin": "cd admin && npm run start",
 		"dev:host": "cd host && npm run start",
-		"dev": "concurrently \"npm run dev:user\" \"npm run dev:dashboard\" \"npm run dev:host\"",
+		"dev": "concurrently \"npm run dev:user\" \"npm run dev:dashboard\" \"npm run dev:admin\" \"npm run dev:host\"",
 		"install:all": "cd user && pnpm install && cd ../dashboard && pnpm install && cd ../host && pnpm install"
 	},
 	"devDependencies": {

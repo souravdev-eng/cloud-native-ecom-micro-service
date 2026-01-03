@@ -1,11 +1,4 @@
-declare module 'auth/App' {
-	const App: React.ComponentType;
-	export default App;
-}
-
-declare module 'dashboard/App' {
-	const App: React.ComponentType;
-	export default App;
-}
-
+declare module 'auth/App';
+declare module 'dashboard/dashboardApp';
 declare module 'user/UserApp';
+declare module 'admin/adminApp';

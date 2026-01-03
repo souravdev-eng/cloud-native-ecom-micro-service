@@ -17,4 +17,5 @@ export const mfConfig = {
 			requiredVersion: '^7.7.1',
 		},
 	},
+	dts: false,
 };

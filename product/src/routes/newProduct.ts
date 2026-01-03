@@ -4,6 +4,7 @@ import { productValidation } from '../validation/productValidation';
 import { Product } from '../models/productModel';
 import { rabbitMQWrapper } from '../rabbitMQWrapper';
 import { ProductCreatedPub } from '../queues/publisher/productCreatedPub';
+import { uploadImageToAws } from '../services/uploadImageToAws';
 
 const router = Router();
 
@@ -20,11 +21,29 @@ router.post(
       throw new NotAuthorizedError();
     }
 
+    // Take the image as a base64 string
+    const image = req.body.image;
+    const contentType = req.body.contentType || 'image/jpeg';
+
+    const extMap: Record<string, string> = {
+      'image/jpeg': 'jpg',
+      'image/png': 'png',
+      'image/gif': 'gif',
+      'image/webp': 'webp',
+    };
+    const ext = extMap[contentType] || 'jpg';
+
+    const sanitizedTitle = req.body.title.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase();
+    const fileName = `${req.body.category}/${sellerId}/${sanitizedTitle}-${Date.now()}.${ext}`;
+
+    const uploadedImageUrl = await uploadImageToAws(fileName, image, contentType);
+    console.log('image url is', uploadedImageUrl);
+
     const product = Product.build({
       title: req.body.title,
       category: req.body.category,
       description: req.body.description,
-      image: req.body.image,
+      image: uploadedImageUrl,
       sellerId: sellerId,
       price: req.body.price,
       quantity: req.body.quantity,

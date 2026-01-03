@@ -7,29 +7,9 @@ import FilterListIcon from '@mui/icons-material/FilterListRounded';
 import EditIcon from '@mui/icons-material/EditRounded';
 import DeleteIcon from '@mui/icons-material/DeleteOutlineRounded';
 import MoreVertIcon from '@mui/icons-material/MoreVertRounded';
-import ImageIcon from '@mui/icons-material/ImageRounded';
 
-interface Product {
-    id: string;
-    name: string;
-    sku: string;
-    category: string;
-    price: number;
-    stock: number;
-    status: 'active' | 'draft' | 'archived';
-    image?: string;
-}
-
-const mockProducts: Product[] = [
-    { id: '1', name: 'MacBook Pro 14" M3', sku: 'MBP-14-M3', category: 'Laptops', price: 2499, stock: 45, status: 'active' },
-    { id: '2', name: 'iPhone 15 Pro Max', sku: 'IPH-15-PM', category: 'Phones', price: 1199, stock: 128, status: 'active' },
-    { id: '3', name: 'AirPods Pro 2', sku: 'APP-2', category: 'Audio', price: 249, stock: 342, status: 'active' },
-    { id: '4', name: 'iPad Air M2', sku: 'IPA-M2', category: 'Tablets', price: 799, stock: 67, status: 'active' },
-    { id: '5', name: 'Apple Watch Ultra 2', sku: 'AWU-2', category: 'Wearables', price: 799, stock: 23, status: 'active' },
-    { id: '6', name: 'Mac Studio M2 Ultra', sku: 'MS-M2U', category: 'Desktops', price: 3999, stock: 8, status: 'draft' },
-    { id: '7', name: 'HomePod 2nd Gen', sku: 'HP-2', category: 'Audio', price: 299, stock: 0, status: 'archived' },
-    { id: '8', name: 'Magic Keyboard', sku: 'MK-1', category: 'Accessories', price: 99, stock: 156, status: 'active' },
-];
+import { CreateProductModal } from '../../components';
+import { useProduct } from './Product.hook';
 
 const getStatusClass = (status: string) => {
     switch (status) {
@@ -47,19 +27,33 @@ const getStockClass = (stock: number) => {
 };
 
 const Products: React.FC = () => {
+    const {
+        productList,
+        isLoading,
+        meta,
+        currentPage,
+        hasNextPage,
+        hasPrevPage,
+        handleNextPage,
+        handlePrevPage,
+        handleFirstPage,
+        refreshProducts,
+    } = useProduct();
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
+    const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
-    const filteredProducts = mockProducts.filter(product =>
-        product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        product.sku.toLowerCase().includes(searchTerm.toLowerCase())
+    const filteredProducts = productList.filter((product: any) =>
+        product.title.toLowerCase().includes(searchTerm.toLowerCase())
+        // ||
+        // product.sku.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
     const toggleSelectAll = () => {
         if (selectedProducts.length === filteredProducts.length) {
             setSelectedProducts([]);
         } else {
-            setSelectedProducts(filteredProducts.map(p => p.id));
+            setSelectedProducts(filteredProducts.map((p: any) => p.id));
         }
     };
 
@@ -76,7 +70,7 @@ const Products: React.FC = () => {
                     <h1 className="page-title">Products</h1>
                     <p className="page-subtitle">Manage your product inventory and catalog</p>
                 </div>
-                <button className="btn btn-primary">
+                <button className="btn btn-primary" onClick={() => setIsCreateModalOpen(true)}>
                     <AddIcon />
                     Add Product
                 </button>
@@ -126,91 +120,121 @@ const Products: React.FC = () => {
                     </div>
                 </div>
             )}
-
-            {/* Products Table */}
-            <div className="card products-table-card animate-fade-in stagger-2">
-                <table className="data-table">
-                    <thead>
-                        <tr>
-                            <th className="checkbox-cell">
-                                <input
-                                    type="checkbox"
-                                    checked={selectedProducts.length === filteredProducts.length && filteredProducts.length > 0}
-                                    onChange={toggleSelectAll}
-                                />
-                            </th>
-                            <th>Product</th>
-                            <th>SKU</th>
-                            <th>Category</th>
-                            <th>Price</th>
-                            <th>Stock</th>
-                            <th>Status</th>
-                            <th className="actions-cell">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {filteredProducts.map((product) => (
-                            <tr key={product.id}>
-                                <td className="checkbox-cell">
-                                    <input
-                                        type="checkbox"
-                                        checked={selectedProducts.includes(product.id)}
-                                        onChange={() => toggleSelectProduct(product.id)}
-                                    />
-                                </td>
-                                <td>
-                                    <div className="product-cell">
-                                        <div className="product-image">
-                                            <ImageIcon />
-                                        </div>
-                                        <span className="product-name">{product.name}</span>
-                                    </div>
-                                </td>
-                                <td><span className="sku">{product.sku}</span></td>
-                                <td>{product.category}</td>
-                                <td className="price">${product.price.toLocaleString()}</td>
-                                <td>
-                                    <span className={`stock ${getStockClass(product.stock)}`}>
-                                        {product.stock === 0 ? 'Out of stock' : `${product.stock} units`}
-                                    </span>
-                                </td>
-                                <td>
-                                    <span className={`badge ${getStatusClass(product.status)}`}>
-                                        {product.status.charAt(0).toUpperCase() + product.status.slice(1)}
-                                    </span>
-                                </td>
-                                <td className="actions-cell">
-                                    <div className="action-buttons">
-                                        <button className="action-btn" title="Edit">
-                                            <EditIcon />
-                                        </button>
-                                        <button className="action-btn" title="Delete">
-                                            <DeleteIcon />
-                                        </button>
-                                        <button className="action-btn" title="More">
-                                            <MoreVertIcon />
-                                        </button>
-                                    </div>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-
-                {/* Pagination */}
-                <div className="pagination">
-                    <span className="pagination-info">Showing 1-8 of {filteredProducts.length} products</span>
-                    <div className="pagination-controls">
-                        <button className="btn btn-ghost" disabled>Previous</button>
-                        <div className="page-numbers">
-                            <button className="page-btn active">1</button>
-                            <button className="page-btn">2</button>
-                            <button className="page-btn">3</button>
-                        </div>
-                        <button className="btn btn-ghost">Next</button>
+            {
+                isLoading ? (
+                    <div className="loading-container">
+                        <div className="loading-spinner"></div>
                     </div>
-                </div>
-            </div>
+                ) : (
+                    <div className="card products-table-card animate-fade-in stagger-2">
+                        <table className="data-table">
+                            <thead>
+                                <tr>
+                                    <th className="checkbox-cell">
+                                        <input
+                                            type="checkbox"
+                                            checked={selectedProducts.length === filteredProducts.length && filteredProducts.length > 0}
+                                            onChange={toggleSelectAll}
+                                        />
+                                    </th>
+                                    <th>Product</th>
+                                    <th>SKU</th>
+                                    <th>Category</th>
+                                    <th>Price</th>
+                                    <th>Stock</th>
+                                    <th>Status</th>
+                                    <th className="actions-cell">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {filteredProducts.map((product: any) => (
+                                    <tr key={product.id}>
+                                        <td className="checkbox-cell">
+                                            <input
+                                                type="checkbox"
+                                                checked={selectedProducts.includes(product.id)}
+                                                onChange={() => toggleSelectProduct(product.id)}
+                                            />
+                                        </td>
+                                        <td>
+                                            <div className="product-cell">
+                                                <div className="product-image">
+                                                    <img src={product.image} alt={product.title}
+                                                        style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                                                </div>
+                                                <span className="product-name">{product.title}</span>
+                                            </div>
+                                        </td>
+                                        <td><span className="sku">{product.id.slice(0, 6)}</span></td>
+                                        <td>{product.category}</td>
+                                        <td className="price">${product.price.toLocaleString()}</td>
+                                        <td>
+                                            <span className={`stock ${getStockClass(product.quantity)}`}>
+                                                {product.quantity === 0 ? 'Out of stock' : `${product.quantity} units`}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <span className={`badge ${getStatusClass(product.status || 'active')}`}>
+                                                {product.status?.charAt(0).toUpperCase() + product.status?.slice(1) || 'active'}
+                                            </span>
+                                        </td>
+                                        <td className="actions-cell">
+                                            <div className="action-buttons">
+                                                <button className="action-btn" title="Edit">
+                                                    <EditIcon />
+                                                </button>
+                                                <button className="action-btn" title="Delete">
+                                                    <DeleteIcon />
+                                                </button>
+                                                <button className="action-btn" title="More">
+                                                    <MoreVertIcon />
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+
+                        {/* Pagination */}
+                        <div className="pagination">
+                            <span className="pagination-info">
+                                Showing {meta.count} products · Page {currentPage}
+                            </span>
+                            <div className="pagination-controls">
+                                {currentPage > 1 && (
+                                    <button className="btn btn-ghost" onClick={handleFirstPage}>
+                                        First
+                                    </button>
+                                )}
+                                <button
+                                    className="btn btn-ghost"
+                                    disabled={!hasPrevPage}
+                                    onClick={handlePrevPage}
+                                >
+                                    Previous
+                                </button>
+                                <div className="page-numbers">
+                                    <button className="page-btn active">{currentPage}</button>
+                                </div>
+                                <button
+                                    className="btn btn-ghost"
+                                    disabled={!hasNextPage}
+                                    onClick={handleNextPage}
+                                >
+                                    Next
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )
+            }
+
+            {/* Create Product Modal */}
+            <CreateProductModal
+                isOpen={isCreateModalOpen}
+                onClose={() => setIsCreateModalOpen(false)}
+            />
         </div>
     );
 };

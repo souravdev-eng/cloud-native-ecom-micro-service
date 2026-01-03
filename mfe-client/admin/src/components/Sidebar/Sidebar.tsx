@@ -26,22 +26,22 @@ interface NavItem {
 }
 
 const mainNavItems: NavItem[] = [
-    { path: '/', label: 'Dashboard', icon: <DashboardIcon /> },
-    { path: '/products', label: 'Products', icon: <InventoryIcon />, badge: 'New' },
-    { path: '/orders', label: 'Orders', icon: <OrdersIcon />, badge: 12 },
-    { path: '/customers', label: 'Customers', icon: <PeopleIcon /> },
-    { path: '/analytics', label: 'Analytics', icon: <AnalyticsIcon /> },
-    { path: '/shipping', label: 'Shipping', icon: <LocalShippingIcon /> },
+    { path: '/admin/dashboard', label: 'Dashboard', icon: <DashboardIcon /> },
+    { path: '/admin/products', label: 'Products', icon: <InventoryIcon />, badge: 'New' },
+    { path: '/admin/orders', label: 'Orders', icon: <OrdersIcon />, badge: 12 },
+    { path: '/admin/customers', label: 'Customers', icon: <PeopleIcon /> },
+    { path: '/admin/analytics', label: 'Analytics', icon: <AnalyticsIcon /> },
+    { path: '/admin/shipping', label: 'Shipping', icon: <LocalShippingIcon /> },
 ];
 
 const secondaryNavItems: NavItem[] = [
-    { path: '/marketing', label: 'Marketing', icon: <CampaignIcon /> },
-    { path: '/storefront', label: 'Storefront', icon: <StorefrontIcon /> },
+    { path: '/admin/marketing', label: 'Marketing', icon: <CampaignIcon /> },
+    { path: '/admin/storefront', label: 'Storefront', icon: <StorefrontIcon /> },
 ];
 
 const bottomNavItems: NavItem[] = [
-    { path: '/settings', label: 'Settings', icon: <SettingsIcon /> },
-    { path: '/support', label: 'Support', icon: <SupportIcon /> },
+    { path: '/admin/settings', label: 'Settings', icon: <SettingsIcon /> },
+    { path: '/admin/support', label: 'Support', icon: <SupportIcon /> },
 ];
 
 interface SidebarProps {
@@ -56,7 +56,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
 
     const handleLogout = async () => {
         await logout();
-        navigate('/auth/login');
+        navigate('/admin/auth/login');
     };
 
     // Get user initials from name or email

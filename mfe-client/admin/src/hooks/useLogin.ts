@@ -1,7 +1,9 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { authServiceApi } from '../api/baseUrl';
-import { useAuth } from './useAuth';
+
+import { useDispatch, useSelector } from 'react-redux';
+import { AppDispatch, RootState } from '../store/store';
+import { signIn } from '../store/actions/user.action';
+import { UserErrorProps } from '../store/reducers/user.reducer';
 
 export interface LoginFormData {
     email: string;
@@ -15,17 +17,15 @@ export interface LoginFormErrors {
 }
 
 export const useLogin = () => {
-    const navigate = useNavigate();
-    const { checkAuth } = useAuth();
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState('');
+    const dispatch = useDispatch<AppDispatch>();
+    const { userInfo, loading, error } = useSelector((state: RootState) => state.user)
     const [formData, setFormData] = useState<LoginFormData>({
         email: '',
         password: '',
         rememberMe: false,
     });
     const [showPassword, setShowPassword] = useState(false);
-    const [errors, setErrors] = useState<LoginFormErrors>({});
+    const [errors, setErrors] = useState<any>({});
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { name, value, type, checked } = e.target;
@@ -34,12 +34,14 @@ export const useLogin = () => {
             [name]: type === 'checkbox' ? checked : value,
         }));
         // Clear error when user starts typing
-        if (errors[name as keyof LoginFormErrors]) {
-            setErrors(prev => ({ ...prev, [name]: undefined }));
+        if (errors[name as keyof UserErrorProps]) {
+            setErrors((prev: UserErrorProps) => ({ ...prev, [name]: undefined }));
         }
         // Clear API error when user starts typing
-        if (error) {
-            setError('');
+        if (error && Array.isArray(error) && error.length > 0 && error[0]?.message && error[0]?.field) {
+            setErrors((prev: UserErrorProps) => ({ ...prev, [error[0]?.field]: error[0]?.message }));
+        } else {
+            setErrors((prev: UserErrorProps) => ({ ...prev, [name]: undefined }));
         }
     };
 
@@ -64,44 +66,14 @@ export const useLogin = () => {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-
         if (!validateForm()) return;
-
-        setLoading(true);
-        setError('');
-
-        try {
-            const response = await authServiceApi.post('/login', {
-                email: formData.email,
-                password: formData.password,
-            });
-
-            if (response.status === 200) {
-                // Refresh auth state
-                await checkAuth();
-                // Navigate to dashboard
-                navigate('/');
-            }
-        } catch (err: any) {
-            if (err.response?.data?.errors?.[0]?.message) {
-                setError(err.response.data.errors[0].message);
-            } else if (err.response?.data?.message) {
-                setError(err.response.data.message);
-            } else if (err.message) {
-                setError(err.message);
-            } else {
-                setError('Something went wrong. Please try again.');
-            }
-        } finally {
-            setLoading(false);
-        }
+        dispatch(signIn({ email: formData.email, password: formData.password }))
     };
 
     return {
         formData,
         loading,
         error,
-        errors,
         showPassword,
         setShowPassword,
         handleChange,

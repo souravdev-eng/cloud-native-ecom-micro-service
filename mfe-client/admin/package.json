@@ -17,6 +17,7 @@
 		"css-loader": "^7.1.2",
 		"postcss": "^8.2.1",
 		"postcss-loader": "^8.0.0",
+		"postcss-prefixwrap": "^1.57.2",
 		"react-refresh": "^0.14.0",
 		"ts-node": "^10.9.2",
 		"typescript": "^5.7.3"
@@ -27,9 +28,11 @@
 		"@module-federation/enhanced": "^0.8.9",
 		"@mui/icons-material": "^7.3.1",
 		"@mui/material": "^7.3.0",
+		"@reduxjs/toolkit": "^2.11.2",
 		"axios": "^1.13.2",
 		"react": "19.1.1",
 		"react-dom": "19.1.1",
+		"react-redux": "^9.2.0",
 		"react-router-dom": "^7.7.1"
 	}
 }

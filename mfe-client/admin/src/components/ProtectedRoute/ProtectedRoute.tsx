@@ -11,6 +11,8 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
     const { isAuthenticated, loading } = useAuth();
     const location = useLocation();
 
+    console.log(isAuthenticated, loading)
+
     if (loading) {
         return (
             <div className="protected-loading">
@@ -24,7 +26,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
 
     if (!isAuthenticated) {
         // Redirect to login page with the return url
-        return <Navigate to="/auth/login" state={{ from: location }} replace />;
+        return <Navigate to="/admin/auth/login" state={{ from: location }} replace />;
     }
 
     return <>{children}</>;

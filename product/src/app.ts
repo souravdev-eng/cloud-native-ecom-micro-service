@@ -10,16 +10,26 @@ import { showProductDetailByIdRouter } from './routes/showProductDetailById';
 import { productUpdateRouter } from './routes/updateProduct';
 import { productDeleteRouter } from './routes/deleteProduct';
 import { productSellerIdUpdateRouter } from './routes/updateAllSellerId';
+import { showAllSellerProducts } from './routes/showAllSellerProducts';
 
 const app = express();
 
 // middleware
 app.set('trust proxy', true);
-app.use(express.json());
-app.use(cors({
-  origin: ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002', 'http://localhost:3003'],
-  credentials: true,
-}));
+app.use(express.json({ limit: '10mb' })); // Increased limit for base64 image uploads
+app.use(express.urlencoded({ limit: '10mb', extended: true }));
+app.use(
+  cors({
+    origin: [
+      'http://localhost:3000',
+      'http://localhost:3001',
+      'http://localhost:3002',
+      'http://localhost:3003',
+      'http://localhost:3004',
+    ],
+    credentials: true,
+  })
+);
 app.use(
   cookieSession({
     signed: false,
@@ -32,6 +42,7 @@ app.use(currentUser);
 // routes
 app.use(newProductRouter);
 app.use(showProductRouter);
+app.use(showAllSellerProducts); // Must be before :id routes (specific routes first)
 app.use(showProductDetailByIdRouter);
 app.use(productUpdateRouter);
 app.use(productDeleteRouter);

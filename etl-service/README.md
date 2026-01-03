@@ -14,12 +14,14 @@ The ETL service addresses the classic data synchronization problem that occurs w
 ## Features
 
 ### Core Functionality
+
 - **Full Data Comparison**: Compares all products between source and target databases
 - **Batch Processing**: Efficiently syncs products in configurable batch sizes
 - **Dry Run Mode**: Test synchronization without making changes
 - **Progress Tracking**: Real-time progress reporting during sync operations
 
 ### API Endpoints
+
 - `POST /api/etl/sync` - Trigger manual synchronization
 - `GET /api/etl/status` - Get sync status and validation results
 - `GET /api/etl/validate` - Validate database synchronization
@@ -29,6 +31,7 @@ The ETL service addresses the classic data synchronization problem that occurs w
 - `GET /api/etl/live` - Liveness probe for Kubernetes
 
 ### Scheduler System
+
 - **Cron-based Scheduling**: Configurable automatic sync intervals
 - **Health Monitoring**: Periodic health checks
 - **Manual Control**: Start/stop scheduler via API
@@ -38,25 +41,26 @@ The ETL service addresses the classic data synchronization problem that occurs w
 
 ### Environment Variables
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `PRODUCT_SERVICE_MONGODB_URL` | MongoDB connection URL for Product Service | Required |
-| `CART_DB_URL` | PostgreSQL connection URL for Cart Service | Required |
-| `MONGO_USER` | MongoDB username | Required |
-| `MONGO_PASSWORD` | MongoDB password | Required |
-| `JWT_KEY` | JWT secret key | Required |
-| `SYNC_CRON_SCHEDULE` | Cron schedule for automatic sync | `*/30 * * * *` |
-| `HEALTH_CHECK_CRON_SCHEDULE` | Cron schedule for health checks | `*/5 * * * *` |
-| `ENABLE_SCHEDULER` | Enable/disable automatic scheduling | `true` |
-| `SYNC_BATCH_SIZE` | Number of products to sync per batch | `100` |
-| `TIMEZONE` | Timezone for cron jobs | `UTC` |
-| `NODE_ENV` | Environment mode | `development` |
+| Variable                      | Description                                | Default        |
+| ----------------------------- | ------------------------------------------ | -------------- |
+| `PRODUCT_SERVICE_MONGODB_URL` | MongoDB connection URL for Product Service | Required       |
+| `CART_DB_URL`                 | PostgreSQL connection URL for Cart Service | Required       |
+| `MONGO_USER`                  | MongoDB username                           | Required       |
+| `MONGO_PASSWORD`              | MongoDB password                           | Required       |
+| `JWT_KEY`                     | JWT secret key                             | Required       |
+| `SYNC_CRON_SCHEDULE`          | Cron schedule for automatic sync           | `*/30 * * * *` |
+| `HEALTH_CHECK_CRON_SCHEDULE`  | Cron schedule for health checks            | `*/5 * * * *`  |
+| `ENABLE_SCHEDULER`            | Enable/disable automatic scheduling        | `true`         |
+| `SYNC_BATCH_SIZE`             | Number of products to sync per batch       | `100`          |
+| `TIMEZONE`                    | Timezone for cron jobs                     | `UTC`          |
+| `NODE_ENV`                    | Environment mode                           | `development`  |
 
 ## Usage
 
 ### Manual Synchronization
 
 #### Via API
+
 ```bash
 # Trigger sync
 curl -X POST http://localhost:4000/api/etl/sync \
@@ -68,6 +72,7 @@ curl http://localhost:4000/api/etl/status
 ```
 
 #### Via CLI Script
+
 ```bash
 # Run sync
 npm run sync
@@ -115,6 +120,7 @@ kubectl logs -l app=etl
 ## Development
 
 ### Setup
+
 ```bash
 # Install dependencies
 npm install
@@ -127,7 +133,9 @@ npm test
 ```
 
 ### Testing
+
 The service includes comprehensive tests for:
+
 - Core synchronization logic
 - API endpoints
 - Error handling
@@ -145,9 +153,9 @@ The service includes comprehensive tests for:
           └──────┬─────────┬─────┘
                  │         │
          ┌───────▼─────────▼───────┐
-         │     ETL Service         │
-         │  ┌─────────────────┐    │
-         │  │ Sync Algorithm  │    │
+         │     ETL Service           │
+         │  ┌─────────────────┐    |
+         │  │ Sync Algorithm  │      │
          │  └─────────────────┘    │
          │  ┌─────────────────┐    │
          │  │   Scheduler     │    │
@@ -161,19 +169,24 @@ The service includes comprehensive tests for:
 ## Monitoring
 
 ### Health Checks
+
 - `/api/etl/health` - Overall service health
 - `/api/etl/ready` - Database connectivity check
 - `/api/etl/live` - Service liveness
 
 ### Logging
+
 The service provides structured logging for:
+
 - Sync operations and results
 - Scheduler activities
 - Database operations
 - Error conditions
 
 ### Metrics
+
 Key metrics tracked:
+
 - Sync duration
 - Products synced per operation
 - Error rates
@@ -184,11 +197,13 @@ Key metrics tracked:
 ### Common Issues
 
 1. **Database Connection Errors**
+
    - Verify connection strings and credentials
    - Check network connectivity
    - Ensure databases are running
 
 2. **Sync Failures**
+
    - Check logs for specific error messages
    - Verify data integrity in source database
    - Try smaller batch sizes
@@ -199,6 +214,7 @@ Key metrics tracked:
    - Check service logs for initialization errors
 
 ### Debug Mode
+
 Set `NODE_ENV=development` for detailed logging and debugging information.
 
 ## Contributing
