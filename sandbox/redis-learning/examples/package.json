@@ -1,0 +1,25 @@
+{
+  "name": "redis-learning-examples",
+  "version": "1.0.0",
+  "description": "Working examples for Redis caching patterns",
+  "main": "index.ts",
+  "scripts": {
+    "basic": "npx ts-node 01-basic-operations/index.ts",
+    "cache-aside": "npx ts-node 02-cache-aside-pattern/index.ts",
+    "write-through": "npx ts-node 03-write-through-cache/index.ts",
+    "invalidation": "npx ts-node 04-cache-invalidation/index.ts",
+    "locks": "npx ts-node 05-distributed-locks/index.ts",
+    "rate-limit": "npx ts-node 06-rate-limiting/index.ts",
+    "sessions": "npx ts-node 07-session-store/index.ts",
+    "leaderboard": "npx ts-node 08-leaderboard-sorted-sets/index.ts"
+  },
+  "dependencies": {
+    "redis": "^4.6.13"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3"
+  }
+}
+
