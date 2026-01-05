@@ -8,20 +8,20 @@
 
 ### 🖥️ Backend (Microservices)
 
-| #   | Topic                               | Status        | Priority  | Complexity | Est. Time |
-| --- | ----------------------------------- | ------------- | --------- | ---------- | --------- |
-| ✅  | RabbitMQ Messaging                  | **COMPLETED** | -         | ⭐⭐       | -         |
-| ✅  | ETL Patterns                        | **COMPLETED** | -         | ⭐⭐⭐     | -         |
-| 1   | Redis Caching Patterns              | 🔲 Pending    | 🔴 High   | ⭐⭐       | 1 week    |
-| 2   | Circuit Breaker & Resilience        | 🔲 Pending    | 🔴 High   | ⭐⭐       | 1 week    |
-| 3   | Distributed Tracing & Observability | 🔲 Pending    | 🔴 High   | ⭐⭐⭐     | 1.5 weeks |
-| 4   | Saga Pattern                        | 🔲 Pending    | 🔴 High   | ⭐⭐⭐⭐   | 2 weeks   |
-| 5   | Elasticsearch & Search Patterns     | 🔲 Pending    | 🟡 Medium | ⭐⭐⭐     | 1.5 weeks |
-| 6   | API Gateway Patterns                | 🔲 Pending    | 🟡 Medium | ⭐⭐       | 1 week    |
-| 7   | Event Sourcing & CQRS               | 🔲 Pending    | 🟡 Medium | ⭐⭐⭐⭐⭐ | 2-3 weeks |
-| 8   | gRPC & Protocol Buffers             | 🔲 Pending    | 🟢 Low    | ⭐⭐⭐     | 1 week    |
-| 9   | Kubernetes Deep Dive                | 🔲 Pending    | 🟡 Medium | ⭐⭐⭐⭐   | 2 weeks   |
-| 10  | Security & OAuth2 Patterns          | 🔲 Pending    | 🟡 Medium | ⭐⭐⭐     | 1.5 weeks |
+| #   | Topic                               | Status         | Priority  | Complexity | Est. Time |
+| --- | ----------------------------------- | -------------- | --------- | ---------- | --------- |
+| ✅  | RabbitMQ Messaging                  | **COMPLETED**  | -         | ⭐⭐       | -         |
+| ✅  | ETL Patterns                        | **COMPLETED**  | -         | ⭐⭐⭐     | -         |
+| 1   | Redis Caching Patterns              | 🔄 In Progress | 🔴 High   | ⭐⭐       | 1 week    |
+| 2   | Circuit Breaker & Resilience        | 🔲 Pending     | 🔴 High   | ⭐⭐       | 1 week    |
+| 3   | Distributed Tracing & Observability | 🔲 Pending     | 🔴 High   | ⭐⭐⭐     | 1.5 weeks |
+| 4   | Saga Pattern                        | 🔲 Pending     | 🔴 High   | ⭐⭐⭐⭐   | 2 weeks   |
+| 5   | Elasticsearch & Search Patterns     | 🔲 Pending     | 🟡 Medium | ⭐⭐⭐     | 1.5 weeks |
+| 6   | API Gateway Patterns                | 🔲 Pending     | 🟡 Medium | ⭐⭐       | 1 week    |
+| 7   | Event Sourcing & CQRS               | 🔲 Pending     | 🟡 Medium | ⭐⭐⭐⭐⭐ | 2-3 weeks |
+| 8   | gRPC & Protocol Buffers             | 🔲 Pending     | 🟢 Low    | ⭐⭐⭐     | 1 week    |
+| 9   | Kubernetes Deep Dive                | 🔲 Pending     | 🟡 Medium | ⭐⭐⭐⭐   | 2 weeks   |
+| 10  | Security & OAuth2 Patterns          | 🔲 Pending     | 🟡 Medium | ⭐⭐⭐     | 1.5 weeks |
 
 ### 🎨 Frontend (Micro-Frontends)
 
@@ -1074,5 +1074,6 @@ Each sandbox will include:
 
 ---
 
-_Last Updated: January 2026_  
+_Last Updated: January 5, 2026_  
+_Current Focus: Redis Caching Patterns_  
 _Total Estimated Learning Time: 16-20 weeks (both tracks)_
