@@ -7,7 +7,7 @@ import { Box } from '@mui/material';
 
 const ProductDetails = () => {
 	const { product, handleAddToCart } = useProductDetails()
-	console.log("product", product)
+
 	return (
 		<Styled.Container>
 			<Styled.ProductImageContainer>

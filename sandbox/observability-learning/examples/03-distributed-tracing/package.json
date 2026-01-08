@@ -1,0 +1,22 @@
+{
+  "name": "distributed-tracing-example",
+  "version": "1.0.0",
+  "description": "Distributed tracing with OpenTelemetry and Jaeger",
+  "scripts": {
+    "start:jaeger": "docker-compose up jaeger -d",
+    "start:services": "npm run build && docker-compose up --build",
+    "start:local": "concurrently \"npm run gateway\" \"npm run order\" \"npm run inventory\" \"npm run payment\"",
+    "gateway": "cd services/gateway && npm start",
+    "order": "cd services/order && npm start",
+    "inventory": "cd services/inventory && npm start",
+    "payment": "cd services/payment && npm start",
+    "stop": "docker-compose down",
+    "logs": "docker-compose logs -f",
+    "build": "npm run build:shared && npm run build:services",
+    "build:shared": "cd shared && npm install",
+    "build:services": "cd services/gateway && npm install && cd ../order && npm install && cd ../inventory && npm install && cd ../payment && npm install"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

@@ -17,7 +17,7 @@ interface BannerCardProps {
 	style?: React.CSSProperties;
 }
 
-const BannerCard = ({
+const BannerCard = React.memo(({
 	cardSize = 'large',
 	objectFit = 'cover',
 	width,
@@ -29,6 +29,7 @@ const BannerCard = ({
 	className,
 	style,
 }: BannerCardProps) => {
+	console.log("RENDER----")
 	return (
 		<Styled.Container
 			cardSize={cardSize}
@@ -49,6 +50,6 @@ const BannerCard = ({
 			/>
 		</Styled.Container>
 	);
-};
+});
 
 export default BannerCard;

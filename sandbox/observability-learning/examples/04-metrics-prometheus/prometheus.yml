@@ -1,0 +1,47 @@
+# Prometheus configuration
+global:
+  scrape_interval: 15s # How often to scrape targets
+  evaluation_interval: 15s # How often to evaluate rules
+  external_labels:
+    monitor: 'ecommerce-monitor'
+
+# Alertmanager configuration (for Module 06)
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: []
+
+# Load rules once and periodically evaluate them
+rule_files:
+  - "alerts.yml"
+
+# Scrape configurations
+scrape_configs:
+  # Prometheus itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Node Exporter for system metrics
+  - job_name: 'node'
+    static_configs:
+      - targets: ['node-exporter:9100']
+
+  # E-commerce services
+  - job_name: 'ecommerce-api'
+    static_configs:
+      - targets: ['ecommerce-api:3000']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  - job_name: 'order-processor'
+    static_configs:
+      - targets: ['order-processor:3001']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  - job_name: 'inventory-service'
+    static_configs:
+      - targets: ['inventory-service:3002']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
