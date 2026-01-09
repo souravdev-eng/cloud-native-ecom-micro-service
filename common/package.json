@@ -1,6 +1,6 @@
 {
   "name": "@ecom-micro/common",
-  "version": "2.0.48",
+  "version": "2.0.49",
   "description": "",
   "main": "./build/index.js",
   "types": "./build/index.d.ts",
