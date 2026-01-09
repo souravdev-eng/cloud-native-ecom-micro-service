@@ -28,7 +28,7 @@ export const useProduct = () => {
 	const fetchProductList = useCallback(async (cursor: string | null = null) => {
 		setIsLoading(true);
 		try {
-			const params = new URLSearchParams({ limit: '20' });
+			const params = new URLSearchParams({ limit: '20', sort: '-createdAt' });
 			if (cursor) {
 				params.append('nextKey', cursor);
 			}

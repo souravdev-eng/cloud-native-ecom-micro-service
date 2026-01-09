@@ -27,7 +27,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.958.0",
-    "@ecom-micro/common": "^2.0.48",
+    "@ecom-micro/common": "^2.0.51",
     "@types/amqplib": "^0.10.5",
     "@types/cookie-session": "^2.0.44",
     "@types/cors": "^2.8.12",

@@ -37,6 +37,8 @@ router.patch(
       quantity: req.body.quantity ? req.body.quantity : product.quantity,
       tags: req.body.tags ? req.body.tags : product.tags,
       rating: req.body.rating ? req.body.rating : product.rating,
+      originalPrice: req.body.originalPrice ? req.body.originalPrice : product.originalPrice,
+      stockQuantity: req.body.stockQuantity ? req.body.stockQuantity : product.stockQuantity,
     });
 
     await product.save();
@@ -48,6 +50,10 @@ router.patch(
       price: product.price,
       quantity: product.quantity!,
       sellerId: product.sellerId.toString(),
+      originalPrice: product.originalPrice!,
+      stockQuantity: product.stockQuantity!,
+      tags: product.tags || [],
+      category: product.category,
     });
 
     res.status(200).send(product);

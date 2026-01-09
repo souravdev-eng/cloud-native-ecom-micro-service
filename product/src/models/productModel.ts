@@ -1,13 +1,5 @@
 import mongoose from 'mongoose';
 
-enum Category {
-  Phone = 'phone',
-  earphone = 'earphone',
-  Book = 'book',
-  Fashions = 'fashions',
-  other = 'other',
-}
-
 interface ProductAttars {
   title: string;
   price: number;
@@ -15,9 +7,10 @@ interface ProductAttars {
   sellerId: string;
   description: string;
   quantity?: number;
-  category: Category;
+  category: string;
   tags?: string[];
-  rating?: number;
+  originalPrice: number;
+  stockQuantity: number;
 }
 
 interface ProductDoc extends mongoose.Document {
@@ -27,9 +20,11 @@ interface ProductDoc extends mongoose.Document {
   sellerId: mongoose.Types.ObjectId;
   description: string;
   quantity?: number;
-  category: Category;
-  tags?: string[];
   rating: number;
+  originalPrice: number;
+  stockQuantity: number;
+  tags: string[];
+  category: string;
 }
 
 interface ProductModel extends mongoose.Model<ProductDoc> {
@@ -49,23 +44,33 @@ const productSchema = new mongoose.Schema(
     },
     category: {
       type: String,
-      default: Category.other,
+      default: 'other',
     },
     description: {
       type: String,
     },
     price: {
       type: Number,
-      min: 100,
+      required: true,
+    },
+    originalPrice: {
+      type: Number,
+      min: 10,
+      max: 5000000,
       required: true,
     },
     rating: {
       type: Number,
-      default: 4.5,
+      // default: 4.5,
     },
     quantity: {
       type: Number,
       default: 5,
+    },
+    stockQuantity: {
+      type: Number,
+      min: 5,
+      required: true,
     },
     sellerId: {
       type: mongoose.Schema.Types.ObjectId,
@@ -76,8 +81,13 @@ const productSchema = new mongoose.Schema(
       type: [String],
       default: [],
     },
+    createdAt: {
+      type: Date,
+      default: Date.now,
+    },
   },
   {
+    timestamps: true,
     toJSON: {
       transform(_, ret) {
         ret.id = ret._id;
