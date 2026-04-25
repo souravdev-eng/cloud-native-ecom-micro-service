@@ -6,6 +6,7 @@
   "scripts": {
     "start": "ts-node-dev --poll src/index.ts",
     "seed": "ts-node src/seeds/seedProducts.ts",
+    "migrate:text-index": "ts-node src/migrations/2026-04-25-product-text-index.ts",
     "d-build": "docker build -t souravdeveloper/ecom-product .",
     "d-push": "docker push souravdeveloper/ecom-product",
     "d-pub": "npm run d-build && npm run d-push",

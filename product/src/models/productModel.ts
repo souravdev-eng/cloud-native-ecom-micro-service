@@ -1,4 +1,4 @@
-import mongoose from 'mongoose';
+import mongoose from "mongoose";
 
 interface ProductAttars {
   title: string;
@@ -44,7 +44,7 @@ const productSchema = new mongoose.Schema(
     },
     category: {
       type: String,
-      default: 'other',
+      default: "other",
     },
     description: {
       type: String,
@@ -74,7 +74,7 @@ const productSchema = new mongoose.Schema(
     },
     sellerId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
+      ref: "User",
       required: true,
     },
     tags: {
@@ -95,16 +95,33 @@ const productSchema = new mongoose.Schema(
         delete ret.__v;
       },
     },
-  }
+  },
 );
 
-// Text index for search
+// Text index for search.
+//
+// MongoDB allows exactly one text index per collection, and the engine
+// matches `$text: { $search: ... }` against ALL fields included here.
+// Title is the most precise signal; tags are curated, low-noise
+// keywords; description is useful but noisy. Weights are relative —
+// what matters is the ratio.
+//
+// Migration note: this replaces the previous `TextSearch_title` index
+// (title-only). MongoDB will not reshape an existing text index in
+// place — Mongoose's ensureIndex / autoIndex logs an error and leaves
+// the old one. To roll the change out, run the one-shot migration:
+//
+//   npm run migrate:text-index
+//
+// (See product/src/migrations/2026-04-25-product-text-index.ts.)
+// The script is idempotent and safe to run multiple times.
 productSchema.index(
-  { title: 'text' },
+  { title: "text", tags: "text", description: "text" },
   {
-    name: 'TextSearch_title',
-    weights: { title: 10 },
-  }
+    name: "ProductTextIndex",
+    weights: { title: 10, tags: 5, description: 1 },
+    default_language: "english",
+  },
 );
 
 productSchema.index(
@@ -113,7 +130,7 @@ productSchema.index(
     price: -1,
     quantity: 1,
   },
-  { name: 'category_1_price_-1_quantity1' }
+  { name: "category_1_price_-1_quantity1" },
 );
 
 // Filter/sort indexes
@@ -127,6 +144,6 @@ productSchema.statics.build = (attars: ProductAttars) => {
   return new Product(attars);
 };
 
-const Product = mongoose.model<ProductDoc, ProductModel>('Product', productSchema);
+const Product = mongoose.model<ProductDoc, ProductModel>("Product", productSchema);
 
 export { Product };
