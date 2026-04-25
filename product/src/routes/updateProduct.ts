@@ -2,7 +2,6 @@ import {
   restrictTo,
   requireAuth,
   NotFoundError,
-  BadRequestError,
   requestValidation,
 } from '@ecom-micro/common';
 import { Router, Response, Request, NextFunction } from 'express';
@@ -11,6 +10,8 @@ import { Product } from '../models/productModel';
 import { ProductUpdatePub } from '../queues/publisher/productUpdatePub';
 import { rabbitMQWrapper } from '../rabbitMQWrapper';
 import { productUpdateValidation } from '../validation/productValidation';
+import { cache } from '../cache/redisCache';
+
 
 const router = Router();
 
@@ -42,6 +43,7 @@ router.patch(
     });
 
     await product.save();
+    await cache.del(`product:${req.params.id}`);
 
     new ProductUpdatePub(rabbitMQWrapper.channel).publish({
       id: product.id,
