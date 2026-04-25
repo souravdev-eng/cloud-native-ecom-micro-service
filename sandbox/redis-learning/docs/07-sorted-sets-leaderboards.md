@@ -1,636 +1,336 @@
-# 📚 Chapter 7: Sorted Sets & Leaderboards
+# 07. Sorted Sets and Ranking
 
-## 🎯 Learning Objectives
-
-By the end of this chapter, you will understand:
-
-- When and why to use Sorted Sets
-- Building real-time leaderboards
-- Implementing trending products
-- Search autocomplete with Redis
+Sorted sets (ZSets) are the most powerful Redis structure. They give you
+ordered, indexed, range-queryable collections with `O(log N)` writes and
+`O(log N + M)` range reads. This chapter covers their production uses
+beyond the textbook leaderboard: time-decay scoring, autocomplete,
+priority queues, and the cost characteristics that determine when ZSets
+stop scaling.
 
 ---
 
-## 🤔 Why Sorted Sets?
+## 7.1 The data model
 
-Sorted Sets are one of Redis's most powerful data structures - they maintain elements sorted by score automatically.
+A sorted set is a set of `(member, score)` pairs where `score` is a
+double-precision float. Members are unique; scores are not. Internal
+encoding is `listpack` for small sets, `skiplist` (plus a hashtable for
+membership lookup) for larger ones — the threshold is configurable via
+`zset-max-listpack-entries` and `zset-max-listpack-value`.
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                    SORTED SET SUPERPOWERS                                    │
-│                                                                              │
-│   Regular Set:                      Sorted Set (ZSet):                      │
-│   ────────────                      ───────────────────                     │
-│   { "a", "b", "c" }                 { a:10, b:25, c:15 }                    │
-│   (no order)                        (sorted by score!)                      │
-│                                                                              │
-│   Operations you can do:                                                    │
-│   ──────────────────────                                                    │
-│   • Get top N items                 O(log(N) + M)                           │
-│   • Get items by score range        O(log(N) + M)                           │
-│   • Get rank of an item             O(log(N))                               │
-│   • Increment score atomically      O(log(N))                               │
-│                                                                              │
-│   Perfect for:                                                              │
-│   • Leaderboards                    • Time-based data                       │
-│   • Trending/Popular items          • Priority queues                       │
-│   • Autocomplete                    • Geospatial indexes                    │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
+`O(log N)` operations:
+
+- `ZADD`, `ZREM`, `ZSCORE`, `ZINCRBY`
+- `ZRANGE BYSCORE`, `ZRANGE BYLEX`, `ZRANK`, `ZREVRANK`
+- `ZRANGE` (the start point lookup)
+
+`O(log N + M)` operations, where `M` is items returned:
+
+- `ZRANGE` with a count, `ZRANGEBYSCORE LIMIT`
+
+`O(N)` operations to be wary of:
+
+- `ZRANGE 0 -1` (all members) — never run on a large set
+- `ZUNIONSTORE` / `ZINTERSTORE` over large inputs
+- `ZRANGEBYLEX` over a wide range
 
 ---
 
-## 1️⃣ E-commerce Trending Products
+## 7.2 Leaderboards — the canonical case
 
-Track and display trending products based on views, purchases, or engagement.
+### Plain leaderboard
 
-### Data Flow
+```ts
+// Score = points, member = userId
+await client.zAdd('leaderboard:global', { score: points, value: userId });
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                    TRENDING PRODUCTS FLOW                                    │
-│                                                                              │
-│   User views product:123                                                    │
-│        │                                                                     │
-│        ▼                                                                     │
-│   ZINCRBY trending:daily 1 "product:123"                                    │
-│   ZINCRBY trending:weekly 1 "product:123"                                   │
-│   ZINCRBY trending:category:electronics 1 "product:123"                     │
-│        │                                                                     │
-│        ▼                                                                     │
-│   Sorted Set updates automatically                                          │
-│        │                                                                     │
-│        ▼                                                                     │
-│   Get trending: ZREVRANGE trending:daily 0 9                                │
-│   Returns: Top 10 most viewed products today!                               │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
+// Top 10
+const top = await client.zRange('leaderboard:global', 0, 9, { REV: true });
+
+// Player's rank (0-indexed)
+const rank = await client.zRevRank('leaderboard:global', userId);
+
+// Player's neighbours: 5 above and 5 below
+const start = Math.max(0, (rank ?? 0) - 5);
+const window = await client.zRange('leaderboard:global', start, start + 10, { REV: true });
 ```
 
-### Implementation
+For a million-player leaderboard this still costs `O(log N)` per
+operation. The structure scales further than most use cases require.
 
-```typescript
-class TrendingProductsService {
-  private redis: RedisClientType;
+### Where it stops scaling
 
-  /**
-   * Track a product view/interaction
-   */
-  async trackInteraction(
-    productId: string, 
-    type: 'view' | 'cart' | 'purchase',
-    metadata?: { category?: string; price?: number }
-  ): Promise<void> {
-    const now = Date.now();
-    const today = new Date().toISOString().split('T')[0];
-    const hour = new Date().toISOString().slice(0, 13);
-    
-    // Different weights for different interactions
-    const weights = { view: 1, cart: 5, purchase: 10 };
-    const weight = weights[type];
-    
-    // Increment in multiple time windows (pipeline for efficiency)
-    const pipeline = this.redis.multi();
-    
-    // Hourly trending (for real-time dashboard)
-    pipeline.zIncrBy(`trending:hourly:${hour}`, weight, productId);
-    pipeline.expire(`trending:hourly:${hour}`, 7200); // 2 hours
-    
-    // Daily trending
-    pipeline.zIncrBy(`trending:daily:${today}`, weight, productId);
-    pipeline.expire(`trending:daily:${today}`, 172800); // 48 hours
-    
-    // Weekly trending (rolling)
-    pipeline.zIncrBy('trending:weekly', weight, productId);
-    
-    // Category-specific trending
-    if (metadata?.category) {
-      pipeline.zIncrBy(`trending:category:${metadata.category}`, weight, productId);
-      pipeline.expire(`trending:category:${metadata.category}`, 86400);
-    }
-    
-    await pipeline.exec();
+- **Hot ZSet writes** under flash-sale-style traffic concentrate on a
+  single key, hence a single shard. Mitigation: shard the leaderboard
+  by region / time bucket / user-id range and merge for global views
+  (covered below).
+- **Wide range queries** (`ZRANGE 0 -1`) on a 10M-entry leaderboard
+  return 10M items in one reply and block the main thread.
+
+### Sharded leaderboard
+
+For very high-write leaderboards, partition by some property of the
+member:
+
+```
+leaderboard:global:shard:0
+leaderboard:global:shard:1
+...
+leaderboard:global:shard:15
+```
+
+Pick the shard from `hash(userId) % N`. To compute the global top-K,
+read top-K from each shard (`O(N · log shardSize)`) and merge in
+application memory. This trades read complexity for write
+parallelism — appropriate when sustained writes exceed ~10k/s on a
+single key.
+
+In Cluster mode, shard suffixes also distribute the leaderboard across
+slots, parallelising both reads and writes if the client pipelines.
+
+---
+
+## 7.3 Time-decay scoring (trending)
+
+A "trending" ranking is just a leaderboard whose scores decay over
+time. Two implementations:
+
+### Two-key window (simple)
+
+Keep separate ZSets for fixed buckets (e.g. one per hour). Trending =
+sum across the recent N buckets.
+
+```ts
+const hour = Math.floor(Date.now() / 3_600_000);
+await client.zIncrBy(`trending:product:${hour}`, 1, productId);
+await client.expire(`trending:product:${hour}`, 24 * 3600);
+
+// Top 10 trending in last 6 hours
+const keys = Array.from({ length: 6 }, (_, i) => `trending:product:${hour - i}`);
+await client.zUnionStore('trending:product:window', keys);
+const top = await client.zRange('trending:product:window', 0, 9, { REV: true });
+```
+
+`ZUNIONSTORE` over 6 modest ZSets is fast. The merge runs on Redis;
+only the final 10 entries are shipped to the application.
+
+### Continuous decay (elegant, more expensive)
+
+Encode the recency in the score itself:
+
+```
+score = log(views) + (timestamp / decay_window)
+```
+
+So a video posted now has its `score` carry the current epoch, and a
+video from yesterday is one decay unit lower. `ZINCRBY` adjusts by
+`log(views_delta)` plus a small recency adjustment.
+
+This is the Reddit "hot" algorithm in essence. Mathematically clean but
+requires care with floating-point precision over long horizons.
+
+### Sliding window of distinct events
+
+If "trending" should reflect distinct *users* engaging in the last hour,
+not raw counts, use **HyperLogLog** per (entity, hour) and pull
+cardinalities, or sliding window log per entity (Chapter 05).
+
+---
+
+## 7.4 Autocomplete with `ZRANGEBYLEX`
+
+`ZRANGEBYLEX` returns members whose names fall within a lexicographic
+range, in `O(log N + M)`. With all scores set to 0, a sorted set
+becomes a sorted index of strings — exactly what an autocomplete needs.
+
+```ts
+const TERMS = 'autocomplete:product:terms';
+
+// Index a product name and all its prefixes
+function index(name: string, productId: string) {
+  const lower = name.toLowerCase();
+  const tx = client.multi();
+  for (let i = 1; i <= lower.length; i++) {
+    tx.zAdd(TERMS, { score: 0, value: lower.slice(0, i) + '*' });
   }
+  // Mark complete terms with the productId for retrieval
+  tx.zAdd(TERMS, { score: 0, value: lower + '*' + productId });
+  return tx.exec();
+}
 
-  /**
-   * Get trending products
-   */
-  async getTrending(options: {
-    period: 'hourly' | 'daily' | 'weekly';
-    category?: string;
-    limit?: number;
-    offset?: number;
-  } = { period: 'daily' }): Promise<{ productId: string; score: number }[]> {
-    const { period, category, limit = 10, offset = 0 } = options;
-    
-    let key: string;
-    if (category) {
-      key = `trending:category:${category}`;
-    } else if (period === 'hourly') {
-      const hour = new Date().toISOString().slice(0, 13);
-      key = `trending:hourly:${hour}`;
-    } else if (period === 'daily') {
-      const today = new Date().toISOString().split('T')[0];
-      key = `trending:daily:${today}`;
-    } else {
-      key = 'trending:weekly';
-    }
-    
-    // Get top products with scores
-    const results = await this.redis.zRangeWithScores(
-      key,
-      offset,
-      offset + limit - 1,
-      { REV: true } // Descending order (highest first)
-    );
-    
-    return results.map(({ value, score }) => ({
-      productId: value,
-      score
-    }));
-  }
-
-  /**
-   * Get product rank in trending
-   */
-  async getProductRank(productId: string, period: 'daily' | 'weekly' = 'daily'): Promise<number | null> {
-    const key = period === 'daily' 
-      ? `trending:daily:${new Date().toISOString().split('T')[0]}`
-      : 'trending:weekly';
-    
-    const rank = await this.redis.zRevRank(key, productId);
-    return rank !== null ? rank + 1 : null; // 1-indexed
-  }
-
-  /**
-   * Decay old scores (run daily via cron)
-   */
-  async decayWeeklyScores(factor: number = 0.9): Promise<void> {
-    // Get all products in weekly trending
-    const products = await this.redis.zRangeWithScores('trending:weekly', 0, -1);
-    
-    // Apply decay factor
-    const pipeline = this.redis.multi();
-    for (const { value, score } of products) {
-      const newScore = Math.floor(score * factor);
-      if (newScore > 0) {
-        pipeline.zAdd('trending:weekly', { score: newScore, value });
-      } else {
-        pipeline.zRem('trending:weekly', value);
-      }
-    }
-    
-    await pipeline.exec();
-  }
+// Look up suggestions for a prefix
+async function suggest(prefix: string, limit = 10): Promise<string[]> {
+  const start = `[${prefix.toLowerCase()}`;
+  const end = `(${prefix.toLowerCase()}\xff`; // exclusive upper bound
+  return client.zRange(TERMS, start, end, {
+    BY: 'LEX',
+    LIMIT: { offset: 0, count: limit * 5 },
+  });
 }
 ```
 
-### Usage in Routes
+For real product autocomplete, this is usually the wrong tool — a
+purpose-built search index (Elasticsearch, already in this platform's
+stack) gives you tokenisation, scoring, and synonyms. Use ZSet-based
+autocomplete only for small, latency-critical lists where running
+Elasticsearch is overkill.
 
-```typescript
-// Track product view
-router.get('/api/product/:id', requireAuth, async (req, res) => {
-  const product = await productService.getById(req.params.id);
-  
-  // Track this view
-  await trendingService.trackInteraction(product.id, 'view', {
-    category: product.category
-  });
-  
-  res.json(product);
-});
+---
 
-// Get trending products
-router.get('/api/products/trending', async (req, res) => {
-  const { period = 'daily', category, limit = 10 } = req.query;
-  
-  const trending = await trendingService.getTrending({
-    period: period as 'daily' | 'weekly',
-    category: category as string,
-    limit: Number(limit)
-  });
-  
-  // Fetch full product details
-  const products = await productService.getByIds(trending.map(t => t.productId));
-  
-  res.json({
-    products,
-    trending // Include scores for transparency
-  });
+## 7.5 Priority queues with sorted sets
+
+Encode "scheduled time" as the score; consumers pop entries whose score
+is `≤ now`.
+
+```ts
+// Producer
+await client.zAdd('jobs:scheduled', { score: runAtMs, value: jobId });
+
+// Consumer (atomic: read and remove together via Lua)
+const POP_DUE_LUA = `
+  local items = redis.call('ZRANGEBYSCORE', KEYS[1], 0, ARGV[1], 'LIMIT', 0, ARGV[2])
+  if #items == 0 then return items end
+  redis.call('ZREM', KEYS[1], unpack(items))
+  return items
+`;
+const due = await client.eval(POP_DUE_LUA, {
+  keys: ['jobs:scheduled'],
+  arguments: [String(Date.now()), '50'],
 });
 ```
 
+This gives you a delay queue with at-most-once delivery. For
+at-least-once with retries on consumer failure, move popped entries to
+a "running" ZSet keyed by deadline; a janitor process moves expired
+items back to `jobs:scheduled`.
+
+For anything more complex (consumer groups, backpressure, replay),
+prefer Streams or RabbitMQ.
+
 ---
 
-## 2️⃣ Real-Time Leaderboards
+## 7.6 Range queries by score
 
-### User Points/Rewards Leaderboard
+Sorted sets shine at "give me X where some property is in range [A, B]":
 
-```typescript
-class LeaderboardService {
-  private redis: RedisClientType;
+```ts
+// Products priced between $20 and $50, paginated
+const page = await client.zRangeByScore('product:by_price', 20, 50, {
+  LIMIT: { offset: 0, count: 50 },
+});
+```
 
-  /**
-   * Add or update user score
-   */
-  async updateScore(
-    leaderboardId: string,
-    userId: string,
-    score: number
-  ): Promise<number> {
-    // ZADD returns 1 if new, 0 if updated
-    const key = `leaderboard:${leaderboardId}`;
-    await this.redis.zAdd(key, { score, value: userId });
-    
-    // Return new rank
-    const rank = await this.redis.zRevRank(key, userId);
-    return rank !== null ? rank + 1 : -1;
-  }
+Use this only when the score is naturally one-dimensional and the SoR
+cannot answer the query at acceptable latency. For multi-attribute
+filters, push the work to Postgres or Elasticsearch — squeezing them
+into ZSets becomes ugly fast.
 
-  /**
-   * Increment user score (for point systems)
-   */
-  async addPoints(
-    leaderboardId: string,
-    userId: string,
-    points: number
-  ): Promise<{ newScore: number; rank: number }> {
-    const key = `leaderboard:${leaderboardId}`;
-    const newScore = await this.redis.zIncrBy(key, points, userId);
-    const rank = await this.redis.zRevRank(key, userId);
-    
-    return {
-      newScore,
-      rank: rank !== null ? rank + 1 : -1
-    };
-  }
+---
 
-  /**
-   * Get top N users
-   */
-  async getTopUsers(
-    leaderboardId: string,
-    limit: number = 10
-  ): Promise<{ userId: string; score: number; rank: number }[]> {
-    const key = `leaderboard:${leaderboardId}`;
-    const results = await this.redis.zRangeWithScores(key, 0, limit - 1, { REV: true });
-    
-    return results.map(({ value, score }, index) => ({
-      userId: value,
-      score,
-      rank: index + 1
-    }));
-  }
+## 7.7 Pagination
 
-  /**
-   * Get user's rank and nearby users
-   */
-  async getUserRankWithContext(
-    leaderboardId: string,
-    userId: string,
-    contextSize: number = 2
-  ): Promise<{
-    user: { userId: string; score: number; rank: number };
-    above: { userId: string; score: number; rank: number }[];
-    below: { userId: string; score: number; rank: number }[];
-  } | null> {
-    const key = `leaderboard:${leaderboardId}`;
-    
-    // Get user's rank
-    const rank = await this.redis.zRevRank(key, userId);
-    if (rank === null) return null;
-    
-    // Get user's score
-    const score = await this.redis.zScore(key, userId);
-    
-    // Get context (users above and below)
-    const startIndex = Math.max(0, rank - contextSize);
-    const endIndex = rank + contextSize;
-    
-    const results = await this.redis.zRangeWithScores(key, startIndex, endIndex, { REV: true });
-    
-    const userIndex = rank - startIndex;
-    const above = results.slice(0, userIndex).map((r, i) => ({
-      userId: r.value,
-      score: r.score,
-      rank: startIndex + i + 1
-    }));
-    const below = results.slice(userIndex + 1).map((r, i) => ({
-      userId: r.value,
-      score: r.score,
-      rank: rank + i + 2
-    }));
-    
-    return {
-      user: { userId, score: score!, rank: rank + 1 },
-      above,
-      below
-    };
-  }
+Pagination of a leaderboard via offsets (`ZRANGE start end`) works
+correctly only if the underlying set is stable. If scores change between
+pages, page 2 may overlap or skip page 1.
 
-  /**
-   * Get total participants
-   */
-  async getParticipantCount(leaderboardId: string): Promise<number> {
-    return await this.redis.zCard(`leaderboard:${leaderboardId}`);
-  }
+For stable pagination, paginate by **score cursor**:
+
+```ts
+async function pageByScore(after: number, limit: number) {
+  return client.zRangeByScore('leaderboard:global', after, '+inf', {
+    LIMIT: { offset: 1, count: limit }, // skip the cursor itself
+  });
 }
 ```
 
-### Monthly/Weekly Reset
-
-```typescript
-class SeasonalLeaderboard {
-  /**
-   * Archive and reset leaderboard
-   */
-  async resetLeaderboard(leaderboardId: string): Promise<void> {
-    const key = `leaderboard:${leaderboardId}`;
-    const archiveKey = `leaderboard:${leaderboardId}:archive:${Date.now()}`;
-    
-    // Copy to archive
-    await this.redis.copy(key, archiveKey);
-    
-    // Delete current leaderboard
-    await this.redis.del(key);
-    
-    // Set archive expiry (keep for 90 days)
-    await this.redis.expire(archiveKey, 90 * 24 * 60 * 60);
-  }
-
-  /**
-   * Combine multiple period leaderboards
-   */
-  async combineLeaderboards(
-    sourceKeys: string[],
-    destKey: string,
-    weights?: number[]
-  ): Promise<void> {
-    await this.redis.zUnionStore(destKey, sourceKeys, {
-      WEIGHTS: weights,
-      AGGREGATE: 'SUM'
-    });
-  }
-}
-```
+Equivalent to keyset pagination in SQL. Resilient to concurrent updates
+and `O(log N + M)` per page.
 
 ---
 
-## 3️⃣ Search Autocomplete
+## 7.8 Costs to watch
 
-Use Sorted Sets for fast, ranked autocomplete suggestions.
+A 10M-entry sorted set:
 
-### Approach 1: Prefix-Based Autocomplete
+- Memory: roughly 80–120 bytes per entry depending on member length —
+  ~1 GB. Plan for that on the host.
+- `ZADD` / `ZREM` / `ZSCORE`: still `O(log N)`, sub-millisecond on a
+  modern CPU.
+- `ZRANGE 0 -1`: returns 10M items in one reply, blocks for seconds,
+  saturates the network link. Never do this.
+- `ZUNIONSTORE` of two 10M sets: `O(N)` and writes a 10M+-entry result
+  set. Plan accordingly.
 
-```typescript
-class AutocompleteService {
-  private redis: RedisClientType;
-  private key = 'autocomplete:products';
-
-  /**
-   * Index a product for autocomplete
-   */
-  async indexProduct(product: { id: string; title: string; popularity: number }): Promise<void> {
-    const title = product.title.toLowerCase();
-    
-    // Add all prefixes
-    for (let i = 1; i <= title.length; i++) {
-      const prefix = title.slice(0, i);
-      // Store as: prefix -> product ID with popularity score
-      await this.redis.zAdd(`autocomplete:prefix:${prefix}`, {
-        score: product.popularity,
-        value: JSON.stringify({ id: product.id, title: product.title })
-      });
-    }
-    
-    // Limit each prefix set to top 10
-    await this.trimPrefixSets(title);
-  }
-
-  private async trimPrefixSets(title: string): Promise<void> {
-    for (let i = 1; i <= title.length; i++) {
-      const prefix = title.slice(0, i);
-      // Keep only top 10 for each prefix
-      await this.redis.zRemRangeByRank(`autocomplete:prefix:${prefix}`, 0, -11);
-    }
-  }
-
-  /**
-   * Get autocomplete suggestions
-   */
-  async getSuggestions(query: string, limit: number = 5): Promise<{ id: string; title: string }[]> {
-    const prefix = query.toLowerCase();
-    const key = `autocomplete:prefix:${prefix}`;
-    
-    const results = await this.redis.zRange(key, 0, limit - 1, { REV: true });
-    
-    return results.map(r => JSON.parse(r));
-  }
-
-  /**
-   * Remove product from autocomplete
-   */
-  async removeProduct(product: { id: string; title: string }): Promise<void> {
-    const title = product.title.toLowerCase();
-    const value = JSON.stringify({ id: product.id, title: product.title });
-    
-    for (let i = 1; i <= title.length; i++) {
-      const prefix = title.slice(0, i);
-      await this.redis.zRem(`autocomplete:prefix:${prefix}`, value);
-    }
-  }
-}
-```
-
-### Approach 2: Completion Suggester (More Efficient)
-
-```typescript
-class CompletionSuggester {
-  private redis: RedisClientType;
-
-  /**
-   * Index search term with completion entries
-   */
-  async indexTerm(term: string, score: number = 0): Promise<void> {
-    const normalized = term.toLowerCase().trim();
-    
-    // Store the complete term
-    await this.redis.zAdd('autocomplete:terms', { score, value: normalized + '*' });
-    
-    // Store all prefixes for completion matching
-    for (let i = 1; i < normalized.length; i++) {
-      const prefix = normalized.slice(0, i);
-      await this.redis.zAdd('autocomplete:terms', { score: 0, value: prefix });
-    }
-  }
-
-  /**
-   * Get completions for query
-   */
-  async complete(query: string, limit: number = 10): Promise<string[]> {
-    const normalized = query.toLowerCase().trim();
-    
-    // Find range of matching prefixes
-    const results: string[] = [];
-    let cursor = await this.redis.zRank('autocomplete:terms', normalized);
-    
-    if (cursor === null) return [];
-    
-    // Scan forward to find completions (terms ending with *)
-    const range = await this.redis.zRange('autocomplete:terms', cursor, cursor + 50);
-    
-    for (const term of range) {
-      if (!term.startsWith(normalized)) break;
-      if (term.endsWith('*')) {
-        results.push(term.slice(0, -1)); // Remove *
-        if (results.length >= limit) break;
-      }
-    }
-    
-    return results;
-  }
-
-  /**
-   * Boost a term (when user selects it)
-   */
-  async boostTerm(term: string, amount: number = 1): Promise<void> {
-    const normalized = term.toLowerCase().trim() + '*';
-    await this.redis.zIncrBy('autocomplete:terms', amount, normalized);
-  }
-}
-```
+A safe default is to bound any range query at the application layer:
+`ZRANGE start (start + 1000)`, never unbounded.
 
 ---
 
-## 4️⃣ Price Range Filtering
+## 7.9 Member design
 
-Use scores for numeric filtering:
+Members must be unique within the set. Consequences:
 
-```typescript
-class ProductPriceIndex {
-  private redis: RedisClientType;
+- For leaderboards keyed by user, `userId` is the member.
+- For trending products with daily resets, `productId` per day is the
+  member; switch keys daily.
+- If you need to associate metadata (display name, avatar URL) with a
+  ranked member, store it in a separate hash and look it up on
+  retrieval — do not pack it into the member string.
 
-  /**
-   * Index product by price
-   */
-  async indexProduct(productId: string, price: number, category?: string): Promise<void> {
-    // Global price index
-    await this.redis.zAdd('products:by_price', { score: price, value: productId });
-    
-    // Category-specific price index
-    if (category) {
-      await this.redis.zAdd(`products:by_price:${category}`, { score: price, value: productId });
-    }
-  }
-
-  /**
-   * Get products in price range
-   */
-  async getByPriceRange(
-    minPrice: number,
-    maxPrice: number,
-    options?: { category?: string; limit?: number; offset?: number }
-  ): Promise<string[]> {
-    const { category, limit = 20, offset = 0 } = options || {};
-    const key = category ? `products:by_price:${category}` : 'products:by_price';
-    
-    return await this.redis.zRangeByScore(key, minPrice, maxPrice, {
-      LIMIT: { offset, count: limit }
-    });
-  }
-
-  /**
-   * Get price statistics
-   */
-  async getPriceStats(category?: string): Promise<{
-    min: number;
-    max: number;
-    count: number;
-  }> {
-    const key = category ? `products:by_price:${category}` : 'products:by_price';
-    
-    const [minResult, maxResult, count] = await Promise.all([
-      this.redis.zRangeWithScores(key, 0, 0),
-      this.redis.zRangeWithScores(key, -1, -1),
-      this.redis.zCard(key)
-    ]);
-    
-    return {
-      min: minResult[0]?.score || 0,
-      max: maxResult[0]?.score || 0,
-      count
-    };
-  }
-}
-```
+For ties (same score), members are returned in **lexicographic** order.
+If lex order is not what you want for ties (e.g. you want
+"earliest insertion wins"), encode that into the score: use
+`score = points * 1e9 + (1e9 - timestampSec)` so earlier timestamps win
+ties — but be aware of float precision.
 
 ---
 
-## 📊 Sorted Set Commands Cheat Sheet
+## 7.10 Concrete uses in this platform
+
+### `product/` — trending products
+
+Hourly buckets per category:
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                    SORTED SET COMMANDS                                       │
-│                                                                              │
-│   ADD/UPDATE:                                                               │
-│   ───────────                                                               │
-│   ZADD key score member              # Add/update member                    │
-│   ZINCRBY key increment member       # Increment score                      │
-│                                                                              │
-│   GET BY RANK:                                                              │
-│   ────────────                                                              │
-│   ZRANGE key start stop              # Get by rank (ascending)              │
-│   ZREVRANGE key start stop           # Get by rank (descending)             │
-│   ZRANK key member                   # Get rank (ascending)                 │
-│   ZREVRANK key member                # Get rank (descending)                │
-│                                                                              │
-│   GET BY SCORE:                                                             │
-│   ─────────────                                                             │
-│   ZRANGEBYSCORE key min max          # Get by score range                   │
-│   ZCOUNT key min max                 # Count in score range                 │
-│                                                                              │
-│   INFO:                                                                     │
-│   ─────                                                                     │
-│   ZCARD key                          # Get total count                      │
-│   ZSCORE key member                  # Get member's score                   │
-│                                                                              │
-│   REMOVE:                                                                   │
-│   ───────                                                                   │
-│   ZREM key member                    # Remove member                        │
-│   ZREMRANGEBYRANK key start stop     # Remove by rank range                 │
-│   ZREMRANGEBYSCORE key min max       # Remove by score range                │
-│                                                                              │
-│   SET OPERATIONS:                                                           │
-│   ───────────────                                                           │
-│   ZUNIONSTORE dest numkeys key...    # Union of sets                        │
-│   ZINTERSTORE dest numkeys key...    # Intersection of sets                 │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
+trending:product:cat:42:2026032015   ZSET   member=productId, score=views
 ```
 
+Reset by TTL; the hot list is a `ZUNIONSTORE` of the last few buckets.
+
+### `review/` — top-reviewed product list
+
+```
+top-reviewed:cat:42   ZSET   member=productId, score=avgRating * reviewCount
+```
+
+Updated by the review service on each rating; read by `product/`
+through a cache.
+
+### `order/` — scheduled retries
+
+`jobs:scheduled` ZSet with score = `runAtMs`, members = `orderId`.
+Worker pulls due items via the Lua script above. Move to `jobs:running`
+on pickup; janitor recovers stuck items.
+
+### `etl-service/` — incremental ingest cursors
+
+A ZSet of `entityId -> lastProcessedTimestamp` lets the ETL find the
+earliest uningested entity in `O(log N)`.
+
 ---
 
-## 🧠 Quick Recap
+## 7.11 Observability
 
-| Use Case | Score Meaning | Key Pattern |
-|----------|---------------|-------------|
-| **Trending** | View/purchase count | `trending:{period}` |
-| **Leaderboard** | Points/score | `leaderboard:{id}` |
-| **Autocomplete** | Popularity | `autocomplete:prefix:{p}` |
-| **Price Filter** | Price value | `products:by_price` |
-
----
-
-## 🏋️ Exercises
-
-1. **Trending products**: Implement trending for your Product Service
-2. **Autocomplete**: Build search suggestions for product titles
-3. **Leaderboard**: Create a customer rewards leaderboard
+- ZSet cardinality (`ZCARD`) per leaderboard, sampled (not on every
+  request).
+- p99 latency of ranking endpoints — anomalies usually indicate a key
+  has crossed the listpack→skiplist threshold or a `ZUNIONSTORE` is
+  taking too long.
+- Memory per ZSet via `MEMORY USAGE key` (sampled). Big ZSets quickly
+  become big keys; see Chapter 08.
 
 ---
 
-## ➡️ Next Chapter
+## 7.12 Continue
 
-[Chapter 8: Production Best Practices](./08-production-patterns.md) - Scale and monitor Redis in production!
-
+- [01. Redis Fundamentals](./01-redis-fundamentals.md) — encoding details and complexity.
+- [08. Production Patterns](./08-production-patterns.md) — big-key mitigation and Cluster slot affinity for sharded leaderboards.

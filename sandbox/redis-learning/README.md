@@ -1,196 +1,108 @@
-# 🚀 Redis Caching Patterns - Learning Sandbox
+# Redis Production Reference
 
-> Master Redis caching strategies through hands-on examples directly connected to your e-commerce microservices.
+A production-oriented reference for designing, operating, and reasoning about
+Redis as a cache, coordination layer, and data structure server inside this
+microservices platform.
 
----
-
-## 🎯 What You'll Learn
-
-This sandbox takes you from Redis basics to advanced production patterns, with real examples you can integrate into your Product, Cart, and Order services.
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                         REDIS LEARNING JOURNEY                               │
-│                                                                              │
-│   ┌──────────────┐     ┌──────────────┐     ┌──────────────┐               │
-│   │   BASICS     │     │   CACHING    │     │  ADVANCED    │               │
-│   │              │     │   PATTERNS   │     │   FEATURES   │               │
-│   │ • Data Types │ ──▶ │ • Cache-Aside│ ──▶ │ • Dist. Lock │               │
-│   │ • GET/SET    │     │ • Write-Thru │     │ • Rate Limit │               │
-│   │ • TTL        │     │ • Invalidate │     │ • Sessions   │               │
-│   │ • Hashes     │     │              │     │ • Leaderboard│               │
-│   └──────────────┘     └──────────────┘     └──────────────┘               │
-│                                                                              │
-│   YOUR PRODUCT SERVICE ALREADY USES REDIS! 🎉                               │
-│   This sandbox helps you understand and extend it.                          │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
+This is **not** an introductory tutorial. It assumes familiarity with Redis
+basics (`GET`, `SET`, `EXPIRE`) and focuses on the decisions you will face when
+running Redis under real traffic: failure modes, capacity, consistency,
+observability, and operational runbooks.
 
 ---
 
-## 📊 Current Redis Usage in Your Project
+## Scope
 
-You already have Redis integrated in your **Product Service**:
+The reference is organised into eight chapters:
 
-| File                                | Purpose              | Pattern Used      |
-| ----------------------------------- | -------------------- | ----------------- |
-| `product/src/redisClient.ts`        | Redis connection     | Singleton         |
-| `product/src/utils/cacheKeys.ts`    | Cache key generation | Hash-based keys   |
-| `product/src/utils/calculateTTL.ts` | TTL calculation      | Time-based expiry |
-| `product/src/routes/showProduct.ts` | Product caching      | Cache-aside       |
-
-**This sandbox will help you:**
-
-- Understand WHY these patterns work
-- Learn NEW patterns to add
-- Build confidence debugging Redis issues
+| # | Chapter | Focus |
+|---|---------|-------|
+| 01 | [Redis Fundamentals](./docs/01-redis-fundamentals.md) | Data model, complexity, memory layout, when *not* to use Redis |
+| 02 | [Caching Patterns](./docs/02-caching-patterns.md) | Cache-aside, read/write-through, write-behind, negative caching, request coalescing |
+| 03 | [Cache Invalidation](./docs/03-cache-invalidation.md) | TTL design, jitter, soft vs hard expiry, event-driven, versioned keys |
+| 04 | [Distributed Locks](./docs/04-distributed-locks.md) | `SET NX PX`, fencing tokens, Redlock trade-offs, lock timeouts |
+| 05 | [Rate Limiting](./docs/05-rate-limiting.md) | Fixed/sliding window, token bucket, GCRA, Lua atomicity |
+| 06 | [Session Management](./docs/06-session-management.md) | Session storage trade-offs, rotation, revocation, idle vs absolute timeout |
+| 07 | [Sorted Sets & Ranking](./docs/07-sorted-sets-leaderboards.md) | Leaderboards, time-decay scoring, autocomplete, range queries |
+| 08 | [Production Patterns](./docs/08-production-patterns.md) | Persistence, replication, Sentinel, Cluster, observability, capacity, security |
 
 ---
 
-## 📚 Documentation
+## How this reference is used here
 
-Start with the [Documentation Index](./docs/00-index.md) for a complete learning path.
+Redis is currently used inside the `product` service for read-side caching.
+The relevant code lives in:
 
-### Quick Reference
+- `@/Users/sauravmajumdar/Developer/project/micro-service/cloud-native-ecom-micro-service/product/src/redisClient.ts:1-28` — connection bootstrap (`node-redis` v4)
+- `@/Users/sauravmajumdar/Developer/project/micro-service/cloud-native-ecom-micro-service/product/src/cache/redisCache.ts:1-49` — thin `get`/`set`/`del` wrapper
 
-| Chapter | Topic | What You'll Learn |
-| --- | --- | --- |
-| [01](./docs/01-redis-fundamentals.md) | **Redis Fundamentals** | Data types, commands, when to use what |
-| [02](./docs/02-caching-patterns.md) | **Caching Patterns** | Cache-aside, write-through, write-behind |
-| [03](./docs/03-cache-invalidation.md) | **Cache Invalidation** | TTL, event-based, pattern-based |
-| [04](./docs/04-distributed-locks.md) | **Distributed Locks** | Prevent race conditions, Redlock |
-| [05](./docs/05-rate-limiting.md) | **Rate Limiting** | Token bucket, sliding window |
-| [06](./docs/06-session-management.md) | **Session Management** | User sessions, cart state |
-| [07](./docs/07-sorted-sets-leaderboards.md) | **Sorted Sets** | Leaderboards, rankings |
-| [08](./docs/08-production-patterns.md) | **Production Patterns** | Cluster, HA, monitoring |
+Several chapters call out gaps in that implementation (no retry/reconnect
+strategy, double JSON encoding in `set`, no jittered TTL, no negative caching,
+no metrics) and show production-ready replacements.
 
----
+Other services that *should* adopt Redis patterns documented here:
 
-## 💻 Code Examples
-
-Each pattern has working TypeScript examples:
-
-```
-examples/
-├── 01-basic-operations/        # GET, SET, HSET, Lists, Sets
-├── 02-cache-aside-pattern/     # Read-through caching
-├── 03-write-through-cache/     # Write + cache simultaneously
-├── 04-cache-invalidation/      # TTL, event-based, pattern deletion
-├── 05-distributed-locks/       # Prevent race conditions
-├── 06-rate-limiting/           # API throttling
-├── 07-session-store/           # User sessions
-└── 08-leaderboard-sorted-sets/ # Rankings with sorted sets
-```
+| Service | Pattern | Chapter |
+|---------|---------|---------|
+| `auth` | Refresh-token store, session revocation, login throttling | 05, 06 |
+| `cart` | Hash-based cart state, idempotency keys | 01, 02 |
+| `order` | Inventory reservation locks, idempotent checkout | 04 |
+| `product` | Read-through cache, trending products, autocomplete | 02, 03, 07 |
+| `notification` | Deduplication windows, delivery rate caps | 03, 05 |
+| `review` | Sliding window write throttle | 05 |
 
 ---
 
-## 🛒 E-commerce Use Cases
+## Stack assumptions
 
-| Use Case             | Pattern          | Where to Implement                 |
-| -------------------- | ---------------- | ---------------------------------- |
-| Product catalog      | Cache-aside      | Product Service ✅ (already done!) |
-| Flash sale inventory | Distributed Lock | Order Service                      |
-| API rate limiting    | Token Bucket     | All services (middleware)          |
-| User sessions        | Session Store    | Auth Service                       |
-| Shopping cart        | Hash storage     | Cart Service                       |
-| Trending products    | Sorted Sets      | Product Service                    |
-| Search autocomplete  | Sorted Sets      | Product Service                    |
+- **Client**: `redis` (node-redis) `^4.6` — same version used by `product/`.
+  Examples are written against this client. Where behaviour differs in
+  `ioredis`, it is called out explicitly.
+- **Language**: TypeScript, ES2022 target.
+- **Topology**: Single primary in development; primary + replica with Sentinel
+  or Redis Cluster in production. Chapter 08 covers the migration path.
+- **Deployment**: Kubernetes; manifests live under
+  `@/Users/sauravmajumdar/Developer/project/micro-service/cloud-native-ecom-micro-service/k8s`.
 
 ---
 
-## 🚀 Quick Start
+## Examples
 
-### 1. Start Redis (if not running)
+Runnable TypeScript examples accompany each chapter under `examples/`. They
+are intentionally minimal and **not** production-ready on their own — the
+chapters explain what would need to be added (retries, metrics, structured
+logging, graceful shutdown).
 
 ```bash
-# Using Docker Compose (recommended)
-cd /Users/sauravmajumdar/Developer/project/micro-service/cloud-native-ecom-micro-service
-docker-compose -f tools/docker-compose.yml up redis -d
-
-# Or if using K8s
-kubectl port-forward svc/product-redis-srv 6379:6379
-```
-
-### 2. Run Examples
-
-```bash
-cd sandbox/redis-learning/examples
-
-# Install dependencies
+# From sandbox/redis-learning
+docker compose -f ../../tools/docker-compose.yml up -d redis
+cd examples
 npm install
-
-# Run a specific example
-npx ts-node 01-basic-operations/index.ts
-```
-
-### 3. Connect to Redis CLI
-
-```bash
-# Using Docker
-docker exec -it redis redis-cli
-
-# Or with redis-cli installed
-redis-cli -h localhost -p 6379
+npm run cache-aside
 ```
 
 ---
 
-## 📦 Prerequisites
+## Reading order
 
-- ✅ Node.js 18+ installed
-- ✅ Redis server running (Docker/K8s)
-- ✅ TypeScript knowledge
-- ✅ Basic understanding of key-value stores
+If you are new to the platform, read in order. If you are looking up a
+specific decision:
 
----
-
-## 📊 Learning Checklist
-
-Track your progress:
-
-- [ ] **Fundamentals**
-  - [ ] Understand all 5 data types
-  - [ ] Master basic commands (GET, SET, HSET, LPUSH, SADD, ZADD)
-  - [ ] Understand TTL and expiration
-- [ ] **Caching Patterns**
-  - [ ] Implement cache-aside (read-through)
-  - [ ] Implement write-through
-  - [ ] Understand write-behind (async)
-- [ ] **Cache Invalidation**
-  - [ ] TTL-based expiration
-  - [ ] Event-driven invalidation
-  - [ ] Pattern-based key deletion
-- [ ] **Advanced Patterns**
-  - [ ] Distributed locks with Redlock
-  - [ ] Rate limiting middleware
-  - [ ] Session management
-  - [ ] Leaderboards with sorted sets
+- **Choosing a cache pattern** — Chapter 02
+- **Avoiding cache stampede** — Chapter 02 (request coalescing) + Chapter 03 (jitter, early refresh)
+- **Implementing a lock correctly** — Chapter 04 (read the failure-modes section before writing code)
+- **Sizing a Redis instance** — Chapter 08 (capacity & memory)
+- **Picking persistence settings** — Chapter 08 (RDB/AOF trade-offs)
 
 ---
 
-## 🔗 Related Resources
+## External references
 
-- [Redis Official Documentation](https://redis.io/docs/)
-- [Redis University](https://university.redis.com/) (Free courses)
-- [Your Product Service Redis Code](../../product/src/redisClient.ts)
+The chapters cite primary sources where relevant. The following are worth
+reading in full at least once:
 
----
-
-## ⏱️ Estimated Learning Time
-
-| Topic               | Reading      | Hands-on       | Total          |
-| ------------------- | ------------ | -------------- | -------------- |
-| Fundamentals        | 30 min       | 30 min         | 1 hour         |
-| Caching Patterns    | 45 min       | 1 hour         | 1.75 hours     |
-| Cache Invalidation  | 30 min       | 45 min         | 1.25 hours     |
-| Distributed Locks   | 30 min       | 1 hour         | 1.5 hours      |
-| Rate Limiting       | 30 min       | 45 min         | 1.25 hours     |
-| Session Management  | 20 min       | 30 min         | 50 min         |
-| Sorted Sets         | 30 min       | 45 min         | 1.25 hours     |
-| Production Patterns | 30 min       | 30 min         | 1 hour         |
-| **Total**           | **~4 hours** | **~5.5 hours** | **~9.5 hours** |
-
----
-
-**Ready to start? → [Begin with Chapter 1: Redis Fundamentals](./docs/01-redis-fundamentals.md)**
+- Redis documentation: <https://redis.io/docs/latest/>
+- *Redis in Action* — Josiah Carlson (still the best applied book)
+- Antirez, "Is Redlock safe?" thread and Martin Kleppmann's response — required
+  reading before implementing distributed locks (Chapter 04)
+- Redis command reference with complexity annotations: <https://redis.io/commands/>

@@ -1,475 +1,345 @@
-# 📚 Chapter 3: Cache Invalidation
+# 03. Cache Invalidation
 
-## 🎯 Learning Objectives
+> "There are only two hard things in Computer Science: cache invalidation
+> and naming things." — Phil Karlton
 
-By the end of this chapter, you will understand:
+Invalidation determines how a derivative store becomes consistent with
+its source. The job has three sub-problems:
 
-- Why cache invalidation is "the hardest problem"
-- TTL-based expiration strategies
-- Event-driven invalidation
-- Pattern-based key deletion
+1. Choose how long entries are allowed to be stale (**TTL design**).
+2. Avoid synchronised expirations that overload the SoR
+   (**stampede mitigation**).
+3. React to writes that should make an entry obsolete sooner than its TTL
+   would (**event-driven invalidation**).
 
----
-
-## 🤔 Why Is Invalidation Hard?
-
-> "There are only two hard things in Computer Science: cache invalidation and naming things."
-> — Phil Karlton
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                     THE INVALIDATION DILEMMA                                 │
-│                                                                              │
-│   Too Aggressive                        Too Passive                         │
-│   ──────────────                        ────────────                         │
-│                                                                              │
-│   Invalidate everything,                Never invalidate,                    │
-│   every time                            rely only on TTL                     │
-│        │                                      │                              │
-│        ▼                                      ▼                              │
-│   Cache hit rate: 10%                   Stale data served                   │
-│   Database overloaded!                  Angry customers!                    │
-│                                                                              │
-│   ──────────────────────────────────────────────────────────────────────    │
-│                                                                              │
-│                        🎯 THE GOAL                                          │
-│                                                                              │
-│               Invalidate exactly the right data,                            │
-│                    at exactly the right time                                │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
+This chapter is the operational counterpart to Chapter 02.
 
 ---
 
-## 1️⃣ TTL-Based Expiration
+## 3.1 TTL is the foundation
 
-**The simplest approach:** Set an expiration time, let Redis handle cleanup.
+Every cache entry must have a TTL. There are two reasons:
 
-### How It Works
+- **Memory bound**: without TTL the keyspace grows monotonically and the
+  cache must rely entirely on `maxmemory-policy` eviction (Chapter 08).
+  Eviction under pressure is unpredictable; explicit TTLs are not.
+- **Self-healing**: TTL is the backstop for every other invalidation
+  mechanism. Pub/Sub messages can be lost, RabbitMQ consumers can lag,
+  delete-on-write can fail. TTL ensures eventual convergence regardless.
 
+### Picking a TTL
+
+Three inputs determine the TTL for a projection:
+
+1. **Tolerable staleness** — how wrong can this entry be before a user
+   notices or a downstream system breaks?
+2. **Write rate** — how often does the SoR change? A TTL longer than the
+   inter-write interval is mostly wasted.
+3. **Load amplification** — what is the cost of the SoR query? A 100 ms
+   query running 1,000× per second on miss is very different from a
+   1 ms query.
+
+Defaults that survive contact with reality:
+
+| Projection class | TTL | Notes |
+|------------------|-----|-------|
+| Hot read-only catalog data (product detail, category trees) | 5–15 min | With early refresh, can extend to 1 h |
+| Search results / listings | 30 s – 5 min | Short — query results change with inventory |
+| User-specific views (cart, profile) | 1–10 min | Often event-invalidated; TTL is a backstop |
+| Authorisation decisions | 30 s – 5 min | Bias toward shorter; security trumps load |
+| Negative cache (404s) | 10–60 s | Shorter than positives — entities can appear |
+| Rate-limit counters | window length | Match exactly; see Chapter 05 |
+| Distributed locks | seconds | Tight bound; see Chapter 04 |
+
+**Always add jitter** (§3.2). The values above are means, not constants.
+
+---
+
+## 3.2 Jitter — defeating synchronised expiry
+
+If 10,000 cache entries are populated in a one-second burst and given a
+TTL of exactly 600 s, they expire in a one-second burst 600 s later. Every
+miss happens simultaneously. This is the classic **expiration stampede**.
+
+Jitter randomises the actual TTL within a band of the nominal value:
+
+```ts
+function jitter(baseSeconds: number, spread = 0.2): number {
+  const delta = baseSeconds * spread;
+  // Uniform in [base - delta, base + delta]
+  return Math.max(1, Math.round(baseSeconds + (Math.random() * 2 - 1) * delta));
+}
+
+await client.set(key, payload, { EX: jitter(900, 0.2) }); // 12–18 min
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                        TTL LIFECYCLE                                         │
-│                                                                              │
-│   Time 0:00                                                                 │
-│   SET product:123 "data" EX 300                                             │
-│   └── TTL: 300 seconds                                                      │
-│                                                                              │
-│   Time 2:00 (120 seconds later)                                             │
-│   TTL product:123 → 180 seconds remaining                                   │
-│                                                                              │
-│   Time 5:00 (300 seconds later)                                             │
-│   GET product:123 → nil (expired and deleted)                               │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
 
-### TTL Strategies
+Pick `spread` so that the expected number of simultaneous expirations is
+within the SoR's burst capacity. 10–25% is a good default; widen it for
+extremely hot keysets.
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                      TTL STRATEGY GUIDE                                      │
-│                                                                              │
-│   Data Type          │ Recommended TTL  │ Reasoning                         │
-│   ───────────────────┼──────────────────┼───────────────────────────────    │
-│   Product details    │ 5-15 minutes     │ Changes occasionally              │
-│   Product prices     │ 1-5 minutes      │ Changes more often                │
-│   Search results     │ 1-5 minutes      │ New products added frequently     │
-│   User profile       │ 30-60 minutes    │ Rarely changes                    │
-│   Homepage content   │ 5-15 minutes     │ Curated, updates periodically     │
-│   Inventory count    │ 30 seconds       │ Critical accuracy!                │
-│   Session data       │ 30 min - 24 hr   │ Security considerations           │
-│   Rate limit counter │ 1 minute         │ Matches rate window               │
-│                                                                              │
-│   ⚠️  SHORTER TTL = More DB load, Fresher data                              │
-│   ⚠️  LONGER TTL = Less DB load, Staler data                                │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
+This mitigates expiration stampede but **not** miss stampede when a
+single hot key first becomes popular — for that, use coalescing (Chapter
+02 §2.7) or early refresh (§3.4).
 
-### Your Current TTL Implementation
+---
 
-```typescript
-// product/src/routes/showProduct.ts
-if (shouldCacheResult && product.data.length > 0) {
-  // Search results: cache longer (users repeat searches)
-  // Regular queries: shorter cache (might browse different pages)
-  const ttl = req.query.search 
-    ? calculateTTL(60, 'minutes')   // 1 hour for searches
-    : calculateTTL(10, 'minutes');  // 10 min for regular queries
-    
-  await redisClient.set(cacheKey, JSON.stringify(product), { EX: ttl });
+## 3.3 Soft TTL vs hard TTL
+
+A **hard TTL** is the Redis `EX` value: when it elapses, the key is gone.
+A **soft TTL** is an in-payload timestamp the application checks
+*before* the hard TTL. When the soft TTL has passed but the hard TTL has
+not, the application:
+
+- Returns the (still cached) value to the caller — no latency penalty.
+- Triggers a background refresh, ideally protected by a per-key lock.
+
+```ts
+type Wrapped<T> = { value: T; refreshAt: number; storedAt: number };
+
+async function getWithSoftTTL<T>(
+  key: string,
+  loader: () => Promise<T>,
+  softSeconds: number,
+  hardSeconds: number,
+): Promise<T> {
+  const raw = await client.get(key);
+  if (raw) {
+    const w = JSON.parse(raw) as Wrapped<T>;
+    if (Date.now() >= w.refreshAt) {
+      // Stale-while-revalidate: refresh in background, do not await
+      void backgroundRefresh(key, loader, softSeconds, hardSeconds);
+    }
+    return w.value;
+  }
+  return loadAndStore(key, loader, softSeconds, hardSeconds);
 }
 ```
 
-### Advanced TTL: Jitter
+`backgroundRefresh` should be guarded by a per-key lock (`SET NX PX`) so
+that only one process refreshes per soft-expiry window across the fleet.
 
-**Problem:** All caches expire at the same time → stampede!
-
-```typescript
-// BAD: Fixed TTL
-const TTL = 300; // 5 minutes
-
-// GOOD: TTL with jitter
-function getTTLWithJitter(baseTTL: number, jitterPercent: number = 10): number {
-  const jitter = baseTTL * (jitterPercent / 100);
-  const randomJitter = Math.random() * jitter * 2 - jitter; // -jitter to +jitter
-  return Math.round(baseTTL + randomJitter);
-}
-
-// Usage
-const ttl = getTTLWithJitter(300, 10); 
-// Returns: 270-330 seconds (5 min ± 10%)
-```
+This pattern eliminates the latency cost of miss-on-expiry entirely for
+hot keys, at the cost of bounded staleness equal to `hard - soft`. It is
+the right default for read-mostly catalog data.
 
 ---
 
-## 2️⃣ Event-Driven Invalidation
+## 3.4 Probabilistic early refresh (XFetch)
 
-**Invalidate cache when data changes.** Most accurate, but requires coordination.
+A more elegant alternative to soft TTL is probabilistic early
+expiration, due to Vattani, Chierichetti, and Lowenstein (the "XFetch"
+algorithm). Each reader independently decides — based on a random
+draw, the time to expiry, and the recompute cost — whether to refresh
+early. The mathematical effect is a smooth, distributed refresh rather
+than a cliff at expiry.
 
-### The Pattern
+Sketch:
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                    EVENT-DRIVEN INVALIDATION                                 │
-│                                                                              │
-│   Product Service                                                           │
-│        │                                                                     │
-│        │ Update product:123                                                 │
-│        ▼                                                                     │
-│   ┌──────────────┐                                                          │
-│   │   Database   │                                                          │
-│   └──────────────┘                                                          │
-│        │                                                                     │
-│        │ Publish: "product.updated" { id: 123 }                             │
-│        ▼                                                                     │
-│   ┌──────────────┐                                                          │
-│   │   RabbitMQ   │ ──────────────┬─────────────────┐                        │
-│   └──────────────┘               │                 │                        │
-│                                  ▼                 ▼                        │
-│                         ┌──────────────┐   ┌──────────────┐                 │
-│                         │ Cart Service │   │ Order Service│                 │
-│                         │  (listener)  │   │  (listener)  │                 │
-│                         └──────────────┘   └──────────────┘                 │
-│                                  │                 │                        │
-│                                  ▼                 ▼                        │
-│                         Invalidate cache   Invalidate cache                 │
-│                         for product:123    for product:123                  │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
+```ts
+function shouldRefresh(deltaSeconds: number, ttlRemaining: number, beta = 1): boolean {
+  // delta = recent recompute cost in seconds
+  // High delta or low ttlRemaining make refresh more likely
+  return -deltaSeconds * beta * Math.log(Math.random()) >= ttlRemaining;
+}
 ```
 
-### Implementation
+When `shouldRefresh` returns true, recompute and write back; otherwise
+return the cached value. With `beta=1`, the expected refresh time is
+approximately `ttlRemaining = delta`, which is exactly when the cost of
+serving stale data equals the cost of refreshing.
 
-```typescript
-// Product Service: Publish on update
-// product/src/routes/updateProduct.ts
-router.put('/api/product/:id', async (req, res) => {
-  const product = await Product.findByIdAndUpdate(req.params.id, req.body, { new: true });
-  
-  // Invalidate local cache
-  await redisClient.del(`product:${product.id}`);
-  
-  // Publish event for other services
-  await rabbitMQWrapper.channel.publish(
-    'product-exchange',
-    'product.updated',
-    Buffer.from(JSON.stringify({
-      id: product.id,
-      action: 'updated',
-      timestamp: new Date().toISOString()
-    }))
-  );
-  
-  res.status(200).send(product);
+Use this for high-read, expensive-to-compute entries where you want to
+avoid both stampedes *and* the staleness window of soft TTL.
+
+---
+
+## 3.5 Event-driven invalidation
+
+TTL alone is acceptable when staleness is bounded and tolerable. When a
+write must propagate within seconds (e.g. price changes, permission
+revocations), pair TTL with an explicit invalidation signal.
+
+Three transport choices, in order of preference for cross-service work:
+
+### RabbitMQ (preferred for cross-service)
+
+The platform already runs RabbitMQ. Use a topic exchange with routing
+keys like `cache.invalidate.product.item` and durable consumer queues:
+
+```ts
+// Publisher (in writer service, after SoR commit)
+await channel.publish(
+  'cache.invalidate',
+  'cache.invalidate.product.item',
+  Buffer.from(JSON.stringify({ id, version, occurredAt: Date.now() })),
+  { persistent: true },
+);
+
+// Consumer (in each service that caches the projection)
+channel.consume('cache.invalidate.product.item.consumer', async (msg) => {
+  if (!msg) return;
+  const { id } = JSON.parse(msg.content.toString());
+  await Promise.allSettled([
+    client.del(`product:item:${id}:v1`),
+    client.del(`product:list:by-category:*`), // pattern delete — see §3.7
+  ]);
+  channel.ack(msg);
 });
+```
 
-// Other Services: Listen and invalidate
-// cart/src/queues/productUpdatedListener.ts
-class ProductUpdatedListener {
-  async onMessage(data: { id: string; action: string }) {
-    // Invalidate any cached data related to this product
-    await redisClient.del(`product:${data.id}`);
-    
-    // Also invalidate cart entries that contain this product
-    const pattern = `cart:*:product:${data.id}`;
-    const keys = await redisClient.keys(pattern);
-    if (keys.length > 0) {
-      await redisClient.del(keys);
-    }
-    
-    console.log(`Cache invalidated for product ${data.id}`);
-  }
+Properties:
+
+- Durable, with retry and dead-lettering.
+- Decouples publisher from subscriber set.
+- Adds a few ms of latency vs Pub/Sub.
+
+### Redis Pub/Sub (in-cluster, best-effort)
+
+Lower latency but no durability. A subscriber that is down or
+reconnecting misses the message:
+
+```ts
+await pub.publish('invalidate:product:item', id);
+
+await sub.subscribe('invalidate:product:item', async (id) => {
+  await client.del(`product:item:${id}:v1`);
+});
+```
+
+Acceptable when TTL is short enough that a missed message means at most
+a few seconds of staleness.
+
+### Server-assisted client-side caching (Redis 6+)
+
+`CLIENT TRACKING` lets Redis notify clients when keys they have read are
+modified. Powerful but requires a separate connection (`RESP3`) for
+notifications and careful lifecycle management. Reach for it when the
+cache lives in-process (an LRU in Node) and you need invalidation from
+Redis-as-source-of-truth.
+
+---
+
+## 3.6 Versioned keys (invalidate by rotation)
+
+Sometimes you do not want to delete; you want to *retire* an entire
+generation of cache entries — for example, when the projection schema
+changes, or when a bulk SoR migration runs.
+
+Encode a version in the key:
+
+```
+product:item:123:v1
+product:item:123:v2   ← write here, read here, after migration
+```
+
+To roll forward, change the version constant in the application; old
+keys age out via TTL with no `SCAN`/`DEL` work. This is the cleanest way
+to invalidate "everything of kind X" without a maintenance window.
+
+Pair with a single Redis-stored **generation counter** when versions
+must be coordinated dynamically:
+
+```ts
+const gen = await client.get('product:item:gen'); // e.g. "v7"
+const key = `product:item:${id}:${gen}`;
+```
+
+Bumping the counter (`INCR` or `SET`) effectively invalidates the entire
+keyspace at once.
+
+---
+
+## 3.7 Pattern deletion — and why to avoid it
+
+`DEL` only takes explicit keys. To delete by pattern (`product:item:*`)
+the standard idiom is `SCAN` + `DEL`/`UNLINK`:
+
+```ts
+const it = client.scanIterator({ MATCH: 'product:item:*', COUNT: 500 });
+for await (const key of it) {
+  await client.unlink(key);
 }
 ```
 
-### Using Redis Pub/Sub for Real-time Invalidation
+Two warnings:
 
-```typescript
-// Publisher (Product Service)
-const publishInvalidation = async (productId: string) => {
-  await redisClient.publish('cache-invalidation', JSON.stringify({
-    type: 'product',
-    id: productId,
-    action: 'invalidate'
-  }));
-};
+1. **Never use `KEYS pattern`** in production. It blocks the main
+   thread for the duration of the scan.
+2. `SCAN` is `O(N)` overall. On a multi-million-key instance, a pattern
+   delete can run for minutes, holding a connection and competing for
+   CPU with normal traffic.
 
-// Subscriber (Any service that caches products)
-const subscribeToInvalidations = async () => {
-  const subscriber = redisClient.duplicate();
-  await subscriber.connect();
-  
-  await subscriber.subscribe('cache-invalidation', (message) => {
-    const { type, id, action } = JSON.parse(message);
-    
-    if (type === 'product' && action === 'invalidate') {
-      // Invalidate local cache
-      redisClient.del(`product:${id}`);
-      redisClient.del(`product_search:*`); // Also clear search caches
-    }
-  });
-};
-```
+`UNLINK` (instead of `DEL`) hands the actual freeing to a background
+thread, which mitigates main-thread blocking but does not change the
+scan cost.
+
+Prefer **versioned keys** (§3.6) for "delete everything of kind X". Use
+pattern deletion only as a last resort, off-peak, with a low `COUNT` and
+a sleep between batches.
 
 ---
 
-## 3️⃣ Pattern-Based Deletion
+## 3.8 Cache stampede — full mitigation stack
 
-**Delete multiple keys matching a pattern.** Useful for invalidating related caches.
+A "stampede" is any thundering herd at the SoR. The complete mitigation
+is layered:
 
-### The KEYS Command (Use Carefully!)
+| Layer | Technique | Effect |
+|-------|-----------|--------|
+| 1 | Jittered TTL (§3.2) | Spreads expiration in time |
+| 2 | In-process single-flight (§2.7) | One DB hit per pod per key per miss |
+| 3 | Cross-pod lock on miss (Chapter 04) | One DB hit per cluster per key per miss |
+| 4 | Soft TTL or XFetch (§3.3, §3.4) | Eliminates miss-on-expiry latency entirely |
+| 5 | Negative caching (§2.9) | Prevents stampedes on non-existent IDs |
 
-```bash
-# Find all keys matching pattern
-KEYS product_search:*
-# → ["product_search:abc123", "product_search:def456", ...]
-
-# ⚠️ WARNING: KEYS is blocking and slow on large datasets!
-# DON'T use in production with millions of keys
-```
-
-### Better: SCAN Command
-
-```bash
-# Non-blocking iteration
-SCAN 0 MATCH product_search:* COUNT 100
-# → Returns cursor and batch of keys
-
-# Keep scanning until cursor is 0
-```
-
-### TypeScript Implementation
-
-```typescript
-// Safe pattern deletion using SCAN
-async function deleteByPattern(pattern: string): Promise<number> {
-  let cursor = 0;
-  let deletedCount = 0;
-  
-  do {
-    // Scan for keys matching pattern
-    const result = await redisClient.scan(cursor, {
-      MATCH: pattern,
-      COUNT: 100
-    });
-    
-    cursor = result.cursor;
-    const keys = result.keys;
-    
-    if (keys.length > 0) {
-      await redisClient.del(keys);
-      deletedCount += keys.length;
-    }
-  } while (cursor !== 0);
-  
-  return deletedCount;
-}
-
-// Usage examples
-await deleteByPattern('product:*');           // All product caches
-await deleteByPattern('product_search:*');    // All search caches
-await deleteByPattern('cart:user:456:*');     // All cart items for user
-```
-
-### Organized Key Naming for Easy Invalidation
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                   KEY NAMING CONVENTIONS                                     │
-│                                                                              │
-│   Pattern: {service}:{type}:{id}:{subtype}                                  │
-│                                                                              │
-│   Examples:                                                                 │
-│   ─────────                                                                 │
-│   product:item:123                   # Single product                       │
-│   product:search:abc123def           # Search result cache                  │
-│   product:category:electronics       # Category listing                     │
-│   product:trending:daily             # Daily trending                       │
-│                                                                              │
-│   cart:user:456                      # User's cart                          │
-│   cart:user:456:item:123             # Specific cart item                   │
-│                                                                              │
-│   user:profile:789                   # User profile                         │
-│   user:session:abc123                # User session                         │
-│                                                                              │
-│   Benefits:                                                                 │
-│   ─────────                                                                 │
-│   • product:* → All product caches                                         │
-│   • product:search:* → All search caches                                   │
-│   • cart:user:456:* → All cart data for user 456                           │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
+You almost never need all five. Start with 1, 2, 5; add 3 only if
+measurement shows a single pod's miss handling is overwhelming the SoR;
+add 4 for the hottest projections.
 
 ---
 
-## 4️⃣ Tag-Based Invalidation
+## 3.9 Eviction is not invalidation
 
-**Group related caches with tags.** Invalidate all caches with a specific tag.
+Redis's `maxmemory-policy` (Chapter 08) decides what to evict when the
+instance is at its memory limit. Eviction can remove keys before their
+TTL elapses. This means:
 
-### Implementation Using Sets
-
-```typescript
-class TaggedCache {
-  private redis: RedisClientType;
-
-  // Store data with tags
-  async setWithTags(
-    key: string, 
-    value: string, 
-    tags: string[], 
-    ttl: number
-  ): Promise<void> {
-    // Store the actual data
-    await this.redis.set(key, value, { EX: ttl });
-    
-    // Add key to each tag's set
-    for (const tag of tags) {
-      await this.redis.sAdd(`tag:${tag}`, key);
-      // Set TTL on tag set slightly longer than data
-      await this.redis.expire(`tag:${tag}`, ttl + 60);
-    }
-  }
-
-  // Invalidate all keys with a tag
-  async invalidateTag(tag: string): Promise<number> {
-    const keys = await this.redis.sMembers(`tag:${tag}`);
-    
-    if (keys.length === 0) return 0;
-    
-    // Delete all tagged keys
-    await this.redis.del(keys);
-    
-    // Delete the tag set itself
-    await this.redis.del(`tag:${tag}`);
-    
-    return keys.length;
-  }
-
-  // Example usage
-  async cacheProductSearch(searchId: string, products: Product[]): Promise<void> {
-    const key = `search:${searchId}`;
-    const productIds = products.map(p => p.id);
-    
-    // Tag with each product ID so we can invalidate when any product changes
-    const tags = [
-      'search-results',
-      ...productIds.map(id => `product:${id}`)
-    ];
-    
-    await this.setWithTags(key, JSON.stringify(products), tags, 300);
-  }
-}
-
-// When product 123 is updated:
-const taggedCache = new TaggedCache();
-await taggedCache.invalidateTag('product:123');
-// This invalidates ALL search results that included product 123!
-```
+- The application must treat any cache miss as expected, even on a
+  freshly-set key.
+- Choosing `allkeys-lru` vs `volatile-lru` matters: `volatile-lru` only
+  evicts keys that have a TTL, so an unmarked persistent key (a
+  configuration value, a session) will never be evicted under pressure.
+  Use `volatile-lru` when you mix cache and non-cache data on one
+  instance — but the better answer is to not mix them.
+- Eviction of a session or a lock is a correctness bug; cache and
+  coordination data should not share an instance whose `maxmemory` can
+  be hit.
 
 ---
 
-## 5️⃣ Invalidation Strategies Comparison
+## 3.10 Observability for invalidation
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                 INVALIDATION STRATEGY COMPARISON                             │
-│                                                                              │
-│   Strategy       │ Freshness │ Complexity │ Use Case                        │
-│   ───────────────┼───────────┼────────────┼──────────────────────────────   │
-│   TTL Only       │ ⭐⭐      │ ⭐         │ Data that can be stale           │
-│   Event-Driven   │ ⭐⭐⭐⭐⭐│ ⭐⭐⭐     │ Critical data, microservices     │
-│   Pattern Delete │ ⭐⭐⭐    │ ⭐⭐       │ Bulk invalidation                │
-│   Tag-Based      │ ⭐⭐⭐⭐  │ ⭐⭐⭐     │ Complex relationships            │
-│                                                                              │
-│   RECOMMENDED COMBINATION:                                                  │
-│   ─────────────────────────                                                 │
-│   TTL (safety net) + Event-Driven (immediate) + Pattern Delete (bulk)       │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
+Track explicitly:
 
----
+- `cache_invalidate_total{source="write|event|ttl|eviction|version"}`
+- `cache_staleness_seconds` — histogram of `now - storedAt` at read time
+  (sample, do not measure every read). The p99 here is your *actual*
+  staleness, not your TTL.
+- `cache_stampede_protection_total{outcome="coalesced|lock_held|refreshed"}`
+- For RabbitMQ-driven invalidations, the consumer queue depth and
+  consumer ack rate are the key signals; lag here directly translates
+  to staleness in the cache.
 
-## 🛠️ Practical Example: Product Update Flow
+Alert on:
 
-```typescript
-// Complete invalidation flow for product update
-async function updateProduct(id: string, data: UpdateProductDTO): Promise<Product> {
-  // 1. Update database
-  const product = await productRepo.update(id, data);
-  
-  // 2. Invalidate direct cache
-  await redis.del(`product:${id}`);
-  
-  // 3. Invalidate related search caches (pattern-based)
-  await deleteByPattern('product_search:*');
-  
-  // 4. Invalidate category caches if category changed
-  if (data.category) {
-    await redis.del(`category:${data.category}:products`);
-    await redis.del(`category:${product.oldCategory}:products`);
-  }
-  
-  // 5. Publish event for other services
-  await rabbitMQ.publish('product.updated', {
-    id: product.id,
-    changes: Object.keys(data),
-    timestamp: new Date()
-  });
-  
-  // 6. Optionally pre-populate cache (write-through)
-  await redis.set(`product:${id}`, JSON.stringify(product), { EX: 300 });
-  
-  return product;
-}
-```
+- Staleness p99 exceeding the SLO for the projection.
+- Invalidation queue depth growing without bound.
+- Eviction rate non-zero for instances that are supposed to be
+  TTL-bound (means you are oversubscribed on memory).
 
 ---
 
-## 🧠 Quick Recap
+## 3.11 Continue
 
-| Strategy | When to Use | Pros | Cons |
-|----------|-------------|------|------|
-| **TTL** | Always (as safety net) | Simple, automatic | Data can be stale |
-| **Event-Driven** | Microservices | Immediate, accurate | Complex setup |
-| **Pattern Delete** | Bulk operations | Powerful | Can be slow |
-| **Tag-Based** | Complex relationships | Precise | Memory overhead |
-
----
-
-## 🏋️ Exercises
-
-1. **Add TTL jitter**: Modify your cache code to add ±10% jitter
-2. **Event listener**: Create a RabbitMQ listener to invalidate caches on product updates
-3. **Pattern cleanup**: Write a scheduled job to clean up orphaned cache keys
-
----
-
-## ➡️ Next Chapter
-
-[Chapter 4: Distributed Locks](./04-distributed-locks.md) - Prevent race conditions in flash sales!
-
+- [04. Distributed Locks](./04-distributed-locks.md) — the lock primitive used in §3.3 and §3.8.
+- [08. Production Patterns](./08-production-patterns.md) — eviction policies and `maxmemory` sizing.

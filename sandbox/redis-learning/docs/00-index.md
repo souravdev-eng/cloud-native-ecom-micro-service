@@ -1,179 +1,90 @@
-# 📚 Redis Caching Patterns - Learning Guide
+# Redis Production Reference — Index
 
-> A comprehensive educational guide to mastering Redis caching in microservices architecture.
+This index is the entry point to the reference. Each chapter is
+self-contained and cross-links the others; you do not need to read
+sequentially once you are comfortable with Chapters 01–03.
 
----
+## Chapters
 
-## 🎯 Who Is This For?
+### Part I — Foundations
 
-This guide is designed for developers who:
-- Want to understand Redis beyond basic GET/SET
-- Need to implement production-grade caching patterns
-- Are working with microservices that need distributed caching
-- Want practical, hands-on knowledge with real code examples
+- [01. Redis Fundamentals](./01-redis-fundamentals.md)
+  Data model and complexity guarantees, memory layout, single-threaded
+  execution model, blocking commands, and an explicit list of cases where
+  Redis is the wrong tool.
 
----
+- [02. Caching Patterns](./02-caching-patterns.md)
+  Cache-aside, read-through, write-through, write-behind, negative caching,
+  request coalescing (single-flight), and decision criteria.
 
-## 📖 Table of Contents
+- [03. Cache Invalidation](./03-cache-invalidation.md)
+  TTL design and jitter, soft vs hard expiry, probabilistic early refresh
+  (XFetch), event-driven invalidation, versioned keys, and the trade-off
+  between staleness and load.
 
-### Part 1: Foundations
+### Part II — Coordination
 
-| Chapter | Title | What You'll Learn |
-|---------|-------|-------------------|
-| [01](./01-redis-fundamentals.md) | **Redis Fundamentals** | Data types, commands, memory management |
-| [02](./02-caching-patterns.md) | **Caching Patterns** | Cache-aside, write-through, write-behind |
-| [03](./03-cache-invalidation.md) | **Cache Invalidation** | TTL strategies, event-based, pattern deletion |
+- [04. Distributed Locks](./04-distributed-locks.md)
+  Why naive locks are wrong, `SET key value NX PX`, fencing tokens, the
+  Redlock controversy, lock timeout selection, and when to prefer a real
+  consensus system instead.
 
-### Part 2: Advanced Patterns
+- [05. Rate Limiting](./05-rate-limiting.md)
+  Fixed window, sliding window log, sliding window counter, token bucket,
+  GCRA. Atomic implementations in Lua. Choosing the right algorithm for the
+  workload.
 
-| Chapter | Title | What You'll Learn |
-|---------|-------|-------------------|
-| [04](./04-distributed-locks.md) | **Distributed Locks** | Race conditions, Redlock algorithm, deadlock prevention |
-| [05](./05-rate-limiting.md) | **Rate Limiting** | Token bucket, sliding window, API throttling |
-| [06](./06-session-management.md) | **Session Management** | Stateless auth, cart state, session clustering |
+- [06. Session Management](./06-session-management.md)
+  When to put sessions in Redis at all, idle vs absolute timeouts, rotation
+  on privilege change, revocation lists, refresh-token handling.
 
-### Part 3: Real-World Applications
+### Part III — Data Structures and Operations
 
-| Chapter | Title | What You'll Learn |
-|---------|-------|-------------------|
-| [07](./07-sorted-sets-leaderboards.md) | **Sorted Sets & Leaderboards** | Rankings, trending products, autocomplete |
-| [08](./08-production-patterns.md) | **Production Best Practices** | Clustering, monitoring, disaster recovery |
+- [07. Sorted Sets and Ranking](./07-sorted-sets-leaderboards.md)
+  Score design (including time-decay), pagination of large leaderboards,
+  autocomplete with `ZRANGEBYLEX`, and cost characteristics.
 
----
-
-## 🚀 Quick Start
-
-### If you're new to Redis:
-Start with [Chapter 1: Redis Fundamentals](./01-redis-fundamentals.md)
-
-### If you understand Redis basics:
-Jump to [Chapter 2: Caching Patterns](./02-caching-patterns.md)
-
-### If you need specific patterns:
-- Rate limiting → [Chapter 5](./05-rate-limiting.md)
-- Distributed locks → [Chapter 4](./04-distributed-locks.md)
-- Leaderboards → [Chapter 7](./07-sorted-sets-leaderboards.md)
+- [08. Production Patterns](./08-production-patterns.md)
+  Persistence (RDB, AOF, hybrid), replication and failover (Sentinel,
+  Cluster), key tagging and resharding, capacity planning, eviction
+  policies, observability, security (TLS, ACL), and an incident runbook.
 
 ---
 
-## 🏗️ Redis in Your E-commerce System
+## Cross-cutting topics — quick lookup
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                       REDIS IN YOUR ARCHITECTURE                             │
-│                                                                              │
-│   ┌──────────────┐                     ┌───────────────────┐                │
-│   │   Product    │───────────────────▶│                   │                │
-│   │   Service    │  Cache products     │                   │                │
-│   └──────────────┘                     │                   │                │
-│                                        │      REDIS        │                │
-│   ┌──────────────┐                     │                   │                │
-│   │    Auth      │───────────────────▶│  • Cache          │                │
-│   │   Service    │  Sessions, tokens   │  • Sessions       │                │
-│   └──────────────┘                     │  • Rate limiting  │                │
-│                                        │  • Locks          │                │
-│   ┌──────────────┐                     │  • Pub/Sub        │                │
-│   │   Order      │───────────────────▶│                   │                │
-│   │   Service    │  Distributed locks  │                   │                │
-│   └──────────────┘                     └───────────────────┘                │
-│                                                                              │
-│   Currently: Product Service uses Redis for caching                         │
-│   Goal: Extend to all services with proper patterns                         │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
+| Topic | Chapter |
+|-------|---------|
+| Cache stampede / dogpile | 02, 03 |
+| Hot keys and big keys | 08 |
+| Atomicity guarantees and `MULTI` / Lua | 01, 04, 05 |
+| Pub/Sub vs Streams vs Lists for queues | 01 |
+| Pipelining and round-trips | 01, 08 |
+| Connection pooling and lifecycle | 01, 08 |
+| Eviction policies (`maxmemory-policy`) | 03, 08 |
+| Persistence trade-offs (RDB / AOF) | 08 |
+| Cluster slot routing and `{tags}` | 08 |
+| Observability — `INFO`, slowlog, latency tools | 08 |
+| Security — TLS, ACL, network isolation | 08 |
 
 ---
 
-## 📊 Learning Path Visualization
+## Conventions used in the reference
 
-```
-                    START HERE
-                        │
-                        ▼
-        ┌───────────────────────────────┐
-        │   Chapter 1: Fundamentals     │  ◀── Data types, commands
-        │   Understanding Redis basics  │
-        └───────────────────────────────┘
-                        │
-                        ▼
-        ┌───────────────────────────────┐
-        │   Chapter 2: Caching Patterns │  ◀── Your Product Service uses this!
-        │   Cache-aside, Write-through  │
-        └───────────────────────────────┘
-                        │
-                        ▼
-        ┌───────────────────────────────┐
-        │   Chapter 3: Invalidation     │  ◀── The hardest problem in CS!
-        │   TTL, Events, Patterns       │
-        └───────────────────────────────┘
-                        │
-            ┌───────────┴───────────┐
-            ▼                       ▼
-┌─────────────────────┐   ┌─────────────────────┐
-│ Chapter 4: Locks    │   │ Chapter 5: Rate     │
-│ Flash sale safety   │   │ Limiting            │
-└─────────────────────┘   └─────────────────────┘
-            │                       │
-            └───────────┬───────────┘
-                        │
-                        ▼
-        ┌───────────────────────────────┐
-        │   Chapter 6: Sessions         │  ◀── Auth integration
-        │   User state management       │
-        └───────────────────────────────┘
-                        │
-                        ▼
-        ┌───────────────────────────────┐
-        │   Chapter 7: Sorted Sets      │  ◀── Trending products!
-        │   Leaderboards, Rankings      │
-        └───────────────────────────────┘
-                        │
-                        ▼
-        ┌───────────────────────────────┐
-        │   Chapter 8: Production       │  ◀── Scale & monitor
-        │   Clustering, HA, Monitoring  │
-        └───────────────────────────────┘
-                        │
-                        ▼
-                 🎉 COMPLETE! 🎉
-```
+- **Code samples** are TypeScript using `redis@4` unless otherwise noted.
+- **Time** is in seconds unless suffixed (`ms`).
+- **Keys** follow `service:entity:id[:subresource]` (e.g.
+  `product:item:123:detail`). Cluster-affined groups use a hash tag:
+  `{cart:user:42}:items`. See Chapter 08.
+- **Trade-off boxes** appear at the end of each pattern. Read them. Most
+  production incidents stem from picking a pattern without reading its
+  trade-offs.
 
 ---
 
-## ⏱️ Time Estimates
+## How to contribute changes
 
-| Chapter | Reading Time | Hands-on Practice |
-|---------|--------------|-------------------|
-| Chapter 1 | 30 min | 30 min |
-| Chapter 2 | 45 min | 1 hour |
-| Chapter 3 | 30 min | 45 min |
-| Chapter 4 | 30 min | 1 hour |
-| Chapter 5 | 30 min | 45 min |
-| Chapter 6 | 20 min | 30 min |
-| Chapter 7 | 30 min | 45 min |
-| Chapter 8 | 30 min | 30 min |
-| **Total** | **~4 hours** | **~5.5 hours** |
-
----
-
-## 💡 Tips for Learning
-
-1. **Run the examples** - Each chapter has working code in `/examples`
-2. **Use Redis CLI** - Practice commands interactively
-3. **Connect to your services** - Apply patterns to your e-commerce app
-4. **Take notes** - Document any questions for further research
-5. **Build incrementally** - Start simple, add complexity
-
----
-
-## 🔗 Related Documentation
-
-- [Main Redis README](../README.md) - Overview and quick start
-- [Learning Roadmap](../../learning-roadmap/README.md) - Your complete learning path
-- [Product Service Redis](../../../product/src/redisClient.ts) - Existing implementation
-
----
-
-**Ready to start learning? [Begin with Chapter 1 →](./01-redis-fundamentals.md)**
-
+If you encounter a production incident that this reference would have
+prevented, add a short post-mortem note to the most relevant chapter. The
+goal is for this document to accumulate hard-earned knowledge specific to
+this platform, not to remain a static tutorial.
