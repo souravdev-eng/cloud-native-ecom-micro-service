@@ -1,11 +1,11 @@
-import amqp, { Channel } from 'amqplib';
+import amqp, { Channel } from "amqplib";
 
 class RabbitMQWrapper {
   private _channel?: Channel;
 
   get channel() {
     if (!this._channel) {
-      throw new Error('Cannot access MQ channel before connecting');
+      throw new Error("Cannot access RabbitMQ channel before connecting");
     }
     return this._channel;
   }
@@ -13,9 +13,9 @@ class RabbitMQWrapper {
     try {
       const connection = await amqp.connect(url);
       this._channel = await connection.createChannel();
-      console.log('MQ Server connected ~~ 🐰');
+      console.log("RabbitMQ server connected");
     } catch (error) {
-      console.log('Not able to connect MQ server!');
+      console.log("Not able to connect RabbitMQ server!");
       process.exit(1);
     }
   }
