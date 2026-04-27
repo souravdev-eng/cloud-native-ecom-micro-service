@@ -1,0 +1,25 @@
+{
+  "name": "elasticsearch-learning-examples",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Working examples for Elasticsearch search patterns",
+  "scripts": {
+    "basic-crud":       "tsx 01-basic-crud/index.ts",
+    "mappings":         "tsx 02-mappings-and-analyzers/index.ts",
+    "bool-queries":     "tsx 03-bool-queries/index.ts",
+    "multi-match":      "tsx 04-multi-match-search/index.ts",
+    "autocomplete":     "tsx 05-autocomplete/index.ts",
+    "facets":           "tsx 06-facets-aggregations/index.ts",
+    "relevance":        "tsx 07-relevance-function-score/index.ts",
+    "reindex":          "tsx 08-reindex-with-alias/index.ts",
+    "bulk-from-mongo":  "tsx 09-bulk-index-from-mongo/index.ts"
+  },
+  "dependencies": {
+    "@elastic/elasticsearch": "^8.14.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.3"
+  }
+}

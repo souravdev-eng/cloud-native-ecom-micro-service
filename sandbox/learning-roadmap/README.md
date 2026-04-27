@@ -18,7 +18,7 @@ The status table below is the single source of truth. Anything else that contrad
 | 2 | Distributed tracing & observability | In progress | High | `sandbox/observability-learning/` |
 | 3 | Circuit breaker & resilience | Planned | High | — |
 | 4 | Saga pattern (distributed transactions) | Planned | High | — |
-| 5 | Elasticsearch & search patterns | Planned | Medium | — |
+| 5 | Elasticsearch & search patterns | In progress | Medium | `sandbox/elasticsearch-learning/` |
 | 6 | API gateway patterns | Planned | Medium | — |
 | 7 | Event sourcing & CQRS | Planned | Medium | — |
 | 8 | gRPC & Protocol Buffers | Planned | Low | — |
@@ -58,7 +58,7 @@ flowchart TB
         B2["2. Observability"]:::wip
         B3["3. Resilience &amp; circuit breaker"]:::planned
         B4["4. Saga pattern"]:::planned
-        B5["5. Elasticsearch &amp; search"]:::planned
+        B5["5. Elasticsearch &amp; search"]:::wip
         B6["6. API gateway"]:::planned
         B10["10. Security &amp; OAuth2"]:::planned
         B7["7. Event sourcing &amp; CQRS"]:::planned
@@ -117,9 +117,13 @@ Patterns: timeouts, retries with jittered exponential backoff, circuit breaker (
 
 Choreography vs orchestration, compensating actions, idempotency keys (critical for Stripe in `order/`), and failure-mode tests. Real target: the checkout flow `order → payment → inventory → notification`. Saga state can live in Postgres or Redis; not a Redis prerequisite.
 
-### 5. Elasticsearch & search patterns — planned
+### 5. Elasticsearch & search patterns — in progress
 
-Mappings, analyzers, multi-match, autocomplete (edge n-grams or the `completion` suggester), faceted search via aggregations, relevance tuning. Target: `product/` search. Standalone of observability work.
+Mappings, analyzers, multi-match, autocomplete (edge n-grams vs `search_as_you_type` vs `completion` suggester), faceted search via aggregations with `post_filter`, relevance tuning (`function_score`, recency decay, `rank_feature`), zero-downtime reindex via alias swap, and Mongo → ES sync via the outbox pattern. Eventual target: replace the Mongo text-index search in `product/` (`product/src/migrations/2026-04-25-product-text-index.ts`, `product/src/utils/productApiFeature.ts`). No changes to `product/` yet.
+
+- Content: `sandbox/elasticsearch-learning/docs/00-index.md`
+- Runnable examples + local docker-compose (ES + Kibana) at `sandbox/elasticsearch-learning/`.
+- Skeleton: `examples/09-bulk-index-from-mongo` (fake cursor; documents the real outbox flow).
 
 ### 6. API gateway patterns — planned
 
@@ -187,14 +191,15 @@ For reference — what is on disk today:
 
 ```
 sandbox/
-  learning-roadmap/        this file
-  rabbitmq-learning/       Done
-  observability-learning/  In progress
-  redis-learning/          Done (docs); examples skeleton
+  learning-roadmap/         this file
+  rabbitmq-learning/        Done
+  observability-learning/   In progress
+  redis-learning/           Done (docs); examples skeleton
+  elasticsearch-learning/   In progress
 ```
 
 All other topics in the table have no `sandbox/` directory yet.
 
 ---
 
-_Updated: April 25, 2026._ _Current focus: Observability (Topic 2)._
+_Updated: April 25, 2026._ _Current focus: Observability (Topic 2); Elasticsearch sandbox (Topic 5) drafted._
