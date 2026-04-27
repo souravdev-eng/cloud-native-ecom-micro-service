@@ -1,7 +1,10 @@
 import { Router, Response, Request, NextFunction } from "express";
 import { NotFoundError, requireAuth, restrictTo } from "@ecom-micro/common";
-import { Product } from "../models/productModel";
+
 import { cache } from "../cache/redisCache";
+import { Product } from "../models/productModel";
+import { rabbitMQWrapper } from "../rabbitMQWrapper";
+import { ProductDeletePub } from "../queues/publisher/productDeletePub";
 
 const router = Router();
 
@@ -15,7 +18,11 @@ router.delete(
     if (!product) {
       return next(new NotFoundError("Oops! Product is not found"));
     }
+
     await cache.del(`product:${req.params.id}`);
+    await new ProductDeletePub(rabbitMQWrapper.channel).publish({
+      id: product.id,
+    });
     res.status(200).send({ product: null });
   },
 );

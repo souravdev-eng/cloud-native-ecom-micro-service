@@ -2,6 +2,7 @@ import { RedisClientType } from "redis";
 import { getRedisClient } from "../redisClient";
 
 class RedisCache {
+  // Cache implementation for Redis
   private client: RedisClientType | null = null;
 
   private getClient(): RedisClientType {
@@ -12,22 +13,20 @@ class RedisCache {
   }
 
   public async get(key: string): Promise<string | null> {
-    console.log("Get data from cache", key);
-    return await this.getClient().get(key);
+    const cachedData = await this.getClient().get(key);
+    return cachedData ? JSON.parse(cachedData) : null;
   }
 
-  public async set(key: string, value: string, ttlSeconds?: number): Promise<void> {
+  public async set(key: string, value: any, ttlSeconds?: number): Promise<void> {
     const serializedValue = JSON.stringify(value);
     if (ttlSeconds) {
       await this.getClient().set(key, serializedValue, { EX: ttlSeconds });
     } else {
       await this.getClient().set(key, serializedValue, { EX: this.calculateTTL(15, "minutes") });
     }
-    console.log("Cache added", key);
   }
 
   public async del(key: string): Promise<void> {
-    console.log("Cache deleted", key);
     await this.getClient().del(key);
   }
 

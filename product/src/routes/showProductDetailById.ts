@@ -9,7 +9,6 @@ router.get(
   "/api/product/:id",
   requireAuth,
   async (req: Request, res: Response, next: NextFunction) => {
-    // const redisClient = getRedisClient();
     const redisKey = `product:${req.params.id}`;
 
     const cachedProduct = await cache.get(redisKey);
@@ -24,7 +23,7 @@ router.get(
       if (!product) {
         return next(new NotFoundError("Oops! Product is not found"));
       }
-      await cache.set(redisKey, JSON.stringify(product));
+      await cache.set(redisKey, product);
       console.log("Return from Mongo...");
       res.status(200).send(product);
     }

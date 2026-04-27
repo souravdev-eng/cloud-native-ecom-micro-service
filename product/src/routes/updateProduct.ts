@@ -1,32 +1,25 @@
-import {
-  restrictTo,
-  requireAuth,
-  NotFoundError,
-  requestValidation,
-} from '@ecom-micro/common';
-import { Router, Response, Request, NextFunction } from 'express';
+import { restrictTo, requireAuth, NotFoundError, requestValidation } from "@ecom-micro/common";
+import { Router, Response, Request, NextFunction } from "express";
 
-import { Product } from '../models/productModel';
-import { ProductUpdatePub } from '../queues/publisher/productUpdatePub';
-import { rabbitMQWrapper } from '../rabbitMQWrapper';
-import { productUpdateValidation } from '../validation/productValidation';
-import { cache } from '../cache/redisCache';
-
+import { Product } from "../models/productModel";
+import { ProductUpdatePub } from "../queues/publisher/productUpdatePub";
+import { rabbitMQWrapper } from "../rabbitMQWrapper";
+import { productUpdateValidation } from "../validation/productValidation";
+import { cache } from "../cache/redisCache";
 
 const router = Router();
 
 router.patch(
-  '/api/product/:id',
+  "/api/product/:id",
   requireAuth,
-  restrictTo('seller', 'admin'),
+  restrictTo("seller", "admin"),
   productUpdateValidation,
   requestValidation,
   async (req: Request, res: Response, next: NextFunction) => {
-
     const product = await Product.findById(req.params.id);
 
     if (!product) {
-      throw new NotFoundError('Oops! Product is not found');
+      throw new NotFoundError("Oops! Product is not found");
     }
 
     product.set({
@@ -59,7 +52,7 @@ router.patch(
     });
 
     res.status(200).send(product);
-  }
+  },
 );
 
 export { router as productUpdateRouter };
