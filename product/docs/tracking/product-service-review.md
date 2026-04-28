@@ -197,7 +197,7 @@ k8s sends `SIGTERM` before killing a pod. Without this, in-flight requests get d
 | P0 | MongoDB startup not awaited | `index.ts:42` | Correctness — crashes on cold start | ✅ Done |
 | P0 | Fix cache TTL for single product (5s → 5m) | `showProductDetailById.ts:30` | Performance | ✅ Done |
 | P1 | OCC for quantity listener | `productQuantityUpdate.ts` | Correctness — race condition in inventory | ✅ Done (atomic `findOneAndUpdate` with `quantity: $gte` filter; see note below) |
-| P1 | Add `ProductDeletedPub` | `deleteProduct.ts` | Event consistency across services |
+| P1 | Add `ProductDeletedPub` | `deleteProduct.ts` | Event consistency across services | ✅ Done |
 | P1 | `rating` not settable by seller | `updateProduct.ts:39` | Security |
 | P1 | Text index on `description` + `tags` | `productModel.ts:102` | Feature quality | ✅ Done — index renamed `ProductTextIndex`, weights `title:10 / tags:5 / description:1`. Idempotent migration in `src/migrations/2026-04-25-product-text-index.ts`; run with `npm run migrate:text-index` per environment. |
 | P2 | S3 client singleton | `uploadImageToAws.ts:10` | Performance |

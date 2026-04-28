@@ -36,6 +36,8 @@ const start = async () => {
     throw new Error("RabbitMQ endpoint not found");
   }
 
+  const PORT = process.env.PORT || 4000;
+
   try {
     mongoose.set("strictQuery", false);
     await mongoose.connect(process.env.PRODUCT_SERVICE_MONGODB_URL, {
@@ -44,16 +46,42 @@ const start = async () => {
     });
     console.log("Product Service DB is connected");
     await rabbitMQWrapper.connect(process.env.RABBITMQ_ENDPOINT!);
-    await new ProductQuantityUpdateListener(rabbitMQWrapper.channel).listen();
 
-    startRedisServer();
+    const listener = new ProductQuantityUpdateListener(rabbitMQWrapper.channel);
+    await listener.listen();
 
-    app.listen(4000, () => {
-      console.log("Product server running on PORT 4000");
+    await startRedisServer();
+
+    app.listen(PORT, () => {
+      console.log(`Product server running on PORT ${PORT}`);
     });
-  } catch (error: any) {
-    console.log(error.message);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error("Failed to start product service:", message);
+    process.exit(1);
   }
 };
+
+const gracefulShutdown = async (signal: string) => {
+  console.log(`\n${signal} received. Closing connections...`);
+
+  try {
+    await mongoose.connection.close();
+    console.log("MongoDB connection closed");
+  } catch (error) {
+    console.error("Error closing MongoDB connection:", error);
+  }
+
+  try {
+    await rabbitMQWrapper.close();
+  } catch (error) {
+    console.error("Error closing RabbitMQ connection:", error);
+  }
+
+  process.exit(0);
+};
+
+process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
+process.on("SIGINT", () => gracefulShutdown("SIGINT"));
 
 start();
