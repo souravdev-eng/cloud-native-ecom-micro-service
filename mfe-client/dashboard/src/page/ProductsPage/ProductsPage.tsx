@@ -8,10 +8,13 @@ import InventoryIcon from '@mui/icons-material/Inventory2Outlined';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeftRounded';
 import ChevronRightIcon from '@mui/icons-material/ChevronRightRounded';
 import FirstPageIcon from '@mui/icons-material/FirstPageRounded';
+import CloseIcon from '@mui/icons-material/CloseRounded';
 
 import { useProductsPage, Product } from './ProductsPage.hook';
 import ProductFilters from '../../components/ProductFilters/ProductFilters';
-import * as Styled from './ProductsPage.styles';
+import * as S from './ProductsPage.styles';
+
+const MAX_TAGS = 3;
 
 const ProductsPage: React.FC = () => {
     const navigate = useNavigate();
@@ -20,99 +23,124 @@ const ProductsPage: React.FC = () => {
         isLoading,
         meta,
         filters,
-        categories,
         currentPage,
         hasNextPage,
         hasPrevPage,
+        activeFilters,
         handleNextPage,
         handlePrevPage,
         handleFirstPage,
         updateFilter,
+        toggleCategory,
         resetFilters,
         applyFilters,
+        applyImmediate,
+        removeFilter,
     } = useProductsPage();
 
-    const handleProductClick = (productId: string) => {
-        navigate(`/product/${productId}`);
-    };
+    const totalPages = meta.limit > 0 ? Math.ceil(meta.count / meta.limit) : 0;
 
-    const handleSearchKeyPress = (e: React.KeyboardEvent) => {
-        if (e.key === 'Enter') {
-            applyFilters();
+    // Build a compact page-number list: [1] ... [p-1] [p] [p+1] ... [last]
+    const pageNumbers = (() => {
+        if (totalPages <= 7) return Array.from({ length: totalPages }, (_, i) => i + 1);
+        const pages: (number | '…')[] = [1];
+        if (currentPage > 3) pages.push('…');
+        for (let i = Math.max(2, currentPage - 1); i <= Math.min(totalPages - 1, currentPage + 1); i++) {
+            pages.push(i);
         }
-    };
+        if (currentPage < totalPages - 2) pages.push('…');
+        pages.push(totalPages);
+        return pages;
+    })();
 
     return (
-        <Styled.PageContainer>
-            {/* Left Sidebar - Filters */}
+        <S.PageContainer>
             <ProductFilters
                 filters={filters}
-                categories={categories}
+                activeFilterCount={activeFilters.length}
+                toggleCategory={toggleCategory}
                 updateFilter={updateFilter}
                 resetFilters={resetFilters}
                 applyFilters={applyFilters}
+                applyImmediate={applyImmediate}
             />
 
-            {/* Right Content - Products */}
-            <Styled.ContentArea>
-                {/* Search & Sort Header */}
-                <Styled.ContentHeader>
-                    <Styled.SearchContainer>
-                        <SearchIcon sx={{ color: '#adb5bd', mr: 1 }} />
-                        <Styled.SearchInput
+            <S.ContentArea>
+                {/* Search + sort bar */}
+                <S.ContentHeader>
+                    <S.SearchContainer>
+                        <SearchIcon sx={{ color: '#adb5bd', fontSize: 18, flexShrink: 0 }} />
+                        <S.SearchInput
                             type="text"
-                            placeholder="Search products..."
+                            placeholder="Search products…"
                             value={filters.search}
                             onChange={(e) => updateFilter('search', e.target.value)}
-                            onKeyPress={handleSearchKeyPress}
+                            onKeyPress={(e) => e.key === 'Enter' && applyFilters()}
                         />
-                    </Styled.SearchContainer>
+                    </S.SearchContainer>
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                        <Styled.ResultsInfo>
-                            {meta.count} products found
-                        </Styled.ResultsInfo>
-                        <Styled.SortSelect
+                    <S.RightControls>
+                        <S.ResultsInfo>{meta.count.toLocaleString()} products</S.ResultsInfo>
+                        <S.SortSelect
                             value={filters.sortBy}
                             onChange={(e) => {
                                 updateFilter('sortBy', e.target.value);
                                 setTimeout(applyFilters, 0);
                             }}
                         >
-                            <option value="-_id">Newest First</option>
-                            <option value="_id">Oldest First</option>
-                            <option value="price">Price: Low to High</option>
-                            <option value="-price">Price: High to Low</option>
-                            <option value="-rating">Top Rated</option>
-                        </Styled.SortSelect>
-                    </div>
-                </Styled.ContentHeader>
+                            <option value="-_id">Newest first</option>
+                            <option value="_id">Oldest first</option>
+                            <option value="price">Price: low → high</option>
+                            <option value="-price">Price: high → low</option>
+                            <option value="-rating">Top rated</option>
+                        </S.SortSelect>
+                    </S.RightControls>
+                </S.ContentHeader>
 
-                {/* Products Grid */}
+                {/* Active filter chips */}
+                {activeFilters.length > 0 && (
+                    <S.ActiveFiltersRow>
+                        {activeFilters.map(({ key, label }) => (
+                            <S.ActiveChip key={`${key}-${label}`}>
+                                {label}
+                                <S.ChipClose
+                                    onClick={() =>
+                                        key === 'categories'
+                                            ? toggleCategory(label)
+                                            : removeFilter(key)
+                                    }
+                                >
+                                    <CloseIcon sx={{ fontSize: 9 }} />
+                                </S.ChipClose>
+                            </S.ActiveChip>
+                        ))}
+                        <S.ClearAll onClick={resetFilters}>Clear all</S.ClearAll>
+                    </S.ActiveFiltersRow>
+                )}
+
+                {/* Grid */}
                 {isLoading ? (
-                    <Styled.LoadingContainer>
+                    <S.LoadingContainer>
                         <CircularProgress sx={{ color: '#228be6' }} />
-                    </Styled.LoadingContainer>
+                    </S.LoadingContainer>
                 ) : products.length === 0 ? (
-                    <Styled.EmptyState>
-                        <Styled.EmptyIcon>
+                    <S.EmptyState>
+                        <S.EmptyIcon>
                             <InventoryIcon sx={{ fontSize: 'inherit' }} />
-                        </Styled.EmptyIcon>
-                        <Styled.EmptyTitle>No products found</Styled.EmptyTitle>
-                        <Styled.EmptyText>
-                            Try adjusting your filters or search terms
-                        </Styled.EmptyText>
-                    </Styled.EmptyState>
+                        </S.EmptyIcon>
+                        <S.EmptyTitle>No products found</S.EmptyTitle>
+                        <S.EmptyText>Try adjusting your filters or search terms</S.EmptyText>
+                    </S.EmptyState>
                 ) : (
                     <>
-                        <Styled.ProductsGrid>
+                        <S.ProductsGrid>
                             {products.map((product: Product) => (
-                                <Styled.ProductCardWrapper
+                                <S.ProductCardWrapper
                                     key={product.id}
-                                    onClick={() => handleProductClick(product.id)}
+                                    onClick={() => navigate(`/product/${product.id}`)}
                                 >
-                                    <div style={{ position: 'relative' }}>
-                                        <Styled.ProductImage
+                                    <S.ImageWrapper>
+                                        <S.ProductImage
                                             src={product.image}
                                             alt={product.title}
                                             onError={(e) => {
@@ -120,75 +148,109 @@ const ProductsPage: React.FC = () => {
                                                     'https://via.placeholder.com/300x220?text=No+Image';
                                             }}
                                         />
-                                        <Styled.StockBadge inStock={product.quantity > 0}>
+                                        <S.StockBadge inStock={product.quantity > 0}>
                                             {product.quantity > 0
-                                                ? `${product.quantity} in stock`
-                                                : 'Out of stock'}
-                                        </Styled.StockBadge>
-                                    </div>
-                                    <Styled.ProductInfo>
-                                        <Styled.ProductCategory>
-                                            {product.category}
-                                        </Styled.ProductCategory>
-                                        <Styled.ProductTitle>
-                                            {product.title}
-                                        </Styled.ProductTitle>
-                                        <Styled.ProductMeta>
-                                            <Styled.ProductPrice>
+                                                ? `${product.quantity} left`
+                                                : 'Sold out'}
+                                        </S.StockBadge>
+                                    </S.ImageWrapper>
+
+                                    <S.ProductInfo>
+                                        <S.ProductCategory>{product.category}</S.ProductCategory>
+                                        <S.ProductTitle>{product.title}</S.ProductTitle>
+
+                                        {product.tags?.length > 0 && (
+                                            <S.TagsRow>
+                                                {product.tags.slice(0, MAX_TAGS).map((tag) => (
+                                                    <S.TagChip key={tag} label={tag} size="small" />
+                                                ))}
+                                                {product.tags.length > MAX_TAGS && (
+                                                    <S.TagChip
+                                                        label={`+${product.tags.length - MAX_TAGS}`}
+                                                        size="small"
+                                                    />
+                                                )}
+                                            </S.TagsRow>
+                                        )}
+
+                                        <S.ProductMeta>
+                                            <S.ProductPrice>
                                                 ${product.price.toLocaleString()}
-                                            </Styled.ProductPrice>
-                                            <Styled.ProductRating>
-                                                <StarIcon sx={{ fontSize: 16 }} />
-                                                {product.rating?.toFixed(1) || 'N/A'}
-                                            </Styled.ProductRating>
-                                        </Styled.ProductMeta>
-                                        <Styled.AddToCartButton
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                // Add to cart logic
-                                            }}
+                                            </S.ProductPrice>
+                                            <S.ProductRating>
+                                                <StarIcon sx={{ fontSize: 13 }} />
+                                                {product.rating?.toFixed(1) ?? 'N/A'}
+                                            </S.ProductRating>
+                                        </S.ProductMeta>
+
+                                        <S.AddToCartButton
+                                            className="add-cart-btn"
+                                            onClick={(e) => e.stopPropagation()}
                                             disabled={product.quantity === 0}
+                                            startIcon={<ShoppingCartIcon sx={{ fontSize: 14 }} />}
                                         >
-                                            <ShoppingCartIcon sx={{ fontSize: 16, mr: 1 }} />
                                             Add to Cart
-                                        </Styled.AddToCartButton>
-                                    </Styled.ProductInfo>
-                                </Styled.ProductCardWrapper>
+                                        </S.AddToCartButton>
+                                    </S.ProductInfo>
+                                </S.ProductCardWrapper>
                             ))}
-                        </Styled.ProductsGrid>
+                        </S.ProductsGrid>
 
                         {/* Pagination */}
-                        <Styled.PaginationContainer>
-                            {currentPage > 1 && (
-                                <Styled.PaginationButton onClick={handleFirstPage}>
-                                    <FirstPageIcon sx={{ fontSize: 20 }} />
-                                    First
-                                </Styled.PaginationButton>
-                            )}
-                            <Styled.PaginationButton
-                                disabled={!hasPrevPage}
-                                onClick={handlePrevPage}
-                            >
-                                <ChevronLeftIcon sx={{ fontSize: 20 }} />
-                                Previous
-                            </Styled.PaginationButton>
+                        <S.PaginationWrapper>
+                            <S.PaginationMeta>
+                                Page {currentPage}{totalPages > 0 ? ` of ${totalPages}` : ''} · {meta.count.toLocaleString()} results
+                            </S.PaginationMeta>
 
-                            <Styled.PageInfo>Page {currentPage}</Styled.PageInfo>
+                            <S.PaginationControls>
+                                {/* First page */}
+                                {currentPage > 2 && (
+                                    <S.PageBtn onClick={handleFirstPage} title="First page">
+                                        <FirstPageIcon sx={{ fontSize: 16 }} />
+                                    </S.PageBtn>
+                                )}
 
-                            <Styled.PaginationButton
-                                disabled={!hasNextPage}
-                                onClick={handleNextPage}
-                            >
-                                Next
-                                <ChevronRightIcon sx={{ fontSize: 20 }} />
-                            </Styled.PaginationButton>
-                        </Styled.PaginationContainer>
+                                {/* Prev */}
+                                <S.PageBtn disabled={!hasPrevPage} onClick={handlePrevPage}>
+                                    <ChevronLeftIcon sx={{ fontSize: 16 }} />
+                                    Prev
+                                </S.PageBtn>
+
+                                {/* Numbered pages (visible when we can compute totalPages) */}
+                                {totalPages > 1 &&
+                                    pageNumbers.map((p, i) =>
+                                        p === '…' ? (
+                                            <S.PageDots key={`dots-${i}`}>…</S.PageDots>
+                                        ) : (
+                                            <S.PageBtn
+                                                key={p}
+                                                active={p === currentPage}
+                                                onClick={
+                                                    p === currentPage
+                                                        ? undefined
+                                                        : p === 1
+                                                          ? handleFirstPage
+                                                          : undefined // only first/prev/next navigable via cursor
+                                                }
+                                                title={`Page ${p}`}
+                                            >
+                                                {p}
+                                            </S.PageBtn>
+                                        ),
+                                    )}
+
+                                {/* Next */}
+                                <S.PageBtn disabled={!hasNextPage} onClick={handleNextPage}>
+                                    Next
+                                    <ChevronRightIcon sx={{ fontSize: 16 }} />
+                                </S.PageBtn>
+                            </S.PaginationControls>
+                        </S.PaginationWrapper>
                     </>
                 )}
-            </Styled.ContentArea>
-        </Styled.PageContainer>
+            </S.ContentArea>
+        </S.PageContainer>
     );
 };
 
 export default ProductsPage;
-
