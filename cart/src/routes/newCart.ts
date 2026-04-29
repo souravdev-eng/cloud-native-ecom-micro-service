@@ -6,12 +6,14 @@ import { CartCreatedPublisher } from "../queues/publisher/cartCreatedPublisher";
 import { CartUpdatedPublisher } from "../queues/publisher/cartUpdatedPublisher";
 import { rabbitMQWrapper } from "../rabbitMQWrapper";
 import { dbClient } from "../dbConfig";
+import { cartValidation } from "../validation/cartValidationSchema";
 
 const router = Router();
 
 router.post(
   "/api/cart",
   requireAuth,
+  ...cartValidation,
   requestValidation,
   async (req: Request, res: Response, next: NextFunction) => {
     const { productId, quantity } = req.body;
@@ -41,8 +43,8 @@ router.post(
 
     const total = product.price * quantity;
     const cartRepository = dbClient.getRepository(Cart);
+
     if (!existingCart) {
-      // Create new cart
       const cart = cartRepository.create({
         userId: req?.user?.id,
         product: product,
@@ -50,7 +52,6 @@ router.post(
       });
       await cartRepository.save(cart);
 
-      // Publish CartCreated event
       await new CartCreatedPublisher(rabbitMQWrapper.channel).publish({
         cartId: cart.id,
         userId: cart.userId,
@@ -74,12 +75,9 @@ router.post(
         quantity: cart.quantity,
       });
     } else {
-      // Update existing cart
-      const oldVersion = existingCart.version;
       existingCart.quantity = quantity;
       await existingCart.save();
 
-      // Publish CartUpdated event
       await new CartUpdatedPublisher(rabbitMQWrapper.channel).publish({
         cartId: existingCart.id,
         userId: existingCart.userId,

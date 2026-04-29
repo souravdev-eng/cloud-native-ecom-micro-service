@@ -11,19 +11,29 @@ const start = async () => {
     throw new Error("RABBITMQ_ENDPOINT must be defined");
   }
 
-  try {
-    await initializeDatabase();
+  await initializeDatabase();
 
-    await rabbitMQWrapper.connect(process.env.RABBITMQ_ENDPOINT!);
-    // Set up product event listeners
-    await new ProductDeleteListener(rabbitMQWrapper.channel).listen();
-    await new ProductCreatedListener(rabbitMQWrapper.channel).listen();
-    await new ProductUpdatedListener(rabbitMQWrapper.channel).listen();
-    await new ProductQuantityUpdateListener(rabbitMQWrapper.channel).listen();
-  } catch (error: any) {
-    console.log("CART DB ERROR", error.message);
-  }
-  app.listen(4000, () => console.log(`Cart service running on PORT 4000....`));
+  await rabbitMQWrapper.connect(process.env.RABBITMQ_ENDPOINT!);
+  await new ProductDeleteListener(rabbitMQWrapper.channel).listen();
+  await new ProductCreatedListener(rabbitMQWrapper.channel).listen();
+  await new ProductUpdatedListener(rabbitMQWrapper.channel).listen();
+  await new ProductQuantityUpdateListener(rabbitMQWrapper.channel).listen();
+
+  const PORT = parseInt(process.env.PORT ?? "4000", 10);
+  const server = app.listen(PORT, () =>
+    console.log(`Cart service running on PORT ${PORT}....`)
+  );
+
+  const shutdown = async () => {
+    await rabbitMQWrapper.close();
+    server.close(() => process.exit(0));
+  };
+
+  process.on("SIGTERM", shutdown);
+  process.on("SIGINT", shutdown);
 };
 
-start();
+start().catch((error: any) => {
+  console.error("CART STARTUP ERROR", error.message);
+  process.exit(1);
+});

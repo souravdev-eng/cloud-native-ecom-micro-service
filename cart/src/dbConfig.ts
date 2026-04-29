@@ -7,7 +7,7 @@ export const AppDataSource = new DataSource({
   port: 5432,
   url: process.env.CART_DB_URL!,
   entities: [Cart, Product],
-  synchronize: true,
+  synchronize: process.env.NODE_ENV !== 'production',
 });
 
 export const initializeDatabase = async () => {

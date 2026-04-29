@@ -10,7 +10,8 @@
     "d-build": "docker build -t souravdeveloper/ecom-product .",
     "d-push": "docker push souravdeveloper/ecom-product",
     "d-pub": "npm run d-build && npm run d-push",
-    "test": "jest --watchAll --no-cache",
+    "test": "jest --no-cache",
+    "test:watch": "jest --watchAll --no-cache",
     "test:ci": "jest"
   },
   "config": {
@@ -24,6 +25,9 @@
     "testTimeout": 3000,
     "setupFilesAfterEnv": [
       "./src/test/setup.ts"
+    ],
+    "watchPathIgnorePatterns": [
+      "node_modules"
     ]
   },
   "dependencies": {

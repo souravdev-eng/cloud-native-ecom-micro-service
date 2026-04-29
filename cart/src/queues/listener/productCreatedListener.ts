@@ -23,16 +23,19 @@ export class ProductCreatedListener extends BaseListener<ProductCreatedMessage> 
     channel: Channel,
     msg: ConsumeMessage
   ) {
-    const product = Product.create({
-      id: data.id,
-      title: data.title,
-      price: data.price,
-      image: data.image,
-      quantity: data.quantity,
-      sellerId: data.sellerId,
-    });
+    const existing = await Product.findOneBy({ id: data.id });
+    if (!existing) {
+      const product = Product.create({
+        id: data.id,
+        title: data.title,
+        price: data.price,
+        image: data.image,
+        quantity: data.quantity,
+        sellerId: data.sellerId,
+      });
+      await product.save();
+    }
 
-    await product.save();
     channel.ack(msg);
   }
 }

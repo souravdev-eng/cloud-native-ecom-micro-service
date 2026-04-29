@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 import { v4 as uuidv4 } from 'uuid';
 import { Cart } from '../entity/Cart';
 import { Product } from '../entity/Product';
+import * as DbConfig from '../dbConfig';
 
 // Polyfill for ReadableStream (required by undici/elasticsearch in @ecom-micro/common)
 import { ReadableStream, TransformStream, WritableStream } from 'stream/web';
@@ -91,6 +92,11 @@ beforeAll(async () => {
     });
 
     await dataSource.initialize();
+
+    // Point AppDataSource/dbClient at the pg-mem datasource so routes that call
+    // dbClient.getRepository() work correctly in tests without a real Postgres server.
+    (DbConfig as any).AppDataSource = dataSource;
+    (DbConfig as any).dbClient = dataSource;
 
     // Make dataSource globally available
     global.testDataSource = dataSource;

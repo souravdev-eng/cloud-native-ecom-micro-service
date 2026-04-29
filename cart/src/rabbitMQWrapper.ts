@@ -1,7 +1,8 @@
-import amqp, { Channel } from 'amqplib';
+import amqp, { Channel, Connection } from 'amqplib';
 
 class RabbitMQWrapper {
   private _channel?: Channel;
+  private _connection?: Connection;
 
   get channel() {
     if (!this._channel) {
@@ -9,16 +10,17 @@ class RabbitMQWrapper {
     }
     return this._channel;
   }
+
   async connect(url: string) {
-    try {
-      const connection = await amqp.connect(url);
-      this._channel = await connection.createChannel();
-      console.log('MQ Server connected...');
-    } catch (error) {
-      console.log(error);
-      // throw new Error('Not able to connect MQ server!');
-      process.exit(1);
-    }
+    const connection = await amqp.connect(url);
+    this._connection = connection;
+    this._channel = await connection.createChannel();
+    console.log('MQ Server connected...');
+  }
+
+  async close() {
+    await this._channel?.close();
+    await this._connection?.close();
   }
 }
 
