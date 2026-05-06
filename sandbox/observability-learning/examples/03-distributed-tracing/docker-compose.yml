@@ -1,0 +1,75 @@
+version: '3.8'
+
+services:
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+    ports:
+      - "16686:16686"  # Jaeger UI
+      - "4317:4317"    # OTLP gRPC receiver
+      - "4318:4318"    # OTLP HTTP receiver
+    networks:
+      - tracing
+
+  # API Gateway
+  gateway:
+    build: ./services/gateway
+    ports:
+      - "3000:3000"
+    environment:
+      - SERVICE_NAME=api-gateway
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318
+      - ORDER_SERVICE_URL=http://order:3001
+    depends_on:
+      - jaeger
+      - order
+    networks:
+      - tracing
+
+  # Order Service
+  order:
+    build: ./services/order
+    ports:
+      - "3001:3001"
+    environment:
+      - SERVICE_NAME=order-service
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318
+      - INVENTORY_SERVICE_URL=http://inventory:3002
+      - PAYMENT_SERVICE_URL=http://payment:3003
+    depends_on:
+      - jaeger
+      - inventory
+      - payment
+    networks:
+      - tracing
+
+  # Inventory Service
+  inventory:
+    build: ./services/inventory
+    ports:
+      - "3002:3002"
+    environment:
+      - SERVICE_NAME=inventory-service
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318
+    depends_on:
+      - jaeger
+    networks:
+      - tracing
+
+  # Payment Service
+  payment:
+    build: ./services/payment
+    ports:
+      - "3003:3003"
+    environment:
+      - SERVICE_NAME=payment-service
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318
+    depends_on:
+      - jaeger
+    networks:
+      - tracing
+
+networks:
+  tracing:
+    driver: bridge

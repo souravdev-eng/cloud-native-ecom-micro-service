@@ -51,6 +51,9 @@ spec:
                 name: ecom-global-config
             - secretRef:
                 name: secret-credential
+            - secretRef:
+                name: cnpg-cart-urls
+                optional: true
           # livenessProbe:
           #   httpGet:
           #     path: /api/etl/live

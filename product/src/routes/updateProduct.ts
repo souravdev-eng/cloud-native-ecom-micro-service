@@ -1,31 +1,25 @@
-import {
-  restrictTo,
-  requireAuth,
-  NotFoundError,
-  BadRequestError,
-  requestValidation,
-} from '@ecom-micro/common';
-import { Router, Response, Request, NextFunction } from 'express';
+import { restrictTo, requireAuth, NotFoundError, requestValidation } from "@ecom-micro/common";
+import { Router, Response, Request, NextFunction } from "express";
 
-import { Product } from '../models/productModel';
-import { ProductUpdatePub } from '../queues/publisher/productUpdatePub';
-import { rabbitMQWrapper } from '../rabbitMQWrapper';
-import { productUpdateValidation } from '../validation/productValidation';
+import { Product } from "../models/productModel";
+import { ProductUpdatePub } from "../queues/publisher/productUpdatePub";
+import { rabbitMQWrapper } from "../rabbitMQWrapper";
+import { productUpdateValidation } from "../validation/productValidation";
+import { cache } from "../cache/redisCache";
 
 const router = Router();
 
 router.patch(
-  '/api/product/:id',
+  "/api/product/:id",
   requireAuth,
-  restrictTo('seller', 'admin'),
+  restrictTo("seller", "admin"),
   productUpdateValidation,
   requestValidation,
   async (req: Request, res: Response, next: NextFunction) => {
-
     const product = await Product.findById(req.params.id);
 
     if (!product) {
-      throw new NotFoundError('Oops! Product is not found');
+      throw new NotFoundError("Oops! Product is not found");
     }
 
     product.set({
@@ -37,9 +31,12 @@ router.patch(
       quantity: req.body.quantity ? req.body.quantity : product.quantity,
       tags: req.body.tags ? req.body.tags : product.tags,
       rating: req.body.rating ? req.body.rating : product.rating,
+      originalPrice: req.body.originalPrice ? req.body.originalPrice : product.originalPrice,
+      stockQuantity: req.body.stockQuantity ? req.body.stockQuantity : product.stockQuantity,
     });
 
     await product.save();
+    await cache.del(`product:${req.params.id}`);
 
     new ProductUpdatePub(rabbitMQWrapper.channel).publish({
       id: product.id,
@@ -48,10 +45,14 @@ router.patch(
       price: product.price,
       quantity: product.quantity!,
       sellerId: product.sellerId.toString(),
+      originalPrice: product.originalPrice!,
+      stockQuantity: product.stockQuantity!,
+      tags: product.tags || [],
+      category: product.category,
     });
 
     res.status(200).send(product);
-  }
+  },
 );
 
 export { router as productUpdateRouter };

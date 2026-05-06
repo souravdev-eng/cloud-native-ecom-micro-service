@@ -1,574 +1,388 @@
-# 📚 Chapter 1: Redis Fundamentals
+# 01. Redis Fundamentals
 
-## 🎯 Learning Objectives
-
-By the end of this chapter, you will understand:
-
-- What Redis is and when to use it
-- All 5 core Redis data types
-- Essential commands for each data type
-- Memory management and TTL basics
+This chapter establishes the mental model required for the rest of the
+reference: how Redis executes commands, what the data types actually cost,
+and where Redis is the wrong choice.
 
 ---
 
-## 🤔 What is Redis?
+## 1.1 Execution model
 
-**Redis** = **RE**mote **DI**ctionary **S**erver
+Redis runs commands on a **single main thread** for the keyspace. Every data
+operation is serialised; there are no read/write locks visible to clients
+because there is no in-process concurrency on user data.
 
-Redis is an **in-memory** data store that can be used as:
-- 🚀 **Cache** - Store frequently accessed data
-- 📦 **Database** - Persist data to disk
-- 📬 **Message Broker** - Pub/Sub messaging
+Implications:
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                           WHY REDIS IS FAST                                  │
-│                                                                              │
-│   Traditional Database                 Redis                                 │
-│   ────────────────────                 ─────                                 │
-│                                                                              │
-│   Request → Disk Read → Response       Request → RAM Read → Response        │
-│              ~10ms                                ~0.1ms                     │
-│                                                                              │
-│   📀 HDD/SSD: Slow                     🧠 RAM: 100x faster!                 │
-│                                                                              │
-│   Trade-off: Redis uses more memory, but is MUCH faster                     │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
+- A long-running command **blocks every other client**. `KEYS *`,
+  `SMEMBERS` on a million-element set, `LRANGE 0 -1` on a long list,
+  `HGETALL` on a wide hash, and `SUNIONSTORE` over large sets are all
+  hazardous in production.
+- "Atomic" in Redis means the command (or `MULTI`/`EXEC` block, or Lua
+  script) runs to completion before any other client is served. This is a
+  stronger guarantee than most databases provide and is what makes Redis
+  suitable for primitives like counters, locks, and rate limiters.
+- I/O, persistence (RDB fork, AOF rewrite), and cluster bus traffic run on
+  separate threads, but command execution does not.
+
+Since Redis 6, threaded I/O can parallelise socket reads/writes; it does
+**not** parallelise command execution. Treat the command thread as the only
+CPU resource that matters for latency.
 
 ---
 
-## 📊 The 5 Core Data Types
+## 1.2 The data model
 
-Redis supports 5 primary data structures. Each has specific use cases:
+Redis is a keyspace of binary-safe strings mapping to values of one of a
+small set of types. Choosing the right type is almost always the highest
+leverage decision you make.
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                         REDIS DATA TYPES                                     │
-│                                                                              │
-│   ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐       │
-│   │   STRING    │  │    HASH     │  │    LIST     │  │     SET     │       │
-│   │             │  │             │  │             │  │             │       │
-│   │  "hello"    │  │  field:val  │  │  [a,b,c,d]  │  │  {a,b,c}    │       │
-│   │             │  │  field:val  │  │  (ordered)  │  │  (unique)   │       │
-│   └─────────────┘  └─────────────┘  └─────────────┘  └─────────────┘       │
-│                                                                              │
-│                        ┌─────────────┐                                       │
-│                        │ SORTED SET  │                                       │
-│                        │             │                                       │
-│                        │  a:10       │                                       │
-│                        │  b:20       │                                       │
-│                        │  (ranked)   │                                       │
-│                        └─────────────┘                                       │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
+| Type | Internal encodings (typical) | Use when |
+|------|------------------------------|----------|
+| String | `raw`, `embstr`, `int` | Single value, counter, serialised blob, bitmap |
+| Hash | `listpack`, `hashtable` | Object with independently mutable fields |
+| List | `listpack`, `quicklist` | FIFO/LIFO queues, recent-N feeds |
+| Set | `listpack`, `intset`, `hashtable` | Membership tests, deduplication, set algebra |
+| Sorted Set | `listpack`, `skiplist` | Ranking, range queries by score, leaderboards |
+| Stream | `stream` (radix tree of entries) | Append-only log with consumer groups |
+| Bitmap | string with bit ops | Per-user flags, presence at scale |
+| HyperLogLog | string | Approximate cardinality (≈0.81% error, 12 KB) |
+| Geo | sorted set under the hood | Lat/lon proximity queries |
+
+The internal encoding switches automatically based on size thresholds
+(`hash-max-listpack-entries`, `set-max-listpack-entries`, etc.). Small
+collections are stored compactly inline; once they cross the threshold,
+Redis promotes them to a hashtable or skiplist. This is invisible
+functionally but matters for memory: keep collections small where you can.
 
 ---
 
-## 1️⃣ Strings
+## 1.3 Complexity is not optional reading
 
-**The most basic type.** Can store text, numbers, or serialized JSON.
+Every command in the Redis docs lists its time complexity. Internalise the
+patterns:
 
-### Commands
+- `O(1)` — `GET`, `SET`, `HGET`, `HSET`, `INCR`, `LPUSH`, `RPUSH`, `SADD`,
+  `ZADD` (constant per-element), `EXPIRE`.
+- `O(log N)` — sorted set lookups by score (`ZADD`, `ZSCORE`, `ZRANGEBYSCORE` start).
+- `O(N)` — `LRANGE`, `HGETALL`, `SMEMBERS`, `SUNION`, `KEYS`, `DEL` of a
+  collection (the deletion itself is `O(N)` in element count).
+- `O(N+M log M)` — `SORT` and similar.
 
-```bash
-# Set a value
-SET product:123:name "iPhone 15 Pro"
+Rule of thumb: any `O(N)` command where `N` is unbounded is a latency
+incident waiting to happen. Either bound `N` at the application layer
+(`LRANGE 0 99`), use the iterator family (`SCAN`, `HSCAN`, `SSCAN`,
+`ZSCAN`), or unlink instead of delete (`UNLINK` defers freeing to a
+background thread).
 
-# Get a value
-GET product:123:name
-# → "iPhone 15 Pro"
+---
 
-# Set with expiration (5 minutes = 300 seconds)
-SET session:abc123 "user_data" EX 300
+## 1.4 Strings
 
-# Set only if NOT exists (useful for locks!)
-SETNX lock:checkout:order123 "locked"
+Strings are the universal type. A "string" can hold up to 512 MB but you
+should keep individual values well under 100 KB to avoid replication and
+network pauses.
 
-# Increment (atomic!)
-SET product:123:views 0
-INCR product:123:views
-# → 1
-INCRBY product:123:views 10
-# → 11
-```
+Useful operations beyond the obvious:
 
-### E-commerce Use Cases
+- `SET key value NX EX 30` — set if absent, with TTL. The atomic primitive
+  for distributed locks (Chapter 04).
+- `INCR`, `INCRBY`, `INCRBYFLOAT` — atomic counters. The basis for fixed
+  window rate limiters (Chapter 05).
+- `GETSET` (deprecated in favour of `SET ... GET`) — read-and-replace
+  atomically.
+- `SETRANGE` / `GETRANGE` — treat strings as byte buffers.
+- `BITCOUNT`, `BITOP`, `BITFIELD` — string as bitmap. Useful for
+  per-user-per-day flags at scale.
 
-| Use Case | Key Pattern | Example |
-|----------|-------------|---------|
-| Product view count | `product:{id}:views` | `INCR product:123:views` |
-| Simple cache | `cache:{type}:{id}` | `SET cache:product:123 "{...}"` |
-| Feature flags | `feature:{name}` | `SET feature:dark_mode "enabled"` |
-
-### TypeScript Example
-
-```typescript
-// From your product service pattern
+```ts
 import { createClient } from 'redis';
 
 const client = createClient({ url: process.env.REDIS_URL });
 await client.connect();
 
-// Cache a product
-const product = { id: '123', name: 'iPhone 15', price: 999 };
-await client.set(`product:${product.id}`, JSON.stringify(product), {
-  EX: 300  // 5 minutes
+// Counter — atomic, no read-modify-write race
+const newCount = await client.incr('product:item:123:views');
+
+// Conditional set with TTL — the lock primitive
+const acquired = await client.set('lock:order:42', token, {
+  NX: true,
+  PX: 30_000,
 });
-
-// Retrieve
-const cached = await client.get('product:123');
-const parsed = cached ? JSON.parse(cached) : null;
+if (acquired === 'OK') { /* held */ }
 ```
 
 ---
 
-## 2️⃣ Hashes
+## 1.5 Hashes
 
-**Like a mini JSON object.** Perfect for storing objects with multiple fields.
+A hash is a map from field to string within a single key. Prefer hashes
+over JSON-encoded strings when:
 
-### Commands
+- You mutate individual fields (`HINCRBY`, `HSET field value`).
+- Most reads are for a small subset of fields (`HMGET field1 field2`).
+- The object has more than two or three fields.
 
-```bash
-# Set multiple fields at once
-HSET product:123 name "iPhone 15" price 999 category "electronics"
+Avoid `HGETALL` on hashes you have not bounded in size; it returns
+everything in a single response and blocks the server proportionally to
+field count.
 
-# Get one field
-HGET product:123 price
-# → "999"
-
-# Get all fields
-HGETALL product:123
-# → { name: "iPhone 15", price: "999", category: "electronics" }
-
-# Increment a field (atomic!)
-HINCRBY product:123 views 1
-
-# Check if field exists
-HEXISTS product:123 name
-# → 1 (true)
+```ts
+// Cart represented as a hash of productId -> quantity
+const cartKey = `cart:user:${userId}`;
+await client.hSet(cartKey, { 'sku:42': '2', 'sku:91': '1' });
+await client.hIncrBy(cartKey, 'sku:42', 1);     // atomic increment
+const qty = await client.hGet(cartKey, 'sku:42'); // O(1)
 ```
 
-### E-commerce Use Cases
+A hash with a few hundred small fields uses dramatically less memory than
+the equivalent number of separate keys, because Redis amortises the per-key
+overhead.
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                    HASH USE CASES IN E-COMMERCE                              │
-│                                                                              │
-│   Shopping Cart (Hash per user):                                            │
-│   ──────────────────────────────                                            │
-│   cart:user:456                                                             │
-│   ├── product:123 → "2"  (quantity)                                         │
-│   ├── product:789 → "1"                                                     │
-│   └── product:456 → "3"                                                     │
-│                                                                              │
-│   User Profile (Hash per user):                                             │
-│   ─────────────────────────────                                             │
-│   user:456                                                                  │
-│   ├── name → "John Doe"                                                     │
-│   ├── email → "john@example.com"                                            │
-│   ├── cart_count → "6"                                                      │
-│   └── last_login → "2025-01-05"                                             │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
+---
 
-### TypeScript Example
+## 1.6 Lists
 
-```typescript
-// Shopping cart with Hash
-const userId = 'user:456';
+Lists are doubly-linked sequences of strings (encoded as `quicklist`, a
+linked list of `listpack` nodes). They support push/pop at both ends in
+`O(1)` and indexed access in `O(N)`.
 
-// Add item to cart
-await client.hSet(`cart:${userId}`, {
-  'product:123': '2',
-  'product:789': '1'
+Production uses:
+
+- **Recent-N feeds**: `LPUSH` + `LTRIM key 0 (N-1)`. Bound the list
+  explicitly; never rely on TTL alone.
+- **Lightweight queues**: `RPUSH` producer, `BLPOP`/`BRPOP` consumer.
+  Adequate for fire-and-forget jobs with at-most-once semantics.
+
+Lists are **not** an adequate replacement for a real broker. They have:
+
+- No consumer groups (use Streams).
+- No native acknowledgement (a crashed consumer between `BRPOP` and
+  processing loses the message).
+- No replay.
+
+For anything resembling work distribution with at-least-once delivery and
+recovery, use **Streams** with `XADD` / `XREADGROUP` / `XACK`, or a
+purpose-built broker (RabbitMQ is already in the platform — see
+`@/Users/sauravmajumdar/Developer/project/micro-service/cloud-native-ecom-micro-service/sandbox/rabbitmq-learning`).
+
+---
+
+## 1.7 Sets
+
+Unordered collections of unique strings. Operations of interest:
+
+- `SADD` / `SREM` / `SISMEMBER` — `O(1)` membership.
+- `SINTER`, `SUNION`, `SDIFF` — set algebra, `O(N)` in total elements.
+  Useful for tag-based filtering, but be mindful: a single `SINTER` on
+  large sets blocks the main thread.
+- `SRANDMEMBER` / `SPOP` — sampling.
+
+For very high cardinality where exactness is not required, use
+**HyperLogLog** (`PFADD`, `PFCOUNT`) — constant 12 KB per key with ~0.81%
+standard error.
+
+---
+
+## 1.8 Sorted sets
+
+Sorted sets (ZSets) are the most expressive structure: a set of unique
+members each tagged with a floating-point score. They support both
+membership tests and range queries in `O(log N)`.
+
+Primary uses:
+
+- **Ranking and leaderboards** — Chapter 07.
+- **Time-series indices** — score = unix epoch ms, retrieve via
+  `ZRANGEBYSCORE`.
+- **Priority queues** — score = scheduled time; consumer pops items whose
+  score is `≤ now`.
+
+```ts
+// Schedule a job to run at a specific time
+await client.zAdd('jobs:scheduled', { score: runAtMs, value: jobId });
+
+// Worker pulls due jobs atomically
+const due = await client.zRangeByScore('jobs:scheduled', 0, Date.now(), {
+  LIMIT: { offset: 0, count: 100 },
 });
-
-// Get entire cart
-const cart = await client.hGetAll(`cart:${userId}`);
-// { 'product:123': '2', 'product:789': '1' }
-
-// Update quantity
-await client.hIncrBy(`cart:${userId}`, 'product:123', 1);
-
-// Remove item
-await client.hDel(`cart:${userId}`, 'product:789');
 ```
 
-### Why Hash over String with JSON?
-
-| Aspect | String (JSON) | Hash |
-|--------|---------------|------|
-| Update one field | Read → Parse → Modify → Write | `HSET key field value` |
-| Memory efficiency | Less efficient | More efficient |
-| Atomic field increment | Not possible | `HINCRBY` |
-| Best for | Immutable data | Frequently updated objects |
+For exactly-once dispatch, the read-and-remove must be atomic. Use a Lua
+script (`ZRANGEBYSCORE` followed by `ZREM` of the same members under one
+script invocation) — see Chapter 04 for the pattern.
 
 ---
 
-## 3️⃣ Lists
+## 1.9 Streams
 
-**Ordered collection.** Perfect for queues, recent items, activity feeds.
+Streams (`XADD`, `XREADGROUP`) are an append-only log with consumer groups,
+acknowledgement, and pending entry lists. They are Redis's answer to
+"queue with at-least-once semantics inside a single Redis instance".
 
-### Commands
+Use streams when:
 
-```bash
-# Push to the left (newest first)
-LPUSH recent:products:user:456 "product:123" "product:789"
+- You need consumer groups with parallel workers and acknowledgement.
+- You want bounded retention (`XADD ... MAXLEN ~ N`).
+- The volume fits on a single Redis shard (streams are not cluster-friendly
+  across keys; one stream key lives on one slot).
 
-# Push to the right (oldest first)
-RPUSH queue:emails "email:1" "email:2"
-
-# Get range (0 to -1 = all)
-LRANGE recent:products:user:456 0 9
-# → Last 10 viewed products
-
-# Pop from queue (blocking)
-BRPOP queue:emails 30
-# Wait up to 30 seconds for item
-
-# Get list length
-LLEN queue:emails
-```
-
-### E-commerce Use Cases
-
-| Use Case | Key Pattern | Operations |
-|----------|-------------|------------|
-| Recently viewed | `recent:viewed:{userId}` | `LPUSH`, `LTRIM` (keep last N) |
-| Order history | `orders:{userId}` | `LPUSH`, `LRANGE` |
-| Notification queue | `notifications:{userId}` | `RPUSH`, `LPOP` |
-
-### TypeScript Example
-
-```typescript
-// Recently viewed products (keep last 10)
-const addRecentlyViewed = async (userId: string, productId: string) => {
-  const key = `recent:viewed:${userId}`;
-  
-  // Add to front
-  await client.lPush(key, productId);
-  
-  // Keep only last 10
-  await client.lTrim(key, 0, 9);
-  
-  // Set TTL for cleanup (7 days)
-  await client.expire(key, 604800);
-};
-
-// Get recently viewed
-const getRecentlyViewed = async (userId: string): Promise<string[]> => {
-  return await client.lRange(`recent:viewed:${userId}`, 0, 9);
-};
-```
+If you already operate RabbitMQ or Kafka, prefer them for cross-service
+messaging. Streams are well-suited for in-service work queues where adding
+a broker dependency is unwarranted.
 
 ---
 
-## 4️⃣ Sets
+## 1.10 Pub/Sub
 
-**Unordered collection of unique items.** Perfect for tags, followers, unique visitors.
+`PUBLISH` / `SUBSCRIBE` is fire-and-forget. There is no buffering for
+disconnected subscribers. A subscriber that misses the message because it
+was reconnecting, slow, or simply not yet started, will not receive it.
 
-### Commands
+Use Pub/Sub only for:
 
-```bash
-# Add members
-SADD product:123:tags "electronics" "smartphone" "apple"
+- Cache invalidation broadcasts, where missing a message is tolerable
+  because TTL provides a backstop.
+- Operational signalling (configuration reload, leader notifications).
 
-# Check membership
-SISMEMBER product:123:tags "smartphone"
-# → 1 (true)
-
-# Get all members
-SMEMBERS product:123:tags
-# → ["electronics", "smartphone", "apple"]
-
-# Count members
-SCARD product:123:tags
-# → 3
-
-# Set operations
-SADD user:123:following "user:456" "user:789"
-SADD user:456:followers "user:123"
-
-# Intersection (mutual follows)
-SINTER user:123:following user:456:following
-```
-
-### E-commerce Use Cases
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                      SET USE CASES IN E-COMMERCE                             │
-│                                                                              │
-│   Unique Daily Visitors:                                                    │
-│   ─────────────────────                                                     │
-│   visitors:2025-01-05                                                       │
-│   └── { "user:123", "user:456", "user:789", ... }                          │
-│                                                                              │
-│   SCARD visitors:2025-01-05 → 15,234 unique visitors                       │
-│                                                                              │
-│   Product Tags:                                                             │
-│   ─────────────                                                             │
-│   tags:electronics → { "product:1", "product:5", "product:9" }             │
-│   tags:apple → { "product:1", "product:3" }                                │
-│                                                                              │
-│   SINTER tags:electronics tags:apple → Apple electronics                   │
-│                                                                              │
-│   Wishlist:                                                                 │
-│   ────────                                                                  │
-│   wishlist:user:123 → { "product:456", "product:789" }                     │
-│   SISMEMBER wishlist:user:123 "product:456" → Is it in wishlist?           │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
-
-### TypeScript Example
-
-```typescript
-// Track unique visitors per day
-const trackVisitor = async (userId: string) => {
-  const today = new Date().toISOString().split('T')[0];
-  const key = `visitors:${today}`;
-  
-  // Add to set (automatically deduped)
-  await client.sAdd(key, userId);
-  
-  // Expire at end of day
-  await client.expireAt(key, endOfDay());
-};
-
-// Get unique visitor count
-const getUniqueVisitors = async (date: string): Promise<number> => {
-  return await client.sCard(`visitors:${date}`);
-};
-
-// Check if product is in wishlist
-const isInWishlist = async (userId: string, productId: string): Promise<boolean> => {
-  return await client.sIsMember(`wishlist:${userId}`, productId);
-};
-```
+For anything where loss matters, use Streams or an external broker.
 
 ---
 
-## 5️⃣ Sorted Sets (ZSets)
+## 1.11 Pipelining and round-trips
 
-**Like Sets, but with a score for ordering.** Perfect for leaderboards, rankings, priority queues.
+Each command is one network round-trip by default. At 0.5 ms RTT, that
+caps you at ~2,000 ops/sec per connection regardless of how fast Redis is.
 
-### Commands
+**Pipelining** sends multiple commands without waiting between them and
+reads the responses afterwards:
 
-```bash
-# Add with score
-ZADD trending:products 100 "product:123"
-ZADD trending:products 250 "product:456"
-ZADD trending:products 75 "product:789"
+```ts
+// node-redis v4 — implicit pipelining via Promise.all on a single connection
+const results = await Promise.all(
+  ids.map((id) => client.get(`product:item:${id}`)),
+);
 
-# Get top N (highest scores)
-ZREVRANGE trending:products 0 9 WITHSCORES
-# → [("product:456", 250), ("product:123", 100), ("product:789", 75)]
-
-# Increment score (atomically!)
-ZINCRBY trending:products 50 "product:123"
-# → 150
-
-# Get rank
-ZREVRANK trending:products "product:456"
-# → 0 (top position)
-
-# Get by score range
-ZRANGEBYSCORE trending:products 100 200
+// Or explicit multi (no transaction semantics needed; just batching)
+const multi = client.multi();
+ids.forEach((id) => multi.get(`product:item:${id}`));
+const results2 = await multi.exec();
 ```
 
-### E-commerce Use Cases
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                   SORTED SET USE CASES                                       │
-│                                                                              │
-│   Trending Products (score = views/sales):                                  │
-│   ─────────────────────────────────────────                                 │
-│   trending:products                                                         │
-│   ├── product:456 → 1250 views                                              │
-│   ├── product:123 → 980 views                                               │
-│   └── product:789 → 756 views                                               │
-│                                                                              │
-│   Price-based filtering:                                                    │
-│   ──────────────────────                                                    │
-│   products:by_price                                                         │
-│   ├── product:1 → 29.99                                                     │
-│   ├── product:2 → 149.99                                                    │
-│   └── product:3 → 999.99                                                    │
-│                                                                              │
-│   ZRANGEBYSCORE products:by_price 0 100 → Products under $100               │
-│                                                                              │
-│   Search Autocomplete:                                                      │
-│   ────────────────────                                                      │
-│   autocomplete:iph                                                          │
-│   ├── "iPhone 15 Pro" → 1000 (popularity)                                   │
-│   ├── "iPhone 15" → 800                                                     │
-│   └── "iPhone 14" → 500                                                     │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
-
-### TypeScript Example
-
-```typescript
-// Track trending products
-const trackProductView = async (productId: string) => {
-  // Increment view count as score
-  await client.zIncrBy('trending:products:daily', 1, productId);
-};
-
-// Get top 10 trending products
-const getTrendingProducts = async (): Promise<string[]> => {
-  // Get highest scores (most views)
-  return await client.zRange('trending:products:daily', 0, 9, {
-    REV: true  // Descending order
-  });
-};
-
-// Get products in price range
-const getProductsByPrice = async (min: number, max: number): Promise<string[]> => {
-  return await client.zRangeByScore('products:by_price', min, max);
-};
-```
+For large fan-outs (hundreds of keys), pipelining is the difference
+between 50 ms and 500 ms of total latency. `MGET` / `HMGET` /
+`ZRANGEBYSCORE` are all preferable to N round-trips when applicable.
 
 ---
 
-## ⏰ TTL (Time To Live)
+## 1.12 Transactions: `MULTI` / `EXEC` and `WATCH`
 
-Every key can have an expiration. **Critical for caching!**
+`MULTI`/`EXEC` queues commands and runs them atomically with respect to
+other clients, but unlike SQL transactions:
 
-### Commands
+- There is **no rollback**. If a command inside the block fails at runtime,
+  the others still execute.
+- It cannot read intermediate values to make decisions inside the block.
 
-```bash
-# Set with expiration
-SET session:abc123 "data" EX 3600  # 1 hour in seconds
-SET session:abc123 "data" PX 3600000  # 1 hour in milliseconds
+For optimistic concurrency, combine `WATCH` with `MULTI`/`EXEC`: if the
+watched key changes between `WATCH` and `EXEC`, the transaction aborts.
+This works but is awkward in TypeScript and rarely the best choice.
 
-# Add expiration to existing key
-EXPIRE product:123 300  # 5 minutes
-EXPIREAT product:123 1735689600  # Unix timestamp
+In practice: **use Lua scripts** (`EVAL` / `EVALSHA`) for any non-trivial
+atomic operation. A script runs to completion on the server with full
+read-modify-write capability and is the standard tool for rate limiters,
+locks, and conditional updates.
 
-# Check remaining TTL
-TTL product:123
-# → 287 (seconds remaining)
-# → -1 (no expiration)
-# → -2 (key doesn't exist)
-
-# Remove expiration (persist forever)
-PERSIST product:123
+```ts
+const script = `
+  local current = tonumber(redis.call('GET', KEYS[1]) or '0')
+  if current >= tonumber(ARGV[1]) then return 0 end
+  redis.call('INCR', KEYS[1])
+  redis.call('EXPIRE', KEYS[1], ARGV[2])
+  return 1
+`;
+const allowed = await client.eval(script, {
+  keys: [`rl:${userId}`],
+  arguments: [String(limit), String(windowSec)],
+});
 ```
 
-### Best Practices
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                         TTL BEST PRACTICES                                   │
-│                                                                              │
-│   Data Type          │ Recommended TTL   │ Why                              │
-│   ───────────────────┼───────────────────┼──────────────────────────────    │
-│   Product cache      │ 5-15 minutes      │ Balance freshness vs load        │
-│   Search results     │ 1-5 minutes       │ Query results change often       │
-│   User session       │ 30 min - 24 hours │ Security + convenience           │
-│   Rate limit counter │ 1 minute - 1 hour │ Match rate limit window          │
-│   Trending data      │ 1-24 hours        │ Daily/hourly trends              │
-│   Distributed lock   │ 10-30 seconds     │ Prevent deadlocks                │
-│                                                                              │
-│   ⚠️  ALWAYS SET TTL ON CACHE DATA!                                         │
-│   Without TTL, cache will grow forever and fill memory.                     │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
+Cache the script with `SCRIPT LOAD` once and dispatch via `EVALSHA` to
+avoid sending the body on every call.
 
 ---
 
-## 🔧 Your Existing Code Explained
+## 1.13 TTL semantics
 
-Let's understand your Product Service Redis code:
+- TTLs are absolute from the time of setting, not from last access. They
+  are independent of `OBJECT IDLETIME`.
+- Setting a new value with `SET` **clears** the TTL unless `KEEPTTL` is
+  used (`SET key value KEEPTTL`). This is a frequent source of bugs.
+- `EXPIRE`, `PEXPIRE`, `EXPIREAT`, `PEXPIREAT` set TTL on existing keys.
+- `TTL` returns `-2` for missing key, `-1` for no expiry, otherwise
+  remaining seconds.
+- Expired keys are removed lazily (on access) and via active expiration
+  (a sampling scan running ~10 times per second). High write rates with
+  short TTLs can leave many expired-but-not-evicted keys until pressure
+  triggers eviction.
 
-### redisClient.ts
-
-```typescript
-// Creates a singleton Redis client
-import { createClient, RedisClientType } from 'redis';
-
-let client: RedisClientType;
-
-const connectRedis = async (url: string) => {
-  client = createClient({ url });
-  
-  client.on('connect', () => {
-    console.log('Redis Server connected ~~ 🔥🔥🔥');
-  });
-  
-  client.on('error', (err) => {
-    console.error('Redis error: 💥💥💥', err);
-  });
-  
-  await client.connect();
-};
-
-// Why singleton? 
-// - One connection per service instance
-// - Connection pooling handled internally
-// - Consistent state across requests
-```
-
-### calculateTTL.ts
-
-```typescript
-// Helper to convert human-readable time to seconds
-export function calculateTTL(value: number, timeUnit: 'seconds' | 'minutes' | 'hours'): number {
-  switch (timeUnit) {
-    case 'seconds': return value;
-    case 'minutes': return value * 60;
-    case 'hours': return value * 3600;
-    default: throw new Error('Invalid time unit');
-  }
-}
-
-// Usage: calculateTTL(5, 'minutes') → 300
-```
+Picking TTLs is covered in Chapter 03; the short version is **always set a
+TTL on cache entries and add jitter**.
 
 ---
 
-## 🧠 Quick Recap
+## 1.14 When Redis is the wrong tool
 
-| Data Type | Best For | Key Commands |
-|-----------|----------|--------------|
-| **String** | Simple values, counters | `GET`, `SET`, `INCR` |
-| **Hash** | Objects with fields | `HSET`, `HGET`, `HGETALL` |
-| **List** | Queues, recent items | `LPUSH`, `RPOP`, `LRANGE` |
-| **Set** | Unique collections | `SADD`, `SISMEMBER`, `SINTER` |
-| **Sorted Set** | Rankings, ranges | `ZADD`, `ZRANGE`, `ZINCRBY` |
+Redis is excellent for: caches, counters, rate limiters, locks, ranking,
+session-like state, ephemeral coordination. It is the **wrong** tool when:
 
----
+- You need durability guarantees on every write. Even AOF with
+  `appendfsync always` lags a real WAL-backed database, and synchronous
+  replication is not the default. Use Postgres for orders, payments,
+  ledgers.
+- The dataset must outgrow RAM. Redis is RAM-resident; spilling to disk is
+  not a first-class option.
+- You need rich queries: secondary indices, joins, aggregations across
+  large datasets. RediSearch exists but is a different product with its
+  own operational profile.
+- You need transactional consistency across multiple keys that may live
+  on different cluster shards. Cluster mode requires keys in a transaction
+  to share a hash tag (Chapter 08), which constrains your data model.
 
-## 📖 Vocabulary
-
-| Term | Definition |
-|------|------------|
-| **Key** | The identifier for stored data |
-| **TTL** | Time To Live - expiration in seconds |
-| **Atomic** | Operation completes fully or not at all |
-| **Singleton** | Single shared instance |
-| **In-memory** | Stored in RAM, not disk |
-
----
-
-## 🏋️ Exercises
-
-1. **Basic Operations**: Connect to Redis CLI and practice each data type
-2. **Your Product Service**: Trace through `showProduct.ts` and identify the caching pattern
-3. **Design Exercise**: How would you cache user profiles using a Hash?
+The current platform correctly uses Postgres for products and orders and
+Redis for read-side caching. Keep that boundary.
 
 ---
 
-## ➡️ Next Chapter
+## 1.15 The platform's current implementation
 
-[Chapter 2: Caching Patterns](./02-caching-patterns.md) - Learn cache-aside, write-through, and more!
+`@/Users/sauravmajumdar/Developer/project/micro-service/cloud-native-ecom-micro-service/product/src/redisClient.ts:1-28`
+bootstraps a singleton client and exposes `getRedisClient`. It works but
+omits several things production code needs:
 
+- **No reconnect strategy** — `node-redis` v4 reconnects by default with an
+  exponential backoff capped at ~500 ms; explicitly configure
+  `socket.reconnectStrategy` to bound retries and surface persistent
+  failure to the health check.
+- **No `ready` gate** — `connect()` resolves before the client is `ready`
+  in some failure modes; gate request handling on the `ready` event in
+  health checks.
+- **No graceful shutdown** — wire `client.quit()` into the SIGTERM handler
+  so in-flight commands flush before the pod is terminated.
+
+`@/Users/sauravmajumdar/Developer/project/micro-service/cloud-native-ecom-micro-service/product/src/cache/redisCache.ts:19-27`
+calls `JSON.stringify(value)` on a `string` argument, which double-encodes
+the payload (it becomes a JSON string of a JSON string). The wrapper
+should either accept `unknown` and serialise once, or accept `string` and
+not serialise at all. Chapter 02 shows the corrected version.
+
+---
+
+## 1.16 References
+
+- Redis command reference with complexity: <https://redis.io/commands/>
+- Encoding internals: <https://redis.io/docs/latest/develop/reference/optimization/memory-optimization/>
+- Threaded I/O (Redis 6+): <https://redis.io/docs/latest/operate/oss_and_stack/management/config-file/#threaded-io>
+- *Redis in Action*, Carlson — Chapters 3–5 cover data structures in depth.
+
+Continue to [02. Caching Patterns](./02-caching-patterns.md).

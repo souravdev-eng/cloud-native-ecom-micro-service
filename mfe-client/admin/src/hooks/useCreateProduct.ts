@@ -26,15 +26,15 @@ export interface ProductFormErrors {
 }
 
 const initialFormData: ProductFormData = {
-    title: 'test title',
+    title: '',
     image: null,
     imagePreview: '',
-    category: 'ipad',
-    description: 'test description for ipad',
-    sellingPrice: 100,
-    originalPrice: 100,
-    quantity: 10,
-    tags: ['ipad', 'apple'],
+    category: 'other',
+    description: '',
+    sellingPrice: 200,
+    originalPrice: 500,
+    quantity: 5,
+    tags: [],
 };
 
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
@@ -47,6 +47,24 @@ const CATEGORIES = [
     'watch',
     'airpods',
     'accessories',
+    'tablet',
+    'laptop',
+    'desktop',
+    'monitor',
+    'keyboard',
+    'mouse',
+    'speaker',
+    'headphones',
+    'microphone',
+    'camera',
+    'printer',
+    'scanner',
+    'router',
+    'switch',
+    'firewall',
+    'load balancer',
+    'storage',
+    'other',
 ];
 
 export const useCreateProduct = (onSuccess?: () => void) => {
@@ -246,17 +264,17 @@ export const useCreateProduct = (onSuccess?: () => void) => {
             // Send product data with base64 image
             const response = await productServiceApi.post('/new', {
                 title: formData.title,
-                category: formData.category,
-                description: formData.description,
-                price: Number(formData.sellingPrice),
                 image: imageBase64,
+                description: formData.description,
                 contentType,
                 quantity: Number(formData.quantity),
+                price: Number(formData.sellingPrice),
+                stockQuantity: Number(formData.quantity),
+                originalPrice: Number(formData.originalPrice),
                 tags: formData.tags,
+                category: formData.category,
             });
             if (response.status === 201) {
-                console.log('response is', response);
-                // Reset form on success
                 setFormData(initialFormData);
                 setTagInput('');
                 if (fileInputRef.current) {

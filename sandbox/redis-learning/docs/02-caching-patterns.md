@@ -1,570 +1,376 @@
-# 📚 Chapter 2: Caching Patterns
+# 02. Caching Patterns
 
-## 🎯 Learning Objectives
-
-By the end of this chapter, you will understand:
-
-- The three main caching patterns
-- When to use each pattern
-- How your Product Service implements cache-aside
-- Trade-offs between consistency and performance
+A cache is a derivative store. Every caching decision is a trade-off
+between freshness, latency, load on the system of record, and operational
+complexity. This chapter catalogues the patterns, the failure modes each
+introduces, and the criteria for choosing among them.
 
 ---
 
-## 🤔 Why Caching Patterns Matter
+## 2.1 Vocabulary
 
-Without a proper pattern, caching becomes chaotic:
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                    THE CACHING CHAOS PROBLEM                                 │
-│                                                                              │
-│   Without patterns:                   With patterns:                        │
-│   ─────────────────                   ──────────────                        │
-│                                                                              │
-│   • Where do I cache?                 • Clear responsibilities              │
-│   • When do I update cache?           • Predictable behavior                │
-│   • What if cache is stale?           • Easy debugging                      │
-│   • What if cache fails?              • Consistent data                     │
-│                                                                              │
-│   Result: Bugs, stale data,           Result: Reliable, fast,               │
-│   inconsistent state                  maintainable system                   │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
+| Term | Meaning |
+|------|---------|
+| **System of record (SoR)** | The authoritative store (Postgres in this platform). |
+| **Cache hit** | The lookup found a value in cache. |
+| **Cache miss** | The lookup did not find a value; the SoR was queried. |
+| **Stale read** | A hit returned data older than the SoR's current value. |
+| **Negative cache** | An entry recording that the SoR has no value (`null` / not-found). |
+| **Stampede / dogpile** | Many concurrent misses for the same key, all hitting the SoR. |
+| **Write skew** | Cache and SoR disagree because writes were applied in different orders. |
 
 ---
 
-## 📊 The Three Main Patterns
+## 2.2 Cache-aside (lazy population)
+
+The application owns the cache. On read, it consults the cache; on miss,
+it loads from the SoR and writes the value back. On write, it updates the
+SoR and **invalidates** (or updates) the cache.
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                       CACHING PATTERNS OVERVIEW                              │
-│                                                                              │
-│   1. CACHE-ASIDE (Lazy Loading)         ◀── YOUR PRODUCT SERVICE USES THIS │
-│   ──────────────────────────────                                            │
-│   App checks cache → Miss? → Load from DB → Store in cache                  │
-│                                                                              │
-│   2. WRITE-THROUGH                                                          │
-│   ────────────────                                                          │
-│   Write to cache AND database simultaneously                                │
-│                                                                              │
-│   3. WRITE-BEHIND (Write-Back)                                              │
-│   ────────────────────────────                                              │
-│   Write to cache immediately, sync to DB asynchronously                     │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
+            ┌── miss ──▶ Postgres ──▶ write to Redis ──▶ return
+read ──▶ Redis
+            └── hit ─────────────────────────────────▶ return
 ```
 
----
+This is what `product/` already does on the read path. It is the
+default choice for most workloads because:
 
-## 1️⃣ Cache-Aside Pattern (Lazy Loading)
+- The cache is optional — if Redis is unavailable, you can degrade to a
+  direct SoR read.
+- Writes do not need to know about the cache layout.
+- Each service can cache the projections it cares about.
 
-**The most common pattern.** Application manages cache explicitly.
+### Reference implementation
 
-### How It Works
+```ts
+// services/product/src/cache/productCache.ts
+import { getRedisClient } from '../redisClient';
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                        CACHE-ASIDE FLOW                                      │
-│                                                                              │
-│   READ REQUEST:                                                             │
-│   ─────────────                                                             │
-│                                                                              │
-│   Client ──▶ Application ──▶ Check Cache                                    │
-│                                   │                                          │
-│                    ┌──────────────┴──────────────┐                          │
-│                    ▼                             ▼                          │
-│               CACHE HIT                     CACHE MISS                      │
-│                    │                             │                          │
-│                    │                             ▼                          │
-│                    │                      Query Database                    │
-│                    │                             │                          │
-│                    │                             ▼                          │
-│                    │                      Store in Cache                    │
-│                    │                             │                          │
-│                    └──────────────┬──────────────┘                          │
-│                                   ▼                                          │
-│                           Return to Client                                  │
-│                                                                              │
-│   WRITE REQUEST:                                                            │
-│   ──────────────                                                            │
-│                                                                              │
-│   Client ──▶ Application ──▶ Write to Database ──▶ Invalidate Cache        │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
+const TTL_SECONDS = 15 * 60;
+const NEGATIVE_TTL_SECONDS = 30;
+const NEG_SENTINEL = '__NULL__';
 
-### Your Product Service Implementation
+export async function getProduct(id: string): Promise<Product | null> {
+  const key = `product:item:${id}:v1`;
+  const client = getRedisClient();
 
-```typescript
-// product/src/routes/showProduct.ts
-router.get('/api/product', requireAuth, async (req, res) => {
-  // Step 1: Should we cache this request?
-  const shouldCacheResult = shouldCache(req.query);
-  let cacheKey = '';
+  const cached = await client.get(key);
+  if (cached === NEG_SENTINEL) return null;          // negative hit
+  if (cached) return JSON.parse(cached) as Product;   // positive hit
 
-  if (shouldCacheResult) {
-    // Step 2: Generate cache key
-    cacheKey = generateSearchCacheKey(req.query);
-    
-    // Step 3: Check cache
-    const cachedProduct = await redisClient.get(cacheKey);
-
-    // Step 4: CACHE HIT - Return immediately
-    if (cachedProduct) {
-      res.status(200).send(JSON.parse(cachedProduct));
-      return;
-    }
+  const row = await db.products.findById(id);
+  if (!row) {
+    await client.set(key, NEG_SENTINEL, { EX: NEGATIVE_TTL_SECONDS });
+    return null;
   }
 
-  // Step 5: CACHE MISS - Query database
-  const productApiFeature = new ProductAPIFeature(Product.find({}), req.query)
-    .filter()
-    .sort()
-    .search()
-    .limitFields()
-    .paginate();
+  await client.set(key, JSON.stringify(row), { EX: jitter(TTL_SECONDS) });
+  return row;
+}
 
-  const product = await productApiFeature.executePaginated();
+function jitter(base: number, spread = 0.2): number {
+  // ±spread of base — see Chapter 03 on stampede mitigation
+  const delta = base * spread;
+  return Math.max(1, Math.round(base + (Math.random() * 2 - 1) * delta));
+}
+```
 
-  // Step 6: Store in cache for next time
-  if (shouldCacheResult && product.data.length > 0) {
-    const ttl = req.query.search 
-      ? calculateTTL(60, 'minutes')   // Search results: 1 hour
-      : calculateTTL(10, 'minutes');  // Regular queries: 10 min
-    await redisClient.set(cacheKey, JSON.stringify(product), { EX: ttl });
-  }
+Two details that the current `product` implementation in
+`@/Users/sauravmajumdar/Developer/project/micro-service/cloud-native-ecom-micro-service/product/src/cache/redisCache.ts:19-27`
+gets wrong and that matter in production:
 
-  res.status(200).send(product);
+1. The wrapper calls `JSON.stringify(value)` where `value` is already
+   typed as `string`. This double-encodes the payload — every callsite has
+   to `JSON.parse` twice or shape the value awkwardly. Either accept
+   `unknown` and serialise inside, or accept `string` and serialise at the
+   callsite, not both.
+2. There is no jitter on TTL and no negative cache. The next two sections
+   cover why both matter.
+
+### Failure modes
+
+- **Stampede on miss**: when a hot key expires, every concurrent request
+  misses simultaneously, hits Postgres, and writes the same value back.
+  Mitigation: request coalescing (§2.7) and probabilistic early refresh
+  (Chapter 03).
+- **Stale-after-write**: after a write to Postgres, readers may continue
+  to see the cached value until invalidation propagates. Mitigation:
+  invalidate (delete) the cache entry inside the same transaction
+  boundary as the write, *after* the write commits.
+- **Forgotten negative cache**: missing rows hit Postgres on every
+  request. Mitigation: cache `null` with a short TTL using a sentinel.
+
+---
+
+## 2.3 Read-through
+
+The cache itself is responsible for loading on miss. The application
+calls a single `cache.get(key)` interface; if the key is absent the cache
+layer fetches from the SoR, populates itself, and returns the value.
+
+In Redis-on-its-own, "read-through" is implemented by your client wrapper
+— there is no server-side loader. The pattern is identical to cache-aside
+in mechanics; the only difference is encapsulation. Prefer it when:
+
+- Multiple callers read the same projection and you want to centralise
+  the loader logic, TTL choice, and metrics.
+- You want a single chokepoint for request coalescing.
+
+```ts
+// One loader per projection. `loader` is invoked at most once per key
+// concurrently, thanks to the in-process single-flight in §2.7.
+export const productLoader = createReadThrough({
+  keyPrefix: 'product:item',
+  ttlSeconds: 15 * 60,
+  load: (id: string) => db.products.findById(id),
+});
+
+const product = await productLoader.get(id);
+```
+
+---
+
+## 2.4 Write-through
+
+On every write, the application writes to **both** the cache and the SoR
+synchronously. The cache always has the latest value (modulo failure
+modes below).
+
+Use when:
+
+- Reads vastly outnumber writes and you cannot tolerate even brief
+  staleness on the read path.
+- The cached projection is identical to the SoR row, so the cache write
+  is a straight serialisation.
+
+Avoid when:
+
+- The cache key holds a derived projection that is expensive to recompute
+  on the write path (you will re-derive on every write, even when no one
+  reads it).
+- Writes are bursty; you double the write latency on the request path.
+
+### Failure modes
+
+- **Partial failure**: Postgres commits, Redis write fails. The cache is
+  now stale and will remain so until TTL expiry. Mitigation: order writes
+  SoR-first, treat the Redis failure as non-fatal, and rely on TTL +
+  out-of-band invalidation (§2.6) as backstop.
+- **Concurrent writers, different orders**: two writers `W1` and `W2`
+  apply to Postgres in order `W1, W2` but to Redis in order `W2, W1`.
+  The cache ends up with `W1`'s value while the SoR has `W2`'s — write
+  skew. Mitigation: use **delete-on-write** (§2.6) instead of
+  set-on-write, or include a monotonically increasing version in the
+  cache and reject lower versions.
+
+---
+
+## 2.5 Write-behind (write-back)
+
+The application writes only to the cache; a background process flushes
+batches to the SoR asynchronously.
+
+This pattern is sometimes proposed for high-write workloads. **Do not use
+it for anything that must not be lost.** Redis is not a durable write
+buffer; a primary failure between the cache write and the flush loses
+data unconditionally.
+
+Acceptable uses (rare):
+
+- Aggregated counters where exact values do not matter (page-view
+  totals, approximate analytics) — and even then, prefer a real
+  streaming pipeline.
+- Coalescing many small writes into a periodic flush where the SoR is the
+  bottleneck and approximate persistence is acceptable.
+
+If you find yourself wanting write-behind, the right answer is almost
+always either (a) a queue/stream + a worker, or (b) increasing SoR
+throughput.
+
+---
+
+## 2.6 Invalidation on write — delete vs update
+
+When the SoR changes, you can either (a) `SET` the new value into the
+cache, or (b) `DEL` the cache entry and let the next reader repopulate.
+
+**Prefer `DEL`.** Reasoning:
+
+- `DEL` is idempotent and order-insensitive: two concurrent invalidations
+  produce the same result regardless of order, eliminating the write
+  skew described in §2.4.
+- It avoids caching values that no one reads (writers re-write a hot
+  projection on every update, even at 3 a.m. when no one is reading).
+- It keeps the writer ignorant of the cache projection format.
+
+The standard sequence on a write path:
+
+```ts
+await db.transaction(async (tx) => {
+  await tx.products.update(id, patch);
+});
+// After commit. If this fails, TTL is the backstop.
+await client.del(`product:item:${id}:v1`).catch((err) => {
+  log.warn({ err, id }, 'cache invalidation failed; relying on TTL');
 });
 ```
 
-### Pros and Cons
+Two subtleties:
 
-| Pros | Cons |
-|------|------|
-| ✅ Only cache what's needed | ❌ Cache miss = slow first request |
-| ✅ Cache failure doesn't break app | ❌ Data can be stale until TTL |
-| ✅ Simple to understand | ❌ Cache stampede risk |
-| ✅ Works with any database | ❌ Manual invalidation needed |
-
-### When to Use
-
-- **Read-heavy workloads** (product catalog, user profiles)
-- **Data that tolerates slight staleness**
-- **Unpredictable access patterns** (can't pre-warm)
+1. **Order matters**: invalidate *after* the SoR commits, not before.
+   Otherwise a concurrent reader can repopulate the cache with the
+   pre-write value during the window between `DEL` and commit.
+2. **Multi-key invalidations**: when one write affects multiple cached
+   projections (e.g. a product change invalidates `product:item:123` and
+   `product:list:category:42`), publish an invalidation event and let
+   each subscriber decide what to delete (§2.8).
 
 ---
 
-## 2️⃣ Write-Through Pattern
+## 2.7 Request coalescing (single-flight)
 
-**Update cache AND database together.** Ensures cache is always fresh.
+When a hot key misses, hundreds of concurrent requests may hit the SoR
+within microseconds. **Single-flight** ensures only one of them performs
+the load while the others wait on the result.
 
-### How It Works
+In-process, per pod (cheap, sufficient most of the time):
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                      WRITE-THROUGH FLOW                                      │
-│                                                                              │
-│   WRITE REQUEST:                                                            │
-│   ──────────────                                                            │
-│                                                                              │
-│   Client ──▶ Application ──┬──▶ Write to Cache                              │
-│                            │                                                 │
-│                            └──▶ Write to Database                           │
-│                                       │                                      │
-│                                       ▼                                      │
-│                               Both succeed? ──▶ Return Success              │
-│                                                                              │
-│   READ REQUEST:                                                             │
-│   ─────────────                                                             │
-│                                                                              │
-│   Client ──▶ Application ──▶ Read from Cache ──▶ Return                     │
-│                                                                              │
-│   (Cache is ALWAYS up-to-date, so DB read not needed!)                      │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
+```ts
+const inflight = new Map<string, Promise<Product | null>>();
 
-### Implementation Example
-
-```typescript
-// Write-through caching for products
-class ProductService {
-  private redis: RedisClientType;
-  private productRepo: ProductRepository;
-
-  async updateProduct(id: string, data: Partial<Product>): Promise<Product> {
-    // Step 1: Update database
-    const product = await this.productRepo.update(id, data);
-    
-    // Step 2: Update cache (synchronously)
-    await this.redis.set(
-      `product:${id}`,
-      JSON.stringify(product),
-      { EX: 3600 }  // 1 hour TTL
-    );
-    
-    // Step 3: Also invalidate any search caches that might include this product
-    await this.invalidateSearchCaches(product);
-    
-    return product;
-  }
-
-  async getProduct(id: string): Promise<Product | null> {
-    // Cache is always fresh, so check cache first
-    const cached = await this.redis.get(`product:${id}`);
-    
-    if (cached) {
-      return JSON.parse(cached);
-    }
-    
-    // Fallback to DB (for first access or cache eviction)
-    const product = await this.productRepo.findById(id);
-    
-    if (product) {
-      await this.redis.set(`product:${id}`, JSON.stringify(product), { EX: 3600 });
-    }
-    
-    return product;
-  }
-
-  async createProduct(data: CreateProductDTO): Promise<Product> {
-    // Create in DB
-    const product = await this.productRepo.create(data);
-    
-    // Immediately cache
-    await this.redis.set(
-      `product:${product.id}`,
-      JSON.stringify(product),
-      { EX: 3600 }
-    );
-    
-    return product;
-  }
-
-  async deleteProduct(id: string): Promise<void> {
-    // Delete from DB
-    await this.productRepo.delete(id);
-    
-    // Delete from cache
-    await this.redis.del(`product:${id}`);
-    
-    // Invalidate search caches
-    await this.invalidateSearchCaches({ id });
-  }
-}
-```
-
-### Pros and Cons
-
-| Pros | Cons |
-|------|------|
-| ✅ Cache always consistent | ❌ Write latency increased |
-| ✅ Read always fast | ❌ Cache failures can block writes |
-| ✅ No stale data | ❌ Writes more complex |
-| ✅ Simpler read logic | ❌ May cache unused data |
-
-### When to Use
-
-- **Write-light, read-heavy workloads**
-- **Data consistency is critical** (inventory counts!)
-- **Known access patterns** (popular products)
-
----
-
-## 3️⃣ Write-Behind Pattern (Write-Back)
-
-**Write to cache immediately, sync to DB asynchronously.** Fastest writes.
-
-### How It Works
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                      WRITE-BEHIND FLOW                                       │
-│                                                                              │
-│   WRITE REQUEST:                                                            │
-│   ──────────────                                                            │
-│                                                                              │
-│   Client ──▶ Application ──▶ Write to Cache ──▶ Return Success (FAST!)     │
-│                                   │                                          │
-│                                   ▼                                          │
-│                           Add to Write Queue                                │
-│                                   │                                          │
-│                                   ▼                                          │
-│                     Background Worker (async)                               │
-│                                   │                                          │
-│                                   ▼                                          │
-│                         Write to Database                                   │
-│                                                                              │
-│   ⚠️  DANGER: Data loss possible if cache fails before DB sync!            │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
-
-### Implementation Example
-
-```typescript
-// Write-behind caching (advanced pattern)
-import { Queue, Worker } from 'bullmq';
-
-class WriteBehindCache {
-  private redis: RedisClientType;
-  private writeQueue: Queue;
-  private productRepo: ProductRepository;
-
-  constructor() {
-    // Queue for async DB writes
-    this.writeQueue = new Queue('db-writes', {
-      connection: { host: 'localhost', port: 6379 }
-    });
-
-    // Worker processes queue
-    new Worker('db-writes', async (job) => {
-      const { operation, id, data } = job.data;
-      
-      switch (operation) {
-        case 'update':
-          await this.productRepo.update(id, data);
-          break;
-        case 'create':
-          await this.productRepo.create(data);
-          break;
-        case 'delete':
-          await this.productRepo.delete(id);
-          break;
-      }
-    }, {
-      connection: { host: 'localhost', port: 6379 }
-    });
-  }
-
-  async updateProduct(id: string, data: Partial<Product>): Promise<Product> {
-    // Step 1: Update cache immediately (FAST!)
-    const product = { id, ...data, updatedAt: new Date() };
-    await this.redis.set(`product:${id}`, JSON.stringify(product), { EX: 3600 });
-    
-    // Step 2: Queue DB write (async)
-    await this.writeQueue.add('update-product', {
-      operation: 'update',
-      id,
-      data
-    }, {
-      attempts: 3,  // Retry on failure
-      backoff: { type: 'exponential', delay: 1000 }
-    });
-    
-    return product;  // Return immediately!
-  }
-}
-```
-
-### Pros and Cons
-
-| Pros | Cons |
-|------|------|
-| ✅ Extremely fast writes | ❌ Risk of data loss |
-| ✅ DB can be slower | ❌ Complex failure handling |
-| ✅ Batch writes possible | ❌ Eventual consistency |
-| ✅ Good for high throughput | ❌ Harder to debug |
-
-### When to Use
-
-- **Extremely high write throughput** (analytics, logs)
-- **Data loss is acceptable** (view counts, temp data)
-- **Backend can't keep up** with write rate
-
----
-
-## 📊 Pattern Comparison
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                    CACHING PATTERN DECISION MATRIX                           │
-│                                                                              │
-│   Pattern        │ Read Speed │ Write Speed │ Consistency │ Complexity      │
-│   ───────────────┼────────────┼─────────────┼─────────────┼──────────────   │
-│   Cache-Aside    │ Fast*      │ Fast        │ Eventual    │ Low             │
-│   Write-Through  │ Fast       │ Slower      │ Strong      │ Medium          │
-│   Write-Behind   │ Fast       │ Very Fast   │ Eventual    │ High            │
-│                                                                              │
-│   * After first access (cache miss is slow)                                 │
-│                                                                              │
-│   YOUR E-COMMERCE RECOMMENDATIONS:                                          │
-│   ──────────────────────────────────                                        │
-│   • Product catalog → Cache-Aside (what you have!)                          │
-│   • Inventory counts → Write-Through (consistency!)                         │
-│   • View counts → Write-Behind (high throughput)                            │
-│   • User sessions → Cache-Aside or Write-Through                            │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
-
----
-
-## 🚨 Common Problems & Solutions
-
-### 1. Cache Stampede (Thundering Herd)
-
-**Problem:** When cache expires, many requests hit the database simultaneously.
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                         CACHE STAMPEDE                                       │
-│                                                                              │
-│   Cache expires at 12:00:00                                                 │
-│                                                                              │
-│   12:00:00.001 ──▶ Request 1 ──▶ Cache miss ──▶ DB query                   │
-│   12:00:00.002 ──▶ Request 2 ──▶ Cache miss ──▶ DB query                   │
-│   12:00:00.003 ──▶ Request 3 ──▶ Cache miss ──▶ DB query                   │
-│   ...                                                                        │
-│   12:00:00.050 ──▶ Request 50 ──▶ Cache miss ──▶ DB query                  │
-│                                                                              │
-│   💥 50 identical DB queries! Database overloaded!                          │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
-
-**Solution:** Lock-based refresh
-
-```typescript
-async function getProductWithLock(productId: string): Promise<Product> {
-  const cacheKey = `product:${productId}`;
-  const lockKey = `lock:${cacheKey}`;
-  
-  // Try cache first
-  const cached = await redis.get(cacheKey);
+export async function getProduct(id: string): Promise<Product | null> {
+  const key = `product:item:${id}:v1`;
+  const cached = await client.get(key);
+  if (cached === NEG_SENTINEL) return null;
   if (cached) return JSON.parse(cached);
-  
-  // Try to acquire lock
-  const acquired = await redis.set(lockKey, '1', { NX: true, EX: 10 });
-  
-  if (acquired) {
-    try {
-      // We got the lock, fetch from DB
-      const product = await productRepo.findById(productId);
-      await redis.set(cacheKey, JSON.stringify(product), { EX: 300 });
-      return product;
-    } finally {
-      await redis.del(lockKey);
-    }
-  } else {
-    // Someone else is refreshing, wait and retry
-    await sleep(100);
-    return getProductWithLock(productId);
+
+  // Coalesce concurrent misses on the same key inside this process
+  let pending = inflight.get(key);
+  if (!pending) {
+    pending = (async () => {
+      try {
+        const row = await db.products.findById(id);
+        const payload = row ? JSON.stringify(row) : NEG_SENTINEL;
+        const ttl = row ? jitter(15 * 60) : NEGATIVE_TTL_SECONDS;
+        await client.set(key, payload, { EX: ttl });
+        return row;
+      } finally {
+        inflight.delete(key);
+      }
+    })();
+    inflight.set(key, pending);
   }
+  return pending;
 }
 ```
 
-### 2. Stale Data After Update
-
-**Problem:** User updates product, but old data served from cache.
-
-**Solution:** Explicit invalidation on writes
-
-```typescript
-async function updateProduct(id: string, data: UpdateProductDTO) {
-  // Update DB
-  const product = await productRepo.update(id, data);
-  
-  // Invalidate cache
-  await redis.del(`product:${id}`);
-  
-  // Also invalidate search caches that might include this product
-  await redis.del(`product_search:*`);  // Pattern delete
-  
-  return product;
-}
-```
-
-### 3. Cache and DB Out of Sync
-
-**Problem:** Cache update succeeds, DB update fails (or vice versa).
-
-**Solution:** Delete cache, not update (for cache-aside)
-
-```typescript
-// BAD: Update both
-async function updateProduct(id: string, data: UpdateProductDTO) {
-  await redis.set(`product:${id}`, JSON.stringify(data));  // What if DB fails?
-  await productRepo.update(id, data);
-}
-
-// GOOD: Delete cache, let it refresh
-async function updateProduct(id: string, data: UpdateProductDTO) {
-  await productRepo.update(id, data);  // DB first
-  await redis.del(`product:${id}`);    // Then invalidate
-  // Next read will repopulate cache with fresh data
-}
-```
+Cross-pod coalescing (when even one DB load per pod is too many) requires
+a Redis-side mutex on the load path — a `SET NX PX` lock around the
+miss-and-load — see Chapter 04. Use it only when you have measured
+that in-process coalescing is not enough; the Redis lock adds a
+round-trip to every miss.
 
 ---
 
-## 🎯 Implementing Write-Through in Your Product Service
+## 2.8 Event-driven invalidation across services
 
-Here's how to add write-through caching for product updates:
+When multiple services cache the same upstream entity (e.g. several
+services cache product summaries), invalidation must fan out. Two
+mechanisms are appropriate here:
 
-```typescript
-// product/src/routes/updateProduct.ts
-router.put('/api/product/:id', requireAuth, async (req, res) => {
-  const { id } = req.params;
-  const updates = req.body;
-  
-  // Validate
-  const validatedData = productValidation.parse(updates);
-  
-  // Update database
-  const product = await Product.findByIdAndUpdate(id, validatedData, { new: true });
-  
-  if (!product) {
-    throw new NotFoundError('Product not found');
-  }
-  
-  // Update cache (write-through)
-  const cacheKey = `product:${id}`;
-  await redisClient.set(cacheKey, JSON.stringify(product), {
-    EX: calculateTTL(1, 'hours')
-  });
-  
-  // Invalidate search caches (they might include old data)
-  const searchKeys = await redisClient.keys('product_search:*');
-  if (searchKeys.length > 0) {
-    await redisClient.del(searchKeys);
-  }
-  
-  // Publish event for other services
-  await rabbitMQWrapper.channel.publish(
-    'product-exchange',
-    'product.updated',
-    Buffer.from(JSON.stringify(product))
-  );
-  
-  res.status(200).send(product);
-});
-```
+- **RabbitMQ topic exchange** with a `cache.invalidate.<entity>` routing
+  key. Reliable delivery, durable queues, retries on consumer failure.
+  This is the platform's existing primitive — see
+  `@/Users/sauravmajumdar/Developer/project/micro-service/cloud-native-ecom-micro-service/sandbox/rabbitmq-learning`.
+- **Redis Pub/Sub** for low-latency, best-effort invalidations within a
+  single cluster. Acceptable when TTL provides a backstop and the cost
+  of a missed message is bounded staleness.
+
+Do not implement bespoke HTTP fan-outs from writers to readers; that
+re-invents broker mechanics badly.
 
 ---
 
-## 🧠 Quick Recap
+## 2.9 Negative caching
 
-| Pattern | Cache Population | Cache Update | Best For |
-|---------|------------------|--------------|----------|
-| **Cache-Aside** | On first read | Invalidate on write | General purpose |
-| **Write-Through** | On write | Immediate | Consistency-critical |
-| **Write-Behind** | On write | Async to DB | High write throughput |
+Cache the *absence* of a value too. Without this, every request for a
+non-existent ID hits Postgres — a common DoS vector when an attacker
+enumerates IDs, or simply when a 404-heavy client misbehaves.
+
+Implementation choices:
+
+- **Sentinel value** (`__NULL__`, `__MISS__`) with a short TTL (10–60 s).
+  Simple, works with any string-based cache.
+- **Bloom filter** in front of the cache for huge keyspaces where even
+  the negative cache memory is a concern. Adds complexity; rarely
+  warranted.
+
+Always use a **shorter TTL** for negative entries than for positive ones,
+because negatives can become wrong as soon as the row is created.
 
 ---
 
-## 🏋️ Exercises
+## 2.10 Cache key design
 
-1. **Trace your code**: Follow a request through `showProduct.ts` and identify each cache-aside step
-2. **Add write-through**: Modify `updateProduct.ts` to update cache on product updates
-3. **Measure impact**: Add logging to track cache hit rate
+Key conventions to adopt across services:
+
+- **Format**: `{service}:{entity}:{id}[:{view}]:{version}`. Example:
+  `product:item:123:detail:v3`.
+- **Versioning**: include a schema version in the key. Bumping `v3` to
+  `v4` invalidates the entire keyspace for that projection without
+  requiring `SCAN` + `DEL` — old keys age out via TTL.
+- **No spaces or unbounded user input**: hash or whitelist user-supplied
+  components.
+- **Cluster affinity** (Chapter 08): when multiple keys must share a
+  slot, place the shared part inside `{}`. For example
+  `{cart:user:42}:items` and `{cart:user:42}:meta` colocate on one
+  shard.
+
+Avoid:
+
+- Storing PII or secrets in keys (they appear in slowlogs and metrics).
+- Keys longer than ~200 bytes; they bloat memory and slow comparisons.
+- Including timestamps that change on every read.
 
 ---
 
-## ➡️ Next Chapter
+## 2.11 Choosing a pattern
 
-[Chapter 3: Cache Invalidation](./03-cache-invalidation.md) - The hardest problem in computer science!
+| Constraint | Pattern |
+|------------|---------|
+| Read-heavy, tolerable staleness, simple projection | Cache-aside with TTL |
+| Read-heavy, must reflect writes immediately, single writer | Write-through with `KEEPTTL` |
+| Read-heavy, multi-writer | Cache-aside + delete-on-write |
+| Hot-key risk on miss | Add request coalescing + jittered TTL + early refresh |
+| Cross-service invalidation | Cache-aside + RabbitMQ invalidation events |
+| Many 404s for non-existent IDs | Add negative caching with short TTL |
+| Aggregated counter, lossy acceptable | Increment in Redis, periodic flush (only if you fully accept loss) |
 
+When in doubt, **cache-aside + TTL + delete-on-write + jitter + coalescing
++ negative caching** is the workhorse. Start there and only add
+complexity when measurement justifies it.
+
+---
+
+## 2.12 Observability
+
+For each cached projection, export:
+
+- `cache_requests_total{key_prefix, outcome="hit|miss|negative"}`
+- `cache_load_seconds{key_prefix}` — histogram of SoR-loader latency
+- `cache_set_errors_total{key_prefix}` — non-fatal set failures
+- `cache_invalidate_total{key_prefix, source="write|event|ttl"}`
+
+Hit rate alone is misleading. Track **hit rate, miss latency, and load
+errors** together. A healthy cache may have a 70% hit rate; the failing
+mode is when miss latency rises because the SoR is overloaded — that is
+visible only by watching `cache_load_seconds`.
+
+---
+
+## 2.13 Continue
+
+- [03. Cache Invalidation](./03-cache-invalidation.md) — TTL design, jitter, early refresh.
+- [04. Distributed Locks](./04-distributed-locks.md) — cross-pod single-flight.
+- [08. Production Patterns](./08-production-patterns.md) — eviction policies that interact with these patterns.

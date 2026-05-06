@@ -1,0 +1,6 @@
+packages:
+  - 'admin'
+  - 'dashboard'
+  - 'user'
+  - 'host'
+  - 'shared'

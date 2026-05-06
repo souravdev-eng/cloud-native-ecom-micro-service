@@ -11,6 +11,10 @@ export interface ProductCreatedMessage {
     price: number;
     image: string;
     sellerId: string;
+    originalPrice: number;
+    stockQuantity: number;
+    tags: string[];
+    category: string;
   };
 }
 
@@ -24,6 +28,10 @@ export interface ProductUpdatedMessage {
     price: number;
     image: string;
     sellerId: string;
+    originalPrice: number;
+    stockQuantity: number;
+    tags: string[];
+    category: string;
   };
 }
 

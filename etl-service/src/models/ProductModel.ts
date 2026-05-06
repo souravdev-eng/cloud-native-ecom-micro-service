@@ -1,13 +1,5 @@
 import mongoose from 'mongoose';
 
-enum Category {
-    Phone = 'phone',
-    earphone = 'earphone',
-    Book = 'book',
-    Fashions = 'fashions',
-    other = 'other',
-}
-
 interface ProductAttrs {
     title: string;
     price: number;
@@ -15,9 +7,10 @@ interface ProductAttrs {
     sellerId: string;
     description: string;
     quantity?: number;
-    category: Category;
+    category: string;
     tags?: string[];
-    rating?: number;
+    originalPrice: number;
+    stockQuantity: number;
 }
 
 interface ProductDoc extends mongoose.Document {
@@ -27,9 +20,10 @@ interface ProductDoc extends mongoose.Document {
     sellerId: mongoose.Types.ObjectId;
     description: string;
     quantity?: number;
-    category: Category;
+    category: string;
     tags?: string[];
-    rating: number;
+    originalPrice: number;
+    stockQuantity: number;
 }
 
 interface ProductModel extends mongoose.Model<ProductDoc> {
@@ -49,7 +43,6 @@ const productSchema = new mongoose.Schema(
         },
         category: {
             type: String,
-            default: Category.other,
         },
         description: {
             type: String,
@@ -75,6 +68,14 @@ const productSchema = new mongoose.Schema(
         tags: {
             type: [String],
             default: [],
+        },
+        originalPrice: {
+            type: Number,
+            required: true,
+        },
+        stockQuantity: {
+            type: Number,
+            required: true,
         },
     },
     {

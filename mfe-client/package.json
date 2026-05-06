@@ -1,20 +1,41 @@
 {
 	"name": "mfe-client",
 	"private": true,
+	"packageManager": "pnpm@8.15.0",
+	"workspaces": [
+		"admin",
+		"dashboard",
+		"user",
+		"host",
+		"shared"
+	],
 	"scripts": {
-		"eslint": "eslint . --ext .js,.jsx,.ts,.tsx",
-		"lint": "eslint . --fix --max-warnings=0",
-		"lint:check": "eslint . --max-warnings=0",
-		"lint:fix": "eslint . --fix --max-warnings=0",
-		"format": "prettier . --write",
-		"format:check": "prettier . --check",
-		"lint-staged": "npx lint-staged",
-		"dev:user": "cd user && npm run start",
-		"dev:dashboard": "cd dashboard && npm run start",
-		"dev:admin": "cd admin && npm run start",
-		"dev:host": "cd host && npm run start",
-		"dev": "concurrently \"npm run dev:user\" \"npm run dev:dashboard\" \"npm run dev:admin\" \"npm run dev:host\"",
-		"install:all": "cd user && pnpm install && cd ../dashboard && pnpm install && cd ../host && pnpm install"
+		"build": "turbo run build",
+		"build:dev": "turbo run build:dev",
+		"dev": "turbo run dev",
+		"start": "turbo run start",
+		"test": "turbo run test",
+		"lint": "turbo run lint",
+		"lint:fix": "turbo run lint:fix",
+		"format": "turbo run format",
+		"format:check": "turbo run format:check",
+		"type-check": "turbo run type-check",
+		"clean": "turbo run clean",
+		"clean:cache": "rm -rf .turbo node_modules/.cache",
+		"dev:admin": "turbo run dev --filter=admin",
+		"dev:dashboard": "turbo run dev --filter=dashboard",
+		"dev:user": "turbo run dev --filter=user",
+		"dev:host": "turbo run dev --filter=host",
+		"dev:all": "turbo run dev",
+		"build:admin": "turbo run build --filter=admin",
+		"build:dashboard": "turbo run build --filter=dashboard",
+		"build:user": "turbo run build --filter=user",
+		"build:host": "turbo run build --filter=host",
+		"graph": "turbo run build --graph",
+		"info": "turbo daemon status",
+		"dev:legacy": "concurrently \"cd user && npm run start\" \"cd dashboard && npm run start\" \"cd admin && npm run start\" \"cd host && npm run start\"",
+		"install:all": "pnpm install",
+		"lint-staged": "npx lint-staged"
 	},
 	"devDependencies": {
 		"@trivago/prettier-plugin-sort-imports": "^5.2.2",
@@ -33,7 +54,8 @@
 		"eslint-plugin-security": "^3.0.1",
 		"globals": "^16.3.0",
 		"lint-staged": "^16.1.5",
-		"prettier": "^3.6.2"
+		"prettier": "^3.6.2",
+		"turbo": "^2.7.3"
 	},
 	"lint-staged": {
 		"*.{js,jsx,ts,tsx}": [

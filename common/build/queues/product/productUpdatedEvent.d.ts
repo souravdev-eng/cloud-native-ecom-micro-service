@@ -7,5 +7,9 @@ export interface ProductUpdatedEvent {
         price: number;
         image: string;
         sellerId: string;
+        category: string;
+        originalPrice: number;
+        stockQuantity: number;
+        tags: string[];
     };
 }

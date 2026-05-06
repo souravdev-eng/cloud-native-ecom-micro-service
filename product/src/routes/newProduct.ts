@@ -37,7 +37,6 @@ router.post(
     const fileName = `${req.body.category}/${sellerId}/${sanitizedTitle}-${Date.now()}.${ext}`;
 
     const uploadedImageUrl = await uploadImageToAws(fileName, image, contentType);
-    console.log('image url is', uploadedImageUrl);
 
     const product = Product.build({
       title: req.body.title,
@@ -45,7 +44,9 @@ router.post(
       description: req.body.description,
       image: uploadedImageUrl,
       sellerId: sellerId,
+      originalPrice: req.body.originalPrice,
       price: req.body.price,
+      stockQuantity: req.body.stockQuantity,
       quantity: req.body.quantity,
       tags: req.body.tags,
     });
@@ -59,6 +60,10 @@ router.post(
       sellerId: product.sellerId.toString(),
       image: product.image,
       quantity: product.quantity!,
+      category: product.category,
+      originalPrice: product.originalPrice!,
+      stockQuantity: product.stockQuantity!,
+      tags: product.tags || [],
     });
 
     res.status(201).send(product);

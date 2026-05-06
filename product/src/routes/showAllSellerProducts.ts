@@ -10,6 +10,7 @@ router.get(
   restrictTo('seller', 'admin'),
   async (req: Request, res: Response, next: NextFunction) => {
     const sellerId = req.user.id;
+    req.query.sort = '-createdAt';
     const productApiFeature = new ProductAPIFeature(Product.find({ sellerId }), req.query)
       .filter()
       .sort()

@@ -139,7 +139,7 @@ GET /api/product?fields=title,price,image&sort=price,-rating
 
 ```typescript
 // MongoDB performance indexes
-productSchema.index({ title: 'text', tags: 'text' }, { weights: { title: 10, tags: 2 } });
+productSchema.index({ title: "text", tags: "text" }, { weights: { title: 10, tags: 2 } });
 productSchema.index({ category: 1, price: -1 });
 productSchema.index({ sellerId: 1, category: 1 });
 ```
@@ -182,11 +182,11 @@ productSchema.index({ sellerId: 1, category: 1 });
 // Intelligent caching with TTL optimization
 function getCacheTTL(queryType: string): number {
   switch (queryType) {
-    case 'search':
+    case "search":
       return 3600; // 1 hour - stable, high-value
-    case 'category':
+    case "category":
       return 600; // 10 minutes - moderate frequency
-    case 'filtered':
+    case "filtered":
       return 300; // 5 minutes - dynamic content
     default:
       return 0; // No caching
@@ -217,7 +217,7 @@ function generateSearchCacheKey(query: any): string {
   });
 
   const keyString = JSON.stringify(searchParams);
-  const hash = crypto.createHash('md5').update(keyString).digest('hex');
+  const hash = crypto.createHash("md5").update(keyString).digest("hex");
   return `product_search:${hash}`;
 }
 ```
@@ -231,7 +231,7 @@ function generateSearchCacheKey(query: any): string {
   <img src="https://github.com/get-icon/geticon/raw/master/icons/typescript-icon.svg" alt="TypeScript" width="35" height="35">
   <img src="https://github.com/get-icon/geticon/raw/master/icons/nodejs-icon.svg" alt="Node.js" width="35" height="35">
   <img src="https://miro.medium.com/v2/resize:fit:600/1*i2skbfmDsHayHhqPfwt6pA.png" alt="Golang" width="35" height="35">
-  <img src="https://adware-technologies.s3.amazonaws.com/uploads/technology/thumbnail/20/express-js.png" alt="Express.js" width="35" height="35">
+  <!-- <img src="https://adware-technologies.s3.amazonaws.com/uploads/technology/thumbnail/20/express-js.png" alt="Express.js" width="35" height="35"> -->
   <img src="https://images.opencollective.com/rspack/7a6035e/logo/256.png" alt="RSPack" width="35" height="35">
   <img src="https://i.pinimg.com/474x/19/2c/7e/192c7e8637656cab675eaf9c7f3a44ee.jpg" alt="MUI" width="35" height="35">
   <img src="https://github.com/get-icon/geticon/raw/master/icons/redux.svg" alt="Redux" width="35" height="35">
@@ -241,7 +241,7 @@ function generateSearchCacheKey(query: any): string {
   <img src="https://github.com/get-icon/geticon/raw/master/icons/elasticsearch.svg" alt="Elasticsearch" width="35" height="35">
   <img src="https://github.com/get-icon/geticon/raw/master/icons/docker-icon.svg" alt="Docker" width="35" height="35">
   <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/3/39/Kubernetes_logo_without_workmark.svg/500px-Kubernetes_logo_without_workmark.svg.png" alt="Kubernetes" width="35" height="35">
-  <img src="https://logos-world.net/wp-content/uploads/2021/08/Amazon-Web-Services-AWS-Logo.png" alt="AWS" width="35" height="35">
+  <!-- <img src="https://logos-world.net/wp-content/uploads/2021/08/Amazon-Web-Services-AWS-Logo.png" alt="AWS" width="35" height="35"> -->
   <img src="https://cdn.prod.website-files.com/65264f6bf54e751c3a776db1/66d86964333d11e0a1f1da9e_github_actions.png" alt="GitHub Actions" width="35" height="35">
   <img src="https://cdn.creazilla.com/icons/3254262/rabbitmq-icon-icon-sm.png" alt="RabbitMQ" width="35" height="35">
   <img src="https://github.com/get-icon/geticon/raw/master/icons/jest.svg" alt="Jest" width="35" height="35">

@@ -29,7 +29,10 @@ export class ProductUpdatedListener extends BaseListener<ProductUpdatedMessage> 
             product.image = data.image;
 
             await product.save();
-            channel.ack(msg);
+        } else {
+            console.error(`ProductUpdatedListener: product ${data.id} not found — discarding message`);
         }
+
+        channel.ack(msg);
     }
 }

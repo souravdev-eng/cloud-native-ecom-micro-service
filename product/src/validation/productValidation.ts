@@ -1,3 +1,4 @@
+import { BadRequestError } from '@ecom-micro/common';
 import { body } from 'express-validator';
 
 const validCategories = ['phone', 'earphone', 'book', 'fashions', 'other'];
@@ -7,16 +8,22 @@ export const productValidation = [
   body('category').not().isEmpty().withMessage('Product must have a category'),
   body('description').not().isEmpty().withMessage('Product must have a description'),
   body('image').not().isEmpty().withMessage('Product must have a image'),
-  body('price')
-    .isFloat({ min: 100, max: 1000000 })
-    .withMessage('Price must be greater than 100 and less than 1000000'),
+  body('originalPrice')
+    .isFloat({ min: 10, max: 5000000 })
+    .withMessage('Original price must be greater than 10 and less than 5000000'),
+  body('price').custom((value: number, { req }) => {
+    if (req.body.originalPrice <= value) {
+      throw new BadRequestError('Price must be greater than or equal to original price');
+    }
+    return true;
+  }),
 ];
 
 export const productUpdateValidation = [
   body('price')
     .optional()
-    .isFloat({ min: 100, max: 1000000 })
-    .withMessage('Price must be greater than 100 and less than 1000000'),
+    .isFloat({ min: 10, max: 5000000 })
+    .withMessage('Price must be greater than 100 and less than 5000000'),
   body('category')
     .optional()
     .isIn(validCategories)

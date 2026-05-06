@@ -1,632 +1,318 @@
-# 📚 Chapter 6: Session Management
+# 06. Session Management
 
-## 🎯 Learning Objectives
+"Session" is an overloaded word. This chapter covers two distinct cases
+that often live in Redis and treats them separately:
 
-By the end of this chapter, you will understand:
+1. **Server-side sessions** — opaque session ID issued to the client,
+   server stores associated state (user id, CSRF token, MFA state,
+   per-session preferences).
+2. **Token revocation / refresh-token store** — JWT-style stateless auth
+   augmented by a small Redis-backed list of currently-valid or
+   currently-revoked tokens.
 
-- Why Redis is perfect for session storage
-- Session management patterns
-- Implementing secure sessions
-- Cart state management across services
-
----
-
-## 🤔 Why Store Sessions in Redis?
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                    SESSION STORAGE OPTIONS                                   │
-│                                                                              │
-│   Option 1: Server Memory                                                   │
-│   ──────────────────────                                                    │
-│   ┌──────────┐  ┌──────────┐  ┌──────────┐                                 │
-│   │ Server 1 │  │ Server 2 │  │ Server 3 │                                 │
-│   │ Session A│  │ Session B│  │ Session C│                                 │
-│   └──────────┘  └──────────┘  └──────────┘                                 │
-│   ❌ Sessions lost on restart                                               │
-│   ❌ Can't scale horizontally (sticky sessions required)                   │
-│                                                                              │
-│   Option 2: Database                                                        │
-│   ──────────────────                                                        │
-│   Every request → Database query                                            │
-│   ❌ Slow (disk I/O)                                                        │
-│   ❌ Database becomes bottleneck                                            │
-│                                                                              │
-│   Option 3: Redis ✅                                                        │
-│   ───────────────────                                                       │
-│   ┌──────────┐  ┌──────────┐  ┌──────────┐                                 │
-│   │ Server 1 │──┤          ├──│ Server 3 │                                 │
-│   └──────────┘  │  REDIS   │  └──────────┘                                 │
-│   ┌──────────┐──┤ Sessions │                                               │
-│   │ Server 2 │  │          │                                               │
-│   └──────────┘  └──────────┘                                               │
-│   ✅ Fast (in-memory)                                                       │
-│   ✅ Shared across all servers                                              │
-│   ✅ Auto-expiration (TTL)                                                  │
-│   ✅ Persistence options                                                    │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
+Both are common; each has different correctness requirements.
 
 ---
 
-## 1️⃣ Basic Session Store
+## 6.1 Should the session be in Redis at all?
 
-### Session Data Structure
+A purely stateless design (signed JWT, no server-side store) is the
+simplest. Use it when:
 
-```typescript
-interface Session {
-  id: string;
-  userId: string;
-  data: {
-    email: string;
-    role: 'user' | 'admin' | 'seller';
-    preferences?: Record<string, unknown>;
-  };
-  createdAt: number;
-  lastAccess: number;
-  expiresAt: number;
+- You can tolerate the session size in every request (cookies/headers).
+- You do not need to revoke tokens before their natural expiry, or you
+  accept short token lifetimes (≤15 min) plus a refresh-token rotation
+  scheme.
+
+Reach for Redis-backed sessions when at least one of the following
+holds:
+
+- Sessions need to be revoked instantly on logout, password change, or
+  admin action.
+- Per-session state is too large to round-trip on every request.
+- You want an audit trail of active sessions per user
+  ("Sessions logged in" UI).
+- The session carries server-only data (CSRF tokens, MFA challenge
+  state, partial-auth flows).
+
+This platform's `auth/` service should use Redis for refresh tokens and
+revocation lists; everything else can ride on signed JWTs.
+
+---
+
+## 6.2 Session ID requirements
+
+A session ID is a security-critical token. It must be:
+
+- **Unpredictable**: 128+ bits of CSPRNG output, base64-url encoded.
+  Never derived from user data, timestamps, or sequential counters.
+- **Bound to a transport**: an HTTP-only, `Secure`, `SameSite=Lax`
+  (or `Strict`) cookie. Avoid putting session IDs in localStorage where
+  XSS can read them.
+- **Rotated** on privilege change (login, MFA upgrade, role change).
+  Otherwise a session-fixation attack lets an attacker hand the victim
+  a chosen session ID before authentication and inherit it after.
+
+```ts
+import { randomBytes } from 'crypto';
+
+function newSessionId(): string {
+  return randomBytes(32).toString('base64url'); // 256 bits
 }
 ```
 
-### Implementation
+---
 
-```typescript
-import crypto from 'crypto';
-import { RedisClientType } from 'redis';
+## 6.3 Storage shape
 
-class RedisSessionStore {
-  private redis: RedisClientType;
-  private prefix = 'session:';
-  private defaultTTL = 24 * 60 * 60; // 24 hours
+A session is a small object: store it as a Redis hash, one key per
+session, with a TTL.
 
-  constructor(redis: RedisClientType) {
-    this.redis = redis;
-  }
+```
+session:<id>            HASH   {userId, csrf, ip, ua, createdAt, mfa}
+session:user:<userId>   SET    {<sessionId>, ...}        # active sessions for revocation
+```
 
-  /**
-   * Create a new session
-   */
-  async create(userId: string, data: Session['data']): Promise<string> {
-    const sessionId = crypto.randomBytes(32).toString('hex');
-    const now = Date.now();
-    
-    const session: Session = {
-      id: sessionId,
+```ts
+async function createSession(userId: string, meta: SessionMeta): Promise<string> {
+  const id = newSessionId();
+  const key = `session:${id}`;
+  const idleTtlSec = 30 * 60;     // 30 min idle
+  const absoluteTtlSec = 8 * 3600; // 8 h absolute (see §6.4)
+
+  await client
+    .multi()
+    .hSet(key, {
       userId,
-      data,
-      createdAt: now,
-      lastAccess: now,
-      expiresAt: now + (this.defaultTTL * 1000)
-    };
-    
-    await this.redis.set(
-      this.prefix + sessionId,
-      JSON.stringify(session),
-      { EX: this.defaultTTL }
-    );
-    
-    // Track user's sessions (for "logout all devices")
-    await this.redis.sAdd(`user:${userId}:sessions`, sessionId);
-    
-    return sessionId;
-  }
+      csrf: randomBytes(16).toString('base64url'),
+      ip: meta.ip,
+      ua: meta.userAgent,
+      createdAt: String(Date.now()),
+      absoluteExpiresAt: String(Date.now() + absoluteTtlSec * 1000),
+    })
+    .expire(key, idleTtlSec)
+    .sAdd(`session:user:${userId}`, id)
+    .expire(`session:user:${userId}`, absoluteTtlSec)
+    .exec();
 
-  /**
-   * Get session by ID
-   */
-  async get(sessionId: string): Promise<Session | null> {
-    const data = await this.redis.get(this.prefix + sessionId);
-    if (!data) return null;
-    
-    const session = JSON.parse(data) as Session;
-    
-    // Update last access time (sliding expiration)
-    session.lastAccess = Date.now();
-    await this.redis.set(
-      this.prefix + sessionId,
-      JSON.stringify(session),
-      { EX: this.defaultTTL }
-    );
-    
-    return session;
-  }
-
-  /**
-   * Update session data
-   */
-  async update(sessionId: string, data: Partial<Session['data']>): Promise<boolean> {
-    const session = await this.get(sessionId);
-    if (!session) return false;
-    
-    session.data = { ...session.data, ...data };
-    session.lastAccess = Date.now();
-    
-    await this.redis.set(
-      this.prefix + sessionId,
-      JSON.stringify(session),
-      { EX: this.defaultTTL }
-    );
-    
-    return true;
-  }
-
-  /**
-   * Destroy session
-   */
-  async destroy(sessionId: string): Promise<void> {
-    const session = await this.get(sessionId);
-    if (session) {
-      // Remove from user's session set
-      await this.redis.sRem(`user:${session.userId}:sessions`, sessionId);
-    }
-    await this.redis.del(this.prefix + sessionId);
-  }
-
-  /**
-   * Destroy all sessions for a user (logout everywhere)
-   */
-  async destroyAllForUser(userId: string): Promise<number> {
-    const sessionIds = await this.redis.sMembers(`user:${userId}:sessions`);
-    
-    if (sessionIds.length > 0) {
-      // Delete all session keys
-      await this.redis.del(sessionIds.map(id => this.prefix + id));
-      // Clear the user's session set
-      await this.redis.del(`user:${userId}:sessions`);
-    }
-    
-    return sessionIds.length;
-  }
+  return id;
 }
 ```
 
+The `session:user:<userId>` set lets you enumerate or revoke all
+sessions for a user. Without it, "log out everywhere" requires scanning
+the keyspace.
+
 ---
 
-## 2️⃣ Express Session Middleware
+## 6.4 Idle vs absolute timeout
 
-### Using express-session with Redis
+Two timeouts must coexist:
 
-```typescript
-import session from 'express-session';
-import RedisStore from 'connect-redis';
-import { createClient } from 'redis';
+- **Idle timeout** (e.g. 30 min): the session expires if not used.
+  Implemented as the Redis TTL, refreshed on every access (`EXPIRE`).
+- **Absolute timeout** (e.g. 8 h or 24 h): the session expires
+  unconditionally regardless of activity. Implemented as a stored
+  timestamp inside the hash; the application checks it on every read.
 
-// Create Redis client
-const redisClient = createClient({ url: process.env.REDIS_URL });
-await redisClient.connect();
+Without an absolute timeout, an attacker who steals a session can keep
+it alive indefinitely by issuing one request per `idleTimeout - ε`.
+Without an idle timeout, abandoned sessions on shared computers persist
+for the full absolute window.
 
-// Initialize store
-const redisStore = new RedisStore({
-  client: redisClient,
-  prefix: 'sess:',
-  ttl: 86400 // 24 hours
-});
+```ts
+async function loadSession(id: string): Promise<Session | null> {
+  const key = `session:${id}`;
+  const data = await client.hGetAll(key);
+  if (!data || !data.userId) return null;
 
-// Configure session middleware
-app.use(session({
-  store: redisStore,
-  secret: process.env.SESSION_SECRET!,
-  resave: false,
-  saveUninitialized: false,
-  name: 'sessionId', // Cookie name
-  cookie: {
-    secure: process.env.NODE_ENV === 'production', // HTTPS only in prod
-    httpOnly: true, // Prevent XSS
-    maxAge: 24 * 60 * 60 * 1000, // 24 hours
-    sameSite: 'strict' // CSRF protection
+  if (Date.now() > Number(data.absoluteExpiresAt)) {
+    await destroySession(id);
+    return null;
   }
-}));
 
-// Usage in routes
-app.post('/api/auth/login', async (req, res) => {
-  const { email, password } = req.body;
-  
-  const user = await authService.validateCredentials(email, password);
-  if (!user) {
-    return res.status(401).json({ error: 'Invalid credentials' });
-  }
-  
-  // Store user in session
-  req.session.user = {
-    id: user.id,
-    email: user.email,
-    role: user.role
+  // Slide the idle window
+  await client.expire(key, 30 * 60);
+
+  return {
+    userId: data.userId,
+    csrf: data.csrf,
+    /* ... */
   };
-  
-  res.json({ success: true, user: req.session.user });
-});
+}
+```
 
-app.post('/api/auth/logout', (req, res) => {
-  req.session.destroy((err) => {
-    if (err) {
-      return res.status(500).json({ error: 'Logout failed' });
-    }
-    res.clearCookie('sessionId');
-    res.json({ success: true });
+---
+
+## 6.5 Rotation on privilege change
+
+After any privilege change — login, MFA completion, role change, password
+change — issue a **new** session ID and invalidate the old one. The
+client receives the new ID via `Set-Cookie`; existing tokens are
+unusable.
+
+```ts
+async function rotate(oldId: string): Promise<string> {
+  const data = await client.hGetAll(`session:${oldId}`);
+  await destroySession(oldId);
+  return createSession(data.userId, {
+    ip: data.ip,
+    userAgent: data.ua,
   });
-});
-```
-
----
-
-## 3️⃣ JWT + Redis (Revocable Tokens)
-
-**Problem:** JWTs can't be revoked once issued.
-
-**Solution:** Store valid tokens in Redis, check on each request.
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                    JWT + REDIS PATTERN                                       │
-│                                                                              │
-│   Traditional JWT (Stateless):                                              │
-│   ────────────────────────────                                              │
-│   Token issued → Valid until expiry                                         │
-│   ❌ Can't revoke (user logged out but token still works!)                  │
-│                                                                              │
-│   JWT + Redis (Revocable):                                                  │
-│   ────────────────────────                                                  │
-│   Token issued → Store token ID in Redis                                    │
-│   Each request → Check Redis: Is token ID valid?                            │
-│   Logout → Delete token ID from Redis                                       │
-│   ✅ Can revoke anytime                                                     │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
-
-### Implementation
-
-```typescript
-import jwt from 'jsonwebtoken';
-
-class TokenService {
-  private redis: RedisClientType;
-  private jwtSecret: string;
-  private accessTTL = 15 * 60; // 15 minutes
-  private refreshTTL = 7 * 24 * 60 * 60; // 7 days
-
-  /**
-   * Issue access and refresh tokens
-   */
-  async issueTokens(userId: string, data: { email: string; role: string }) {
-    const tokenId = crypto.randomUUID();
-    
-    // Access token (short-lived)
-    const accessToken = jwt.sign(
-      { userId, tokenId, type: 'access', ...data },
-      this.jwtSecret,
-      { expiresIn: '15m' }
-    );
-    
-    // Refresh token (long-lived)
-    const refreshToken = jwt.sign(
-      { userId, tokenId, type: 'refresh' },
-      this.jwtSecret,
-      { expiresIn: '7d' }
-    );
-    
-    // Store token ID in Redis (whitelist approach)
-    await this.redis.set(
-      `token:${tokenId}`,
-      JSON.stringify({ userId, issuedAt: Date.now() }),
-      { EX: this.refreshTTL }
-    );
-    
-    // Track user's tokens
-    await this.redis.sAdd(`user:${userId}:tokens`, tokenId);
-    await this.redis.expire(`user:${userId}:tokens`, this.refreshTTL);
-    
-    return { accessToken, refreshToken };
-  }
-
-  /**
-   * Verify token is valid and not revoked
-   */
-  async verifyToken(token: string): Promise<{ valid: boolean; payload?: any }> {
-    try {
-      const payload = jwt.verify(token, this.jwtSecret) as any;
-      
-      // Check if token is in Redis (not revoked)
-      const exists = await this.redis.exists(`token:${payload.tokenId}`);
-      
-      if (!exists) {
-        return { valid: false }; // Token was revoked
-      }
-      
-      return { valid: true, payload };
-    } catch (error) {
-      return { valid: false };
-    }
-  }
-
-  /**
-   * Refresh access token
-   */
-  async refreshAccessToken(refreshToken: string): Promise<string | null> {
-    const result = await this.verifyToken(refreshToken);
-    
-    if (!result.valid || result.payload.type !== 'refresh') {
-      return null;
-    }
-    
-    // Issue new access token with same tokenId
-    const accessToken = jwt.sign(
-      { 
-        userId: result.payload.userId, 
-        tokenId: result.payload.tokenId,
-        type: 'access'
-      },
-      this.jwtSecret,
-      { expiresIn: '15m' }
-    );
-    
-    return accessToken;
-  }
-
-  /**
-   * Revoke a specific token
-   */
-  async revokeToken(tokenId: string): Promise<void> {
-    const data = await this.redis.get(`token:${tokenId}`);
-    if (data) {
-      const { userId } = JSON.parse(data);
-      await this.redis.sRem(`user:${userId}:tokens`, tokenId);
-    }
-    await this.redis.del(`token:${tokenId}`);
-  }
-
-  /**
-   * Revoke all tokens for user (logout everywhere)
-   */
-  async revokeAllUserTokens(userId: string): Promise<number> {
-    const tokenIds = await this.redis.sMembers(`user:${userId}:tokens`);
-    
-    if (tokenIds.length > 0) {
-      await this.redis.del(tokenIds.map(id => `token:${id}`));
-      await this.redis.del(`user:${userId}:tokens`);
-    }
-    
-    return tokenIds.length;
-  }
 }
 ```
 
-### Auth Middleware
-
-```typescript
-// middleware/auth.ts
-export const authMiddleware = (tokenService: TokenService) => {
-  return async (req: Request, res: Response, next: NextFunction) => {
-    const authHeader = req.headers.authorization;
-    
-    if (!authHeader?.startsWith('Bearer ')) {
-      return res.status(401).json({ error: 'No token provided' });
-    }
-    
-    const token = authHeader.split(' ')[1];
-    const result = await tokenService.verifyToken(token);
-    
-    if (!result.valid) {
-      return res.status(401).json({ error: 'Invalid or expired token' });
-    }
-    
-    req.user = result.payload;
-    next();
-  };
-};
-```
+This is non-negotiable for login flows. It defeats session fixation
+attacks at minimal cost.
 
 ---
 
-## 4️⃣ Shopping Cart with Redis
+## 6.6 Revocation
 
-Carts are perfect for Redis - temporary, frequently updated, and shared across sessions.
+Two cases:
 
-### Cart Data Structure
+### Targeted revocation ("log out this session")
 
-```typescript
-interface CartItem {
-  productId: string;
-  quantity: number;
-  price: number;
-  addedAt: number;
-}
-
-interface Cart {
-  userId: string;
-  items: CartItem[];
-  updatedAt: number;
+```ts
+async function destroySession(id: string): Promise<void> {
+  const userId = await client.hGet(`session:${id}`, 'userId');
+  await client
+    .multi()
+    .del(`session:${id}`)
+    .sRem(`session:user:${userId}`, id)
+    .exec();
 }
 ```
 
-### Cart Service
+### Bulk revocation ("log out everywhere", "password changed")
 
-```typescript
-class CartService {
-  private redis: RedisClientType;
-  private cartTTL = 7 * 24 * 60 * 60; // 7 days
-
-  private cartKey(userId: string): string {
-    return `cart:${userId}`;
-  }
-
-  /**
-   * Get cart contents
-   */
-  async getCart(userId: string): Promise<Cart> {
-    const data = await this.redis.hGetAll(this.cartKey(userId));
-    
-    const items: CartItem[] = Object.entries(data).map(([productId, value]) => {
-      const item = JSON.parse(value);
-      return { productId, ...item };
-    });
-    
-    return {
-      userId,
-      items,
-      updatedAt: Date.now()
-    };
-  }
-
-  /**
-   * Add item to cart
-   */
-  async addItem(userId: string, item: Omit<CartItem, 'addedAt'>): Promise<Cart> {
-    const key = this.cartKey(userId);
-    
-    // Check if item exists
-    const existing = await this.redis.hGet(key, item.productId);
-    
-    if (existing) {
-      const existingItem = JSON.parse(existing);
-      existingItem.quantity += item.quantity;
-      await this.redis.hSet(key, item.productId, JSON.stringify(existingItem));
-    } else {
-      await this.redis.hSet(key, item.productId, JSON.stringify({
-        quantity: item.quantity,
-        price: item.price,
-        addedAt: Date.now()
-      }));
-    }
-    
-    // Reset TTL
-    await this.redis.expire(key, this.cartTTL);
-    
-    // Publish cart update event
-    await this.redis.publish('cart:updated', JSON.stringify({ userId, productId: item.productId }));
-    
-    return this.getCart(userId);
-  }
-
-  /**
-   * Update item quantity
-   */
-  async updateQuantity(userId: string, productId: string, quantity: number): Promise<Cart> {
-    const key = this.cartKey(userId);
-    
-    if (quantity <= 0) {
-      await this.redis.hDel(key, productId);
-    } else {
-      const existing = await this.redis.hGet(key, productId);
-      if (existing) {
-        const item = JSON.parse(existing);
-        item.quantity = quantity;
-        await this.redis.hSet(key, productId, JSON.stringify(item));
-      }
-    }
-    
-    await this.redis.expire(key, this.cartTTL);
-    return this.getCart(userId);
-  }
-
-  /**
-   * Remove item from cart
-   */
-  async removeItem(userId: string, productId: string): Promise<Cart> {
-    await this.redis.hDel(this.cartKey(userId), productId);
-    return this.getCart(userId);
-  }
-
-  /**
-   * Clear entire cart
-   */
-  async clearCart(userId: string): Promise<void> {
-    await this.redis.del(this.cartKey(userId));
-  }
-
-  /**
-   * Get cart total
-   */
-  async getCartTotal(userId: string): Promise<{ items: number; total: number }> {
-    const cart = await this.getCart(userId);
-    
-    const items = cart.items.reduce((sum, item) => sum + item.quantity, 0);
-    const total = cart.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-    
-    return { items, total };
-  }
-
-  /**
-   * Merge guest cart into user cart (after login)
-   */
-  async mergeCarts(guestId: string, userId: string): Promise<Cart> {
-    const guestCart = await this.getCart(guestId);
-    
-    for (const item of guestCart.items) {
-      await this.addItem(userId, item);
-    }
-    
-    // Delete guest cart
-    await this.clearCart(guestId);
-    
-    return this.getCart(userId);
-  }
+```ts
+async function revokeAll(userId: string): Promise<void> {
+  const ids = await client.sMembers(`session:user:${userId}`);
+  if (ids.length === 0) return;
+  const tx = client.multi();
+  for (const id of ids) tx.del(`session:${id}`);
+  tx.del(`session:user:${userId}`);
+  await tx.exec();
 }
 ```
 
+Trigger `revokeAll` on:
+
+- Password change
+- Email change with re-verification
+- Suspicious-login security action
+- Admin "force logout"
+
 ---
 
-## 5️⃣ Session Security Best Practices
+## 6.7 Refresh tokens (JWT pattern)
+
+If the platform uses short-lived access JWTs (5–15 min) plus long-lived
+refresh tokens, store **only the refresh token** server-side. The access
+token remains stateless and self-contained.
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                    SESSION SECURITY CHECKLIST                                │
-│                                                                              │
-│   ✅ Use secure random session IDs (32+ bytes)                              │
-│   ✅ Set short TTL for sensitive sessions                                   │
-│   ✅ Implement sliding expiration (extend on activity)                      │
-│   ✅ Store minimal data in session                                          │
-│   ✅ Use HTTPS only in production                                           │
-│   ✅ Set HttpOnly and Secure cookie flags                                   │
-│   ✅ Implement logout all devices                                           │
-│   ✅ Regenerate session ID after login                                      │
-│   ✅ Monitor for session fixation attacks                                   │
-│   ✅ Rate limit session creation                                            │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
+auth:refresh:<tokenId>            HASH   {userId, family, issuedAt}
+auth:refresh:user:<userId>        SET    {<tokenId>, ...}
+auth:refresh:family:<familyId>    HASH   {revokedAt}    # for reuse detection
 ```
 
-### Session Regeneration After Login
+Critical property: **detect token reuse**. When a refresh token is
+exchanged, mark it consumed. If the same token is presented twice, the
+second presentation is either a replay attack or a stolen token — revoke
+the entire token *family* (every refresh issued in that login chain).
 
-```typescript
-// Prevent session fixation attacks
-app.post('/api/auth/login', async (req, res) => {
-  const user = await authService.authenticate(req.body);
-  
-  // Regenerate session ID after successful login
-  req.session.regenerate((err) => {
-    if (err) {
-      return res.status(500).json({ error: 'Session error' });
-    }
-    
-    req.session.user = user;
-    res.json({ success: true });
-  });
-});
+```ts
+const REFRESH_LUA = `
+  local data = redis.call('HMGET', KEYS[1], 'userId', 'family')
+  local userId, family = data[1], data[2]
+  if not userId then return {0, 'unknown'} end
+
+  if redis.call('EXISTS', KEYS[2]) == 1 then
+    -- family already revoked; refuse
+    return {0, 'revoked'}
+  end
+
+  -- Single-use: delete the presented token
+  redis.call('DEL', KEYS[1])
+  redis.call('SREM', KEYS[3], ARGV[1])
+  return {1, userId, family}
+`;
 ```
 
----
-
-## 🧠 Quick Recap
-
-| Pattern | Use Case | Benefits |
-|---------|----------|----------|
-| **Session Store** | Traditional web apps | Simple, well-supported |
-| **JWT + Redis** | APIs, mobile apps | Revocable, scalable |
-| **Cart Storage** | E-commerce | Fast, temporary |
+If a deletion fails (token already consumed), promote the family to
+revoked and force re-authentication. This is the mechanism that limits
+the blast radius of a leaked refresh token.
 
 ---
 
-## 🏋️ Exercises
+## 6.8 CSRF tokens
 
-1. **Implement sessions**: Add Redis-backed sessions to your Auth Service
-2. **Cart service**: Build a cart service using Redis Hashes
-3. **Multi-device**: Implement "logout all devices" functionality
+For cookie-bound sessions, every state-changing request must carry a
+CSRF token (header or form field) that matches a value stored in the
+session hash. Generate at session creation, rotate at privilege change,
+include in the response for the SPA to read once via a `/csrf` endpoint.
+
+The simplest correct implementation is the **double-submit cookie**
+pattern with a session-bound secret, not a stateless one — the latter is
+weaker against subdomain XSS.
 
 ---
 
-## ➡️ Next Chapter
+## 6.9 What not to put in the session
 
-[Chapter 7: Sorted Sets & Leaderboards](./07-sorted-sets-leaderboards.md) - Build trending products and rankings!
+- **Permissions / role state** in serialised form. Look up roles fresh
+  from the SoR per request (cached separately with short TTL). A session
+  surviving a role downgrade is a privilege-escalation bug.
+- **Large user objects**. Store a `userId` and load the rest. Keep
+  session payloads under ~4 KB.
+- **Anything you would not want in a memory dump**. Redis is in-memory
+  and may be persisted to disk (RDB) if AOF is on. Plaintext passwords,
+  full PANs, and similar must not be in session state.
 
+---
+
+## 6.10 Eviction and durability
+
+Sessions on a shared cache instance can be evicted under memory pressure
+(`maxmemory-policy=allkeys-lru`), which silently logs users out. Two
+mitigations:
+
+- **Dedicated Redis instance for auth/sessions**, sized so it never hits
+  `maxmemory`. Use `volatile-ttl` or `noeviction` policy. Cache and
+  session workloads have different durability requirements; collocating
+  them is operationally error-prone.
+- **AOF on for the session instance**, with `appendfsync everysec`.
+  After a primary failover, recently-issued sessions remain valid. RDB
+  alone may lose minutes of sessions.
+
+---
+
+## 6.11 Concurrency: sliding TTL race
+
+Two concurrent requests for the same session both want to slide the TTL
+and update `lastAccess`. Without atomicity, one update can be lost.
+
+For the TTL alone, `EXPIRE` is idempotent — running it from two clients
+just sets the same value. For `lastAccess` updates that must reflect the
+true last access, use `HSET` with the request's timestamp; the highest
+timestamp wins, which is acceptable. For more complex concurrent updates
+(MFA challenge state during login), use a Lua script.
+
+---
+
+## 6.12 Observability
+
+- `session_create_total{reason="login|mfa|rotate"}`
+- `session_destroy_total{reason="logout|expire|revokeAll|rotate"}`
+- `active_sessions` (gauge, sampled — `DBSIZE`-style estimate)
+- `refresh_token_reuse_detected_total` — alert on any non-zero rate; this
+  is a security signal.
+
+---
+
+## 6.13 Continue
+
+- [03. Cache Invalidation](./03-cache-invalidation.md) — applies to permission/role caches that sit alongside sessions.
+- [08. Production Patterns](./08-production-patterns.md) — persistence and isolation choices for the auth Redis instance.

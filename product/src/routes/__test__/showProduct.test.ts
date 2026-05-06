@@ -1,6 +1,10 @@
 import request from 'supertest';
 import app from '../../app';
 
+jest.mock('../../services/uploadImageToAws', () => ({
+  uploadImageToAws: jest.fn().mockResolvedValue('https://test-bucket.s3.us-east-1.amazonaws.com/test.jpg'),
+}));
+
 let userToken: any;
 let userPayload: any;
 
@@ -12,7 +16,9 @@ beforeEach(async () => {
   let productData1 = {
     title: 'Test data 1',
     description: 'Test description',
+    originalPrice: 200,
     price: 150,
+    stockQuantity: 10,
     image: 'http://test.png',
     category: 'book',
     sellerId: userPayload.id,
@@ -20,15 +26,19 @@ beforeEach(async () => {
   let productData2 = {
     title: 'Test data 2',
     description: 'Test description',
+    originalPrice: 250,
     price: 190,
+    stockQuantity: 10,
     image: 'http://test.png',
     category: 'book',
     sellerId: userPayload.id,
   };
   let productData3 = {
-    title: 'Test data 1',
+    title: 'Test data 3',
     description: 'Test description',
+    originalPrice: 200,
     price: 150,
+    stockQuantity: 10,
     image: 'http://test.png',
     category: 'book',
     sellerId: userPayload.id,
