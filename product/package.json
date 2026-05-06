@@ -5,18 +5,18 @@
   "license": "MIT",
   "scripts": {
     "start": "ts-node-dev --poll src/index.ts",
+    "seed": "ts-node src/seeds/seedProducts.ts",
+    "migrate:text-index": "ts-node src/migrations/2026-04-25-product-text-index.ts",
     "d-build": "docker build -t souravdeveloper/ecom-product .",
     "d-push": "docker push souravdeveloper/ecom-product",
     "d-pub": "npm run d-build && npm run d-push",
-    "test": "jest --watchAll --no-cache"
+    "test": "jest --no-cache",
+    "test:watch": "jest --watchAll --no-cache",
+    "test:ci": "jest"
   },
   "config": {
     "mongodbMemoryServer": {
-      "systemBinary": "/opt/homebrew/bin/mongod",
-      "arch": "x64",
-      "disablePostinstall": "1",
-      "version": "6.5.1",
-      "debug": "0"
+      "version": "7.0.14"
     }
   },
   "jest": {
@@ -25,23 +25,30 @@
     "testTimeout": 3000,
     "setupFilesAfterEnv": [
       "./src/test/setup.ts"
+    ],
+    "watchPathIgnorePatterns": [
+      "node_modules"
     ]
   },
   "dependencies": {
-    "@ecom-micro/common": "^2.0.48",
+    "@aws-sdk/client-s3": "^3.958.0",
+    "@ecom-micro/common": "^2.0.51",
     "@types/amqplib": "^0.10.5",
     "@types/cookie-session": "^2.0.44",
     "@types/cors": "^2.8.12",
     "@types/express": "^4.17.14",
     "@types/express-validator": "^3.0.0",
+    "@types/jsonwebtoken": "^8.5.9",
     "@types/mongoose": "^5.11.97",
     "@types/uuid": "^9.0.0",
     "amqplib": "^0.10.3",
+    "aws-sdk": "^2.1693.0",
     "cookie-session": "^2.0.0",
     "cors": "^2.8.5",
     "express": "^4.18.2",
     "express-async-errors": "^3.1.1",
     "express-validator": "^6.14.2",
+    "jsonwebtoken": "^8.5.1",
     "mongoose": "^6.7.5",
     "node-nats-streaming": "^0.3.2",
     "redis": "^4.6.14",
@@ -54,7 +61,7 @@
     "@types/node": "^18.11.15",
     "@types/supertest": "^2.0.12",
     "jest": "^29.3.1",
-    "mongodb-memory-server": "6.5.1",
+    "mongodb-memory-server": "^10.1.2",
     "supertest": "^6.3.1",
     "ts-jest": "^29.0.3"
   }

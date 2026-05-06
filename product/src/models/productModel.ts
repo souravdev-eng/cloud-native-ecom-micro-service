@@ -1,12 +1,4 @@
-import mongoose from 'mongoose';
-
-enum Category {
-  Phone = 'phone',
-  earphone = 'earphone',
-  Book = 'book',
-  Fashions = 'fashions',
-  other = 'other',
-}
+import mongoose from "mongoose";
 
 interface ProductAttars {
   title: string;
@@ -15,9 +7,10 @@ interface ProductAttars {
   sellerId: string;
   description: string;
   quantity?: number;
-  category: Category;
+  category: string;
   tags?: string[];
-  rating?: number;
+  originalPrice: number;
+  stockQuantity: number;
 }
 
 interface ProductDoc extends mongoose.Document {
@@ -27,9 +20,11 @@ interface ProductDoc extends mongoose.Document {
   sellerId: mongoose.Types.ObjectId;
   description: string;
   quantity?: number;
-  category: Category;
-  tags?: string[];
   rating: number;
+  originalPrice: number;
+  stockQuantity: number;
+  tags: string[];
+  category: string;
 }
 
 interface ProductModel extends mongoose.Model<ProductDoc> {
@@ -49,35 +44,50 @@ const productSchema = new mongoose.Schema(
     },
     category: {
       type: String,
-      default: Category.other,
+      default: "other",
     },
     description: {
       type: String,
     },
     price: {
       type: Number,
-      min: 100,
+      required: true,
+    },
+    originalPrice: {
+      type: Number,
+      min: 10,
+      max: 5000000,
       required: true,
     },
     rating: {
       type: Number,
-      default: 4.5,
+      // default: 4.5,
     },
     quantity: {
       type: Number,
       default: 5,
     },
+    stockQuantity: {
+      type: Number,
+      min: 5,
+      required: true,
+    },
     sellerId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
+      ref: "User",
       required: true,
     },
     tags: {
       type: [String],
       default: [],
     },
+    createdAt: {
+      type: Date,
+      default: Date.now,
+    },
   },
   {
+    timestamps: true,
     toJSON: {
       transform(_, ret) {
         ret.id = ret._id;
@@ -85,16 +95,33 @@ const productSchema = new mongoose.Schema(
         delete ret.__v;
       },
     },
-  }
+  },
 );
 
-// Text index for search
+// Text index for search.
+//
+// MongoDB allows exactly one text index per collection, and the engine
+// matches `$text: { $search: ... }` against ALL fields included here.
+// Title is the most precise signal; tags are curated, low-noise
+// keywords; description is useful but noisy. Weights are relative —
+// what matters is the ratio.
+//
+// Migration note: this replaces the previous `TextSearch_title` index
+// (title-only). MongoDB will not reshape an existing text index in
+// place — Mongoose's ensureIndex / autoIndex logs an error and leaves
+// the old one. To roll the change out, run the one-shot migration:
+//
+//   npm run migrate:text-index
+//
+// (See product/src/migrations/2026-04-25-product-text-index.ts.)
+// The script is idempotent and safe to run multiple times.
 productSchema.index(
-  { title: 'text' },
+  { title: "text", tags: "text", description: "text" },
   {
-    name: 'TextSearch_title',
-    weights: { title: 10 },
-  }
+    name: "ProductTextIndex",
+    weights: { title: 10, tags: 5, description: 1 },
+    default_language: "english",
+  },
 );
 
 productSchema.index(
@@ -103,7 +130,7 @@ productSchema.index(
     price: -1,
     quantity: 1,
   },
-  { name: 'category_1_price_-1_quantity1' }
+  { name: "category_1_price_-1_quantity1" },
 );
 
 // Filter/sort indexes
@@ -117,6 +144,6 @@ productSchema.statics.build = (attars: ProductAttars) => {
   return new Product(attars);
 };
 
-const Product = mongoose.model<ProductDoc, ProductModel>('Product', productSchema);
+const Product = mongoose.model<ProductDoc, ProductModel>("Product", productSchema);
 
 export { Product };

@@ -3,37 +3,51 @@ import { v4 as uuidv4 } from 'uuid';
 import jwt from 'jsonwebtoken';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 
+// Mock the queue modules to prevent RabbitMQ connections during tests
+jest.mock('../queue/connection', () => ({
+    queueConnection: {
+        createConnection: jest.fn().mockResolvedValue(null),
+    },
+}));
+
+jest.mock('../queue/auth.producer', () => ({
+    publishDirectMessage: jest.fn().mockResolvedValue(undefined),
+}));
+
 declare global {
     function signIn(): string[];
     function sellerSignIn(): any;
 }
 
-let mongo: any;
+let mongo: MongoMemoryServer;
+
 beforeAll(async () => {
     process.env.JWT_KEY = 'asdfasdf';
     process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
     process.env.JWT_EXP = '90d';
 
-    mongo = new MongoMemoryServer();
-    const mongoUri = await mongo.getUri();
+    mongo = await MongoMemoryServer.create();
+    const mongoUri = mongo.getUri();
 
     await mongoose.connect(mongoUri);
-});
+}, 120000); // 2 minutes timeout for MongoDB binary download on first run
 
 beforeEach(async () => {
     jest.clearAllMocks();
-    // @ts-ignore
-    const collections = await mongoose.connection.db.collections();
-
-    for (let collection of collections) {
-        await collection.deleteMany({});
+    const db = mongoose.connection.db;
+    if (db) {
+        const collections = await db.collections();
+        for (let collection of collections) {
+            await collection.deleteMany({});
+        }
     }
 });
 
 afterAll(async () => {
-    jest.setTimeout(10000);
-    await mongo.stop();
-    await mongoose.connection.close();
+    await mongoose.disconnect();
+    if (mongo) {
+        await mongo.stop({ doCleanup: true });
+    }
 });
 
 global.signIn = () => {

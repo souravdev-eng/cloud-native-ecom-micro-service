@@ -1,48 +1,39 @@
-import { DataSource } from 'typeorm';
-import app from './app';
-import { Cart } from './entity/Cart';
-import { Product } from './entity/Product';
-import { rabbitMQWrapper } from './rabbitMQWrapper';
-import { ProductCreatedListener } from './queues/listener/productCreatedListener';
-import { ProductUpdatedListener } from './queues/listener/productUpdatedListener';
-import { ProductQuantityUpdateListener } from './queues/listener/productQuantityUpdate';
+import app from "./app";
+import { rabbitMQWrapper } from "./rabbitMQWrapper";
+import { ProductDeleteListener } from "./queues/listener/productDeleteListener";
+import { ProductCreatedListener } from "./queues/listener/productCreatedListener";
+import { ProductUpdatedListener } from "./queues/listener/productUpdatedListener";
+import { ProductQuantityUpdateListener } from "./queues/listener/productQuantityUpdate";
+import { initializeDatabase } from "./dbConfig";
 
 const start = async () => {
-  if (!process.env.CART_DB_URL) {
-    throw new Error('CART_DB_URL must be defined');
-  }
-
   if (!process.env.RABBITMQ_ENDPOINT) {
-    throw new Error('RABBITMQ_ENDPOINT must be defined');
+    throw new Error("RABBITMQ_ENDPOINT must be defined");
   }
 
-  try {
-    const AppDataSource = new DataSource({
-      type: 'postgres',
-      port: 5432,
-      url: process.env.CART_DB_URL,
-      entities: [Cart, Product],
-      synchronize: true,
-    });
+  await initializeDatabase();
 
-    AppDataSource.initialize()
-      .then(() => {
-        console.log(`Cart Postgres Server Started...`);
-      })
-      .catch((err: any) => {
-        console.error(err.message);
-        process.exit();
-      });
+  await rabbitMQWrapper.connect(process.env.RABBITMQ_ENDPOINT!);
+  await new ProductDeleteListener(rabbitMQWrapper.channel).listen();
+  await new ProductCreatedListener(rabbitMQWrapper.channel).listen();
+  await new ProductUpdatedListener(rabbitMQWrapper.channel).listen();
+  await new ProductQuantityUpdateListener(rabbitMQWrapper.channel).listen();
 
-    await rabbitMQWrapper.connect(process.env.RABBITMQ_ENDPOINT!);
-    // Set up product event listeners
-    await new ProductCreatedListener(rabbitMQWrapper.channel).listen();
-    await new ProductUpdatedListener(rabbitMQWrapper.channel).listen();
-    await new ProductQuantityUpdateListener(rabbitMQWrapper.channel).listen();
-  } catch (error: any) {
-    console.log('CART DB ERROR', error.message);
-  }
-  app.listen(4000, () => console.log(`Cart service running on PORT 4000....`));
+  const PORT = parseInt(process.env.PORT ?? "4000", 10);
+  const server = app.listen(PORT, () =>
+    console.log(`Cart service running on PORT ${PORT}....`)
+  );
+
+  const shutdown = async () => {
+    await rabbitMQWrapper.close();
+    server.close(() => process.exit(0));
+  };
+
+  process.on("SIGTERM", shutdown);
+  process.on("SIGINT", shutdown);
 };
 
-start();
+start().catch((error: any) => {
+  console.error("CART STARTUP ERROR", error.message);
+  process.exit(1);
+});

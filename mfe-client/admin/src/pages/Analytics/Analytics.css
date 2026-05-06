@@ -1,0 +1,310 @@
+.analytics-page {
+	max-width: 1600px;
+	margin: 0 auto;
+}
+
+.header-actions {
+	display: flex;
+	gap: 12px;
+}
+
+/* Metrics Grid */
+.metrics-grid {
+	display: grid;
+	grid-template-columns: repeat(4, 1fr);
+	gap: 16px;
+	margin-bottom: 24px;
+}
+
+.metric-card {
+	background: var(--bg-secondary);
+	border: 1px solid var(--border-subtle);
+	border-radius: var(--radius-md);
+	padding: 20px;
+}
+
+.metric-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-bottom: 8px;
+}
+
+.metric-label {
+	font-size: 0.813rem;
+	color: var(--text-muted);
+}
+
+.metric-change {
+	display: flex;
+	align-items: center;
+	gap: 2px;
+	font-size: 0.75rem;
+	font-weight: 600;
+}
+
+.metric-change svg {
+	width: 16px;
+	height: 16px;
+}
+
+.metric-change.positive {
+	color: var(--success);
+}
+
+.metric-change.negative {
+	color: var(--error);
+}
+
+.metric-value {
+	font-size: 1.5rem;
+	font-weight: 700;
+	font-family: var(--font-mono);
+	color: var(--text-primary);
+}
+
+/* Analytics Grid */
+.analytics-grid {
+	display: grid;
+	grid-template-columns: repeat(2, 1fr);
+	gap: 24px;
+}
+
+.chart-container.full-width {
+	grid-column: 1 / -1;
+}
+
+.chart-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-bottom: 20px;
+}
+
+.chart-title {
+	font-size: 1rem;
+	font-weight: 600;
+	color: var(--text-primary);
+}
+
+.chart-legend {
+	display: flex;
+	gap: 16px;
+}
+
+.legend-item {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	font-size: 0.813rem;
+	color: var(--text-secondary);
+}
+
+.legend-dot {
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+}
+
+/* Revenue Chart */
+.revenue-chart {
+	height: 280px;
+	display: flex;
+	flex-direction: column;
+}
+
+.chart-bars {
+	display: flex;
+	align-items: flex-end;
+	gap: 12px;
+	height: 100%;
+	padding: 20px 0;
+}
+
+.bar-wrapper {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	height: 100%;
+}
+
+.chart-bar {
+	width: 100%;
+	max-width: 48px;
+	background: linear-gradient(
+		180deg,
+		var(--accent-primary),
+		var(--accent-secondary)
+	);
+	border-radius: 6px 6px 0 0;
+	position: relative;
+	animation: growUp 0.6s ease-out forwards;
+	transform-origin: bottom;
+	opacity: 0;
+	display: flex;
+	align-items: flex-start;
+	justify-content: center;
+	padding-top: 8px;
+}
+
+@keyframes growUp {
+	from {
+		transform: scaleY(0);
+		opacity: 0;
+	}
+	to {
+		transform: scaleY(1);
+		opacity: 1;
+	}
+}
+
+.bar-value {
+	font-size: 0.625rem;
+	font-weight: 600;
+	color: var(--bg-primary);
+	opacity: 0;
+	transition: opacity 0.2s;
+}
+
+.bar-wrapper:hover .bar-value {
+	opacity: 1;
+}
+
+.bar-label {
+	margin-top: 8px;
+	font-size: 0.75rem;
+	color: var(--text-muted);
+}
+
+/* Traffic Sources */
+.traffic-sources {
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+}
+
+.traffic-item {
+	display: flex;
+	align-items: center;
+	gap: 16px;
+}
+
+.traffic-info {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	min-width: 160px;
+}
+
+.traffic-dot {
+	width: 10px;
+	height: 10px;
+	border-radius: 50%;
+	flex-shrink: 0;
+}
+
+.traffic-details {
+	display: flex;
+	flex-direction: column;
+}
+
+.traffic-name {
+	font-size: 0.875rem;
+	font-weight: 500;
+	color: var(--text-primary);
+}
+
+.traffic-visitors {
+	font-size: 0.75rem;
+	color: var(--text-muted);
+}
+
+.traffic-bar-wrapper {
+	flex: 1;
+	height: 8px;
+	background: var(--bg-tertiary);
+	border-radius: 4px;
+	overflow: hidden;
+}
+
+.traffic-bar {
+	height: 100%;
+	border-radius: 4px;
+	transition: width 0.6s ease-out;
+}
+
+.traffic-percentage {
+	font-size: 0.875rem;
+	font-weight: 600;
+	font-family: var(--font-mono);
+	color: var(--text-primary);
+	min-width: 40px;
+	text-align: right;
+}
+
+/* Top Pages */
+.pages-table {
+	width: 100%;
+	border-collapse: collapse;
+}
+
+.pages-table th,
+.pages-table td {
+	padding: 12px 8px;
+	text-align: left;
+	font-size: 0.813rem;
+}
+
+.pages-table th {
+	color: var(--text-muted);
+	font-weight: 500;
+	border-bottom: 1px solid var(--border-subtle);
+}
+
+.pages-table td {
+	color: var(--text-secondary);
+	border-bottom: 1px solid var(--border-subtle);
+}
+
+.pages-table tr:last-child td {
+	border-bottom: none;
+}
+
+.page-path {
+	font-family: var(--font-mono);
+	color: var(--accent-primary) !important;
+}
+
+@media (max-width: 1200px) {
+	.metrics-grid {
+		grid-template-columns: repeat(2, 1fr);
+	}
+
+	.analytics-grid {
+		grid-template-columns: 1fr;
+	}
+}
+
+@media (max-width: 768px) {
+	.metrics-grid {
+		grid-template-columns: 1fr;
+	}
+
+	.header-actions {
+		flex-direction: column;
+		width: 100%;
+	}
+
+	.header-actions .btn {
+		width: 100%;
+	}
+
+	.chart-bars {
+		gap: 8px;
+	}
+
+	.traffic-info {
+		min-width: 120px;
+	}
+}

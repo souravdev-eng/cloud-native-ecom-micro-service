@@ -56,6 +56,9 @@ importers:
       node-nats-streaming:
         specifier: ^0.3.2
         version: 0.3.2
+      stripe:
+        specifier: ^20.1.0
+        version: 20.1.0(@types/node@18.19.123)
       ts-node-dev:
         specifier: ^2.0.0
         version: 2.0.0(@types/node@18.19.123)(typescript@4.9.5)
@@ -2458,6 +2461,15 @@ packages:
   strip-json-comments@3.1.1:
     resolution: {integrity: sha512-6fPc+R4ihwqP6N/aIv2f1gMH8lOVtWQHoqC4yK6oSDVVocumAsfCqjkXnqiYMhmMwS/mEHLp7Vehlt3ql6lEig==}
     engines: {node: '>=8'}
+
+  stripe@20.1.0:
+    resolution: {integrity: sha512-o1VNRuMkY76ZCq92U3EH3/XHm/WHp7AerpzDs4Zyo8uE5mFL4QUcv/2SudWsSnhBSp4moO2+ZoGCZ7mT8crPmQ==}
+    engines: {node: '>=16'}
+    peerDependencies:
+      '@types/node': '>=16'
+    peerDependenciesMeta:
+      '@types/node':
+        optional: true
 
   strnum@2.1.1:
     resolution: {integrity: sha512-7ZvoFTiCnGxBtDqJ//Cu6fWtZtc7Y3x+QOirG15wztbdngGSkht27o2pyGWrVy0b4WAy3jbKmnoK6g5VlVNUUw==}
@@ -6060,6 +6072,12 @@ snapshots:
   strip-json-comments@2.0.1: {}
 
   strip-json-comments@3.1.1: {}
+
+  stripe@20.1.0(@types/node@18.19.123):
+    dependencies:
+      qs: 6.14.0
+    optionalDependencies:
+      '@types/node': 18.19.123
 
   strnum@2.1.1:
     optional: true

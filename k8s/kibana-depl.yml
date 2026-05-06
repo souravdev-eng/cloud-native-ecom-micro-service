@@ -68,11 +68,11 @@ spec:
               value: "http://elasticsearch-srv:9200"
           resources:
             limits:
-              memory: "1Gi"
-              cpu: "1000m"
-            requests:
               memory: "512Mi"
               cpu: "500m"
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
       volumes:
         - name: kibana-config-volume
           configMap:

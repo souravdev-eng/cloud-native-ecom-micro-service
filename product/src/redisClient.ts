@@ -1,16 +1,16 @@
-import { createClient, RedisClientType } from 'redis';
+import { createClient, RedisClientType } from "redis";
 
 let client: RedisClientType;
 
 const connectRedis = async (url: string) => {
   client = createClient({ url });
 
-  client.on('connect', () => {
-    console.log('Redis Server connected ~~ 🔥🔥🔥');
+  client.on("connect", () => {
+    console.log("Redis Server connected");
   });
 
-  client.on('error', (err) => {
-    console.error('Redis error: 💥💥💥', err);
+  client.on("error", (err) => {
+    console.error("Redis error:", err);
   });
 
   await client.connect();
@@ -18,7 +18,7 @@ const connectRedis = async (url: string) => {
 
 const getRedisClient = (): RedisClientType => {
   if (!client) {
-    throw new Error('Redis client not initialized. Call connectRedis first.');
+    throw new Error("Redis client not initialized. Call connectRedis first.");
   }
   return client;
 };

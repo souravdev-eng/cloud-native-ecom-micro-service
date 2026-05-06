@@ -2,11 +2,10 @@ import { Channel } from 'amqplib';
 import mongoose from 'mongoose';
 
 import { queueConnection } from './queue/connection';
+import { setAuthChannel } from './queue/channel';
 import { logger } from './utils/logger';
 import { config } from './config';
 import app from './app';
-
-export let authChannel: Channel;
 
 const start = async () => {
   if (!config.AUTH_SERVICE_MONGODB_URL) {
@@ -44,7 +43,8 @@ const connectDB = async () => {
 };
 
 const startQueues = async (): Promise<void> => {
-  authChannel = (await queueConnection.createConnection()) as Channel;
+  const channel = (await queueConnection.createConnection()) as Channel;
+  setAuthChannel(channel);
 };
 
 start();

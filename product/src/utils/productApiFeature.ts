@@ -76,6 +76,16 @@ export class ProductAPIFeature<T extends Document> {
     // Parse then attempt basic type coercion for numbers/dates where appropriate (optional)
     const parsed = JSON.parse(queryStr);
 
+    // Convert comma-separated string values to $in arrays.
+    // e.g. ?category=phone,earphone  →  { category: { $in: ['phone', 'earphone'] } }
+    for (const key of Object.keys(parsed)) {
+      if (typeof parsed[key] === 'string' && parsed[key].includes(',')) {
+        parsed[key] = {
+          $in: parsed[key].split(',').map((v: string) => v.trim()).filter(Boolean),
+        };
+      }
+    }
+
     // Example basic casting for known numeric fields (customize as needed)
     if (parsed.price) {
       if (typeof parsed.price === 'object') {

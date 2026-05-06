@@ -26,6 +26,9 @@ spec:
                 name: ecom-global-config
             - secretRef:
                 name: secret-credential
+            - secretRef:
+                name: cnpg-cart-urls
+                optional: true
 ---
 apiVersion: v1
 kind: Service

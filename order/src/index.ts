@@ -22,6 +22,10 @@ const start = async () => {
     throw new Error('RABBITMQ_ENDPOINT must be defined');
   }
 
+  if (!process.env.STRIPE_SECRET_KEY) {
+    throw new Error('STRIPE_SECRET_KEY must be defined');
+  }
+
   try {
     mongoose.set('strictQuery', true);
     mongoose
@@ -42,8 +46,9 @@ const start = async () => {
     await new CartUpdatedListener(rabbitMQWrapper.channel).listen();
     await new CartDeletedListener(rabbitMQWrapper.channel).listen();
 
-    app.listen(4000, () => {
-      console.log('Order server running on PORT ~~ 4000');
+    const PORT = process.env.PORT || 4000;
+    app.listen(PORT, () => {
+      console.log(`Order server running on PORT ~~ ${PORT}`);
     });
   } catch (error: any) {
     console.log(error.message);

@@ -1,0 +1,33 @@
+# Cart Service Development Compose
+services:
+  cart-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    container_name: ecom-cart-dev
+    restart: unless-stopped
+    ports:
+      - '3003:3000'
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      DB_HOST: ecom-postgres-dev
+      DB_PORT: 5432
+      DB_NAME: cart_service
+      DB_USER: postgres
+      DB_PASS: password123
+      REDIS_URL: redis://:password123@ecom-redis-dev:6379
+      RABBITMQ_URL: amqp://admin:password123@ecom-rabbitmq-dev:5672
+      JWT_KEY: your-jwt-secret-key
+    volumes:
+      - ./src:/app/src
+      - ./package.json:/app/package.json
+      - /app/node_modules
+    command: npm run dev
+    networks:
+      - cloud-native-ecom-micro-service_ecom-network
+
+networks:
+  cloud-native-ecom-micro-service_ecom-network:
+    external: true

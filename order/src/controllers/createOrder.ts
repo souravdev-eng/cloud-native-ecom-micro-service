@@ -131,7 +131,6 @@ export const createOrder = async (req: Request, res: Response, next: NextFunctio
     return next(new BadRequestError(error.message || 'Order creation failed'));
   }
 };
-
 // Helper function to fetch cart data from local cart snapshots
 async function fetchLocalCartData(cartIds: string[], userId: string): Promise<CartDocument[]> {
   try {
@@ -152,3 +151,4 @@ async function fetchLocalCartData(cartIds: string[], userId: string): Promise<Ca
     throw new Error('Unable to fetch cart data');
   }
 }
+

@@ -1,0 +1,80 @@
+version: '3.8'
+
+services:
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - '9090:9090'
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    networks:
+      - monitoring
+
+  # E-commerce API with metrics
+  ecommerce-api:
+    build: ./src
+    ports:
+      - '3000:3000'
+    environment:
+      - SERVICE_NAME=ecommerce-api
+      - NODE_ENV=development
+    networks:
+      - monitoring
+    depends_on:
+      - prometheus
+
+  # Order processing service
+  order-processor:
+    build: ./src
+    ports:
+      - '3001:3001'
+    environment:
+      - SERVICE_NAME=order-processor
+      - SERVICE_PORT=3001
+      - NODE_ENV=development
+    networks:
+      - monitoring
+    depends_on:
+      - prometheus
+
+  # Inventory service
+  inventory-service:
+    build: ./src
+    ports:
+      - '3002:3002'
+    environment:
+      - SERVICE_NAME=inventory-service
+      - SERVICE_PORT=3002
+      - NODE_ENV=development
+    networks:
+      - monitoring
+    depends_on:
+      - prometheus
+
+  # Node exporter for system metrics
+  node-exporter:
+    image: prom/node-exporter:latest
+    ports:
+      - '9100:9100'
+    networks:
+      - monitoring
+
+  # Grafana will be added in Module 05
+  # grafana:
+  #   image: grafana/grafana:latest
+  #   ports:
+  #     - "3003:3000"
+
+volumes:
+  prometheus_data:
+
+networks:
+  monitoring:
+    driver: bridge

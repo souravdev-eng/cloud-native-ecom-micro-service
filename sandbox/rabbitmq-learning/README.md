@@ -2,6 +2,8 @@
 
 A comprehensive collection of RabbitMQ examples in Node.js demonstrating various messaging patterns and concepts.
 
+> 📚 **New!** Check out the detailed learning guide in [`docs/`](./docs/00-overview.md) for digestible, sequential documentation with real-world analogies from our e-commerce project.
+
 ## 📋 Prerequisites
 
 - Node.js (v14 or higher)
