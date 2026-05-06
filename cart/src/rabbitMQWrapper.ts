@@ -1,8 +1,8 @@
-import amqp, { Channel, Connection } from 'amqplib';
+import amqp, { Channel } from 'amqplib';
 
 class RabbitMQWrapper {
   private _channel?: Channel;
-  private _connection?: Connection;
+  private _connection?: Awaited<ReturnType<typeof amqp.connect>>;
 
   get channel() {
     if (!this._channel) {

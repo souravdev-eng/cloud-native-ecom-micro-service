@@ -64,7 +64,7 @@ profiles:
           docker:
             dockerfile: Dockerfile
       local:
-        push: false
+        push: true
 
   # ----------------------------------------------------------
   # BACKEND - All backend services
@@ -142,11 +142,11 @@ profiles:
           docker:
             dockerfile: Dockerfile
       local:
-        push: false
+        push: true
 
   # ----------------------------------------------------------
-  # FULL - Everything including ELK stack
-  # Use for production-like testing (MFEs run locally)
+  # FULL - Everything including ELK stack + CNPG read replicas
+  # Prereq: ./scripts/setup-cnpg.sh (one-time operator install)
   # ----------------------------------------------------------
   - name: full
     manifests:
@@ -154,7 +154,8 @@ profiles:
         - ./k8s/secret/*
         - ./k8s/config/*
         - ./k8s/volumes/*
-        - ./k8s/*
+        - ./k8s/cnpg/*
+        - ./k8s/*.yml
     deploy:
       kubectl: {}
     build:
@@ -191,6 +192,14 @@ profiles:
                 dest: .
           docker:
             dockerfile: Dockerfile
+        - image: souravdeveloper/ecom-order
+          context: order
+          sync:
+            manual:
+              - src: src/**/*.ts
+                dest: .
+          docker:
+            dockerfile: Dockerfile
         - image: souravdeveloper/ecom-etl
           context: etl-service
           sync:
@@ -200,4 +209,4 @@ profiles:
           docker:
             dockerfile: Dockerfile
       local:
-        push: false
+        push: true

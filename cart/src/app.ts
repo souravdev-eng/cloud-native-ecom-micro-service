@@ -6,6 +6,7 @@ import cookieSession from "cookie-session";
 import { newCartRoute } from "./routes/newCart";
 import { deleteCartRoute } from "./routes/deleteCart";
 import { showAllCartRoute } from "./routes/showAllCart";
+import { showAllCartProductRoute } from "./routes/showAllCartProduct";
 
 const app = express();
 
@@ -35,6 +36,7 @@ app.use(currentUser);
 app.use(newCartRoute);
 app.use(showAllCartRoute);
 app.use(deleteCartRoute);
+app.use(showAllCartProductRoute);
 
 app.use("*", (req: Request, res: Response, next: NextFunction) => {
   return next(new NotFoundError(`${req.originalUrl} is not find to this server!`));
