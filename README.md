@@ -2,256 +2,260 @@
 
 [![LinkedIn][linkedin-shield]][linkedin-url]
 
-<!-- PROJECT LOGO -->
-<br />
 <div align="center">
-  <a href="https://github.com/souravdev-eng/E-com-micro-service">
+  <a href="https://github.com/souravdev-eng/cloud-native-ecom-micro-service">
     <img src="https://img.freepik.com/premium-vector/ecommerce-logo-design_624194-152.jpg" alt="Logo" width="100" height="100">
   </a>
-  <h2 align="center">Cloud-Native E-Commerce Microservices Platform
-</h2>
-  <p align="left">
-    A production-ready, cloud-native e-commerce platform built with a microservices architecture, supporting high-scale operations with modern engineering practices.
+  <h2>Cloud-Native E-Commerce Microservices Platform</h2>
+  <p>
+    A full-stack e-commerce platform built with <strong>7 microservices</strong>, event-driven architecture,<br/>
+    Elasticsearch-powered search, and Kubernetes orchestration.
   </p>
+
+  <img src="https://img.shields.io/badge/Node.js-18-339933?logo=node.js" alt="Node.js">
+  <img src="https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript" alt="TypeScript">
+  <img src="https://img.shields.io/badge/Go-1.21-00ADD8?logo=go" alt="Go">
+  <img src="https://img.shields.io/badge/React-19-61DAFB?logo=react" alt="React">
+  <img src="https://img.shields.io/badge/Kubernetes-1.29-326CE5?logo=kubernetes" alt="K8s">
+  <img src="https://img.shields.io/badge/Elasticsearch-8.11-005571?logo=elasticsearch" alt="ES">
 </div>
 
-<!-- ABOUT THE PROJECT -->
+---
 
-### Overview
+## What is this?
 
-This full-stack e-commerce platform demonstrates enterprise-grade software engineering through microservices architecture, event-driven design, and cloud-native technologies. The system is designed to handle **millions** of concurrent users with sub-100ms response times and **99.9%** uptime.
+An **end-to-end e-commerce system** that runs as independent microservices on Kubernetes. Each service owns its data, communicates via RabbitMQ events, and can be deployed/scaled independently. The frontend is a micro-frontend (Module Federation) with separate apps for dashboard, user, and admin.
 
-### Key Features
+**Key highlights:**
 
-- **Scalability**: Supports 10M+ concurrent users
-- **Performance**: Sub-100ms API response times with 90%+ cache hit ratio
-- **Reliability**: 99.9% uptime with zero-downtime deployments
-- **Architecture**: 6 microservices with event-driven communication _(future, it will be increased)_
+- **Natural language search** — "Book under 500" parses into full-text search + price filter automatically
+- **Elasticsearch + MongoDB dual search** — ES for speed, MongoDB as automatic fallback
+- **Autocomplete suggestions** — Debounced edge-ngram suggestions as you type
+- **ETL pipeline** — Syncs data across services (MongoDB → PostgreSQL, MongoDB → Elasticsearch)
+- **CNPG read replicas** — PostgreSQL read/write splitting for cart/order services
+- **Event-driven** — Product changes propagate to cart, orders, and notifications via RabbitMQ
 
-## Technology Stack
-
-### Backend Services
-
-| Service | Runtime | Database | Key Features |
-| --- | --- | --- | --- |
-| Auth Service | Node.js + TypeScript | MongoDB | JWT authentication, RBAC, password reset |
-| Product Service | Node.js + TypeScript | MongoDB + Redis | Advanced search, pagination, intelligent caching |
-| Cart Service | Node.js + TypeScript | PostgreSQL + TypeORM | Real-time updates, inventory sync |
-| Order Service | Node.js + TypeScript | PostgreSQL | Order processing, payment integration |
-| Review Service | Go + Gin | PostgreSQL | High-performance review engine |
-| Notification Service | Node.js + TypeScript | Event-driven | Email/SMS notifications, real-time alerts |
-
-### Frontend
-
-- **Micro Frontend** with Module Federation
-- **React + TypeScript** for type-safe development
-- **Rspack** for optimized builds
-- **pnpm** workspace management
-- **react quey** for calling api
-- **zustand** for global-level state management
-- **React Router Dom** for routing
-
-### Infrastructure
-
-- **Kubernetes** - Production orchestration
-- **Docker** - Containerized services
-- **NGINX Ingress** - API Gateway with SSL
-- **RabbitMQ** - Event messaging
-- **Redis Cluster** - Distributed caching
-- **MongoDB Atlas** - NoSQL Database
-- **AWS RDS** - SQL Database
-- **Elasticsearch + Kibana** - Logging & monitoring
-- **CloudFront & S3 Bucket** - For micro frontend app hosting salution
-- **AWS** - For cloud salution
-- **GitHub Action** - For CI/CD pipeline
-
-### Testing tools
-
-- **Jest**
-- **React Testing Library**
+---
 
 ## Architecture
 
-### Microservices Communication
-
-```typescript
-// Event-driven architecture example
-interface ProductCreatedEvent {
-  id: string;
-  title: string;
-  price: number;
-  sellerId: string;
-  quantity: number;
-}
-
-// Service communication flow
-Product Created → Cart Service (inventory sync)
-Product Created → Notification Service (alerts)
-Product Updated → Order Service (price updates)
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    NGINX Ingress Controller                      │
+└──────────┬──────────┬──────────┬──────────┬──────────┬──────────┘
+           │          │          │          │          │
+      ┌────▼───┐ ┌────▼───┐ ┌───▼────┐ ┌───▼───┐ ┌───▼────┐
+      │  Auth  │ │Product │ │  Cart  │ │ Order │ │Notific.│
+      │Service │ │Service │ │Service │ │Service│ │Service │
+      └───┬────┘ └──┬──┬──┘ └──┬──┬──┘ └──┬────┘ └───┬────┘
+          │         │  │       │  │        │          │
+       MongoDB   Mongo Redis  PG  PG    MongoDB    RabbitMQ
+                    │           │                      │
+                    └─── Elasticsearch ◄── ETL Service ┘
 ```
 
-### Performance Features
+| Service          | Stack        | Database             | Purpose                                |
+| ---------------- | ------------ | -------------------- | -------------------------------------- |
+| **Auth**         | Node.js / TS | MongoDB              | JWT auth, RBAC, password reset         |
+| **Product**      | Node.js / TS | MongoDB + Redis + ES | Catalog, search, caching, autocomplete |
+| **Cart**         | Node.js / TS | PostgreSQL (CNPG)    | Cart management, inventory sync        |
+| **Order**        | Node.js / TS | PostgreSQL           | Order processing, payment              |
+| **Notification** | Node.js / TS | RabbitMQ             | Email/SMS alerts                       |
+| **ETL**          | Node.js / TS | All DBs              | Cross-service data sync pipelines      |
+| **Review**       | Go / Gin     | PostgreSQL           | Product reviews (high-perf)            |
 
-- **Advanced Caching**: Multi-layer caching with Redis
-- **Database Optimization**: Performance indexes and query optimization
-- **Pagination Strategies**: Both cursor-based and offset pagination
-- **Load Balancing**: Kubernetes-native scaling
+---
 
-## Product Service Highlights
+## Frontend (Micro-Frontend)
 
-The Product Service demonstrates advanced engineering patterns:
+Five apps composed via **Module Federation** at runtime:
 
-```typescript
-// Key capabilities
-✅ Cursor-based pagination for consistent results
-✅ MongoDB text search with relevance scoring
-✅ Intelligent Redis caching (90% hit ratio)
-✅ Advanced filtering with multiple operators
-✅ Field projection for bandwidth optimization
-✅ Performance indexes for query acceleration
-```
+| App         | Role                                            |
+| ----------- | ----------------------------------------------- |
+| `host`      | Shell — composes all remotes                    |
+| `dashboard` | Product browsing, search, filters, autocomplete |
+| `user`      | Auth, cart, checkout, profile                   |
+| `admin`     | Seller dashboard, product management            |
+| `shared`    | Common components, hooks, utilities             |
 
-### API Examples
+**Stack:** React 19, TypeScript, Rspack, MUI, Zustand, React Query, React Router, pnpm workspaces
+
+---
+
+## Search & Autocomplete
+
+The search system supports **natural language queries** out of the box:
 
 ```bash
-# Advanced filtering
-GET /api/product?category=phone&price[gte]=100&price[lte]=1000
+# Natural language queries — parsed automatically
+GET /api/product/search?q=Book under 500
+#  → searchText: "Book", priceMax: 500
 
-# Text search with pagination
-GET /api/product?search=smartphone&page=2&limit=20
+GET /api/product/search?q=laptop between 200 and 800
+#  → searchText: "laptop", priceMin: 200, priceMax: 800
 
-# Cursor pagination
-GET /api/product?nextKey=eyJ2YWx1ZSI6IjIwMjQtMDE...
+GET /api/product/search?q=cheap headphones rated above 4
+#  → searchText: "headphones", priceMax: 500, minRating: 4, sort: price asc
 
-# Field selection
-GET /api/product?fields=title,price,image&sort=price,-rating
+# Autocomplete (debounced, fires per keystroke)
+GET /api/product/search/suggest?q=lap
+#  → [{ title: "Laptop Pro 15", price: 999, highlight: "<em>Lap</em>top Pro 15" }, ...]
 ```
 
-## Performance Metrics
+**How it works:** Query → NL parser extracts filters → Elasticsearch `title.autocomplete` (edge-ngram) + `match_phrase_prefix` → Falls back to MongoDB if ES is down.
 
-| Configuration      | Concurrent Users | Requests/Min | Response Time | Cache Hit Rate |
-| ------------------ | ---------------- | ------------ | ------------- | -------------- |
-| Single Instance    | 5,000            | 15,000       | 200ms         | N/A            |
-| With Redis Cache   | 25,000           | 50,000       | 50ms          | 90%+           |
-| Kubernetes Cluster | 100,000+         | 200,000+     | 25ms          | 95%+           |
+---
 
-## Database Optimization
+## Project Structure
 
-```typescript
-// MongoDB performance indexes
-productSchema.index({ title: "text", tags: "text" }, { weights: { title: 10, tags: 2 } });
-productSchema.index({ category: 1, price: -1 });
-productSchema.index({ sellerId: 1, category: 1 });
+```
+cloud-native-ecom-micro-service/
+├── auth/                  # Auth microservice
+├── product/               # Product microservice (+ ES search)
+├── cart/                  # Cart microservice (PostgreSQL)
+├── order/                 # Order microservice
+├── notification/          # Notification microservice
+├── etl-service/           # ETL pipelines (sync across services)
+├── review/                # Review microservice (Go)
+├── common/                # Shared npm package (@ecom-micro/common)
+├── mfe-client/            # Micro-frontend monorepo
+│   ├── host/              #   Shell app
+│   ├── dashboard/         #   Product browsing & search
+│   ├── user/              #   Auth & checkout flows
+│   ├── admin/             #   Seller dashboard
+│   └── shared/            #   Shared components
+├── k8s/                   # Kubernetes manifests
+│   ├── config/            #   ConfigMaps (ES index config, etc.)
+│   ├── volumes/           #   PV/PVC definitions
+│   └── cnpg/              #   CloudNativePG cluster
+├── scripts/               # Docker build, cleanup, CNPG setup
+├── skaffold.yaml          # Dev profiles (minimal/backend/full)
+└── docker-compose.dev.yml # Local development alternative
 ```
 
-**Result:** 100-1000x query performance improvement
+---
 
-## Security & Quality
+## Quick Start
 
-- JWT Authentication with role-based access control
-- Rate limiting and abuse prevention
-- Input validation with express-validator
-- TypeScript for type safety
-- Comprehensive Jest testing (90%+ coverage)
-- CORS protection and security headers
+### Prerequisites
 
-## Monitoring & Observability (🚧 Work in progress)
+- Docker Desktop with Kubernetes enabled
+- Node.js 18+, pnpm, Go 1.21+
+- `skaffold` CLI
 
-- Centralized logging with ELK stack
-- Metrics monitoring with Prometheus
-- Real-time performance dashboards
-- Distributed tracing
-- Health checks for all services
-- Error tracking and alerting
+### Run locally with Skaffold
 
-## Kubernetes Configuration
+```bash
+# Minimal profile (Auth + Product + Cart + ES + Redis + PG + RabbitMQ)
+skaffold dev -p minimal
 
-```yaml
-# Production-ready setup includes:
-- 15+ Kubernetes services
-- Auto-scaling based on CPU/memory (🚧 Work in progress)
-- Rolling updates with zero downtime (🚧 Work in progress)
-- Health checks and readiness probes
-- Persistent volumes for data storage
-- ConfigMaps for environment management
+# Backend only (all services, no frontend)
+skaffold dev -p backend
+
+# Full stack (all services + frontend)
+skaffold dev -p full
 ```
 
-## Caching Strategy
+### Run frontend separately
 
-```typescript
-// Intelligent caching with TTL optimization
-function getCacheTTL(queryType: string): number {
-  switch (queryType) {
-    case "search":
-      return 3600; // 1 hour - stable, high-value
-    case "category":
-      return 600; // 10 minutes - moderate frequency
-    case "filtered":
-      return 300; // 5 minutes - dynamic content
-    default:
-      return 0; // No caching
-  }
-}
+```bash
+cd mfe-client
+pnpm install
+pnpm dev          # starts all MFE apps in parallel
 ```
 
-```typescript
-// Create the unique cache key using md5 hashing algorithm
-function generateSearchCacheKey(query: any): string {
-  const searchParams = {
-    search: query.search,
-    limit: query.limit || 20,
-    page: query.page || 1,
-    sort: query.sort,
-    fields: query.fields,
-    // Include filters that might be commonly used with search
-    category: query.category,
-    price: query.price,
-    brand: query.brand,
-  } as Record<string, string | number>;
+### Seed Elasticsearch index
 
-  // Remove undefined values
-  Object.keys(searchParams).forEach((key) => {
-    if (searchParams[key] === undefined) {
-      delete searchParams[key];
-    }
-  });
-
-  const keyString = JSON.stringify(searchParams);
-  const hash = crypto.createHash("md5").update(keyString).digest("hex");
-  return `product_search:${hash}`;
-}
+```bash
+# After services are running, sync products to ES:
+curl -X POST -b <auth-cookie> http://localhost:4100/api/etl/sync/elasticsearch
 ```
 
-## Created Using
+---
 
-#### For this project, I have thoughtfully selected my tech stack.
+## Infrastructure
 
-<div style="display:flex; flex-wrap:wrap; justify-content:center; align-items:center; gap:25px;     max-width:70%; margin:auto;">
+| Component        | Technology                  | Role                               |
+| ---------------- | --------------------------- | ---------------------------------- |
+| Orchestration    | Kubernetes (Docker Desktop) | Service deployment & scaling       |
+| Ingress          | NGINX Ingress Controller    | API gateway, routing, SSL          |
+| Messaging        | RabbitMQ                    | Event-driven service communication |
+| Caching          | Redis                       | Product listing cache (TTL-based)  |
+| Search           | Elasticsearch 8.11          | Full-text search, autocomplete     |
+| SQL DB           | PostgreSQL (CNPG)           | Cart & order data, read replicas   |
+| NoSQL DB         | MongoDB                     | Auth, product, notification data   |
+| CI/CD            | GitHub Actions              | Build, test, deploy pipeline       |
+| Containerization | Docker                      | Service images                     |
+
+---
+
+## Key Engineering Patterns
+
+- **Cursor-based pagination** — Consistent results for large datasets, no offset skew
+- **Multi-layer caching** — Redis with MD5 cache keys, TTL by query type
+- **Lazy ES reconnect** — Product service recovers if ES starts late
+- **ES → MongoDB fallback** — Search always works even if ES index is missing
+- **ETL batch sync** — Bulk indexing with progress tracking and error collection
+- **CNPG read/write split** — Writes go to primary, reads go to replicas
+
+---
+
+## Security
+
+- JWT authentication with role-based access control (admin/seller/user)
+- Cookie-based sessions with `httpOnly` + `secure` flags
+- Input validation via `express-validator`
+- CORS whitelisting per service
+- TypeScript strict mode across all services
+
+---
+
+## Testing
+
+- **Jest** + **Supertest** for backend integration tests
+- **React Testing Library** for frontend component tests
+- **mongodb-memory-server** for isolated DB tests
+- Run: `npm test` in any service directory
+
+---
+
+## Scripts
+
+```bash
+./scripts/docker-build-push.sh              # Build & push all service images
+./scripts/docker-build-push.sh product auth  # Build specific services
+./scripts/docker-cleanup.sh                  # Reclaim Docker disk space
+./scripts/setup-cnpg.sh                      # Install CNPG operator for PG replicas
+```
+
+---
+
+## Tech Stack
+
+<div align="center" style="display:flex; flex-wrap:wrap; justify-content:center; gap:25px; max-width:70%; margin:auto;">
   <img src="https://github.com/get-icon/geticon/raw/master/icons/react.svg" alt="React" width="35" height="35">
   <img src="https://github.com/get-icon/geticon/raw/master/icons/typescript-icon.svg" alt="TypeScript" width="35" height="35">
   <img src="https://github.com/get-icon/geticon/raw/master/icons/nodejs-icon.svg" alt="Node.js" width="35" height="35">
   <img src="https://miro.medium.com/v2/resize:fit:600/1*i2skbfmDsHayHhqPfwt6pA.png" alt="Golang" width="35" height="35">
-  <!-- <img src="https://adware-technologies.s3.amazonaws.com/uploads/technology/thumbnail/20/express-js.png" alt="Express.js" width="35" height="35"> -->
   <img src="https://images.opencollective.com/rspack/7a6035e/logo/256.png" alt="RSPack" width="35" height="35">
   <img src="https://i.pinimg.com/474x/19/2c/7e/192c7e8637656cab675eaf9c7f3a44ee.jpg" alt="MUI" width="35" height="35">
-  <img src="https://github.com/get-icon/geticon/raw/master/icons/redux.svg" alt="Redux" width="35" height="35">
   <img src="https://github.com/get-icon/geticon/raw/master/icons/mongodb-icon.svg" alt="MongoDB" width="35" height="35">
   <img src="https://github.com/get-icon/geticon/raw/master/icons/postgresql.svg" alt="PostgreSQL" width="35" height="35">
   <img src="https://cdn4.iconfinder.com/data/icons/redis-2/1451/Untitled-2-512.png" alt="Redis" width="35" height="35">
   <img src="https://github.com/get-icon/geticon/raw/master/icons/elasticsearch.svg" alt="Elasticsearch" width="35" height="35">
   <img src="https://github.com/get-icon/geticon/raw/master/icons/docker-icon.svg" alt="Docker" width="35" height="35">
   <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/3/39/Kubernetes_logo_without_workmark.svg/500px-Kubernetes_logo_without_workmark.svg.png" alt="Kubernetes" width="35" height="35">
-  <!-- <img src="https://logos-world.net/wp-content/uploads/2021/08/Amazon-Web-Services-AWS-Logo.png" alt="AWS" width="35" height="35"> -->
   <img src="https://cdn.prod.website-files.com/65264f6bf54e751c3a776db1/66d86964333d11e0a1f1da9e_github_actions.png" alt="GitHub Actions" width="35" height="35">
   <img src="https://cdn.creazilla.com/icons/3254262/rabbitmq-icon-icon-sm.png" alt="RabbitMQ" width="35" height="35">
   <img src="https://github.com/get-icon/geticon/raw/master/icons/jest.svg" alt="Jest" width="35" height="35">
   <img src="https://testing-library.com/img/octopus-64x64.png" alt="React Testing Library" width="35" height="35">
-  <img src="https://github.com/get-icon/geticon/raw/master/icons/npm.svg" alt="NPM" width="38" height="38">
 </div>
+
+---
 
 ## Contact
 
-souravmajumdar.dev@gamil.com
+**Sourav Majumdar** — [LinkedIn](https://www.linkedin.com/in/majumdarsourav/) — souravmajumdar.dev@gmail.com
 
 [linkedin-shield]: https://img.shields.io/badge/-LinkedIn-black.svg?style=for-the-badge&logo=linkedin&colorB=555
 [linkedin-url]: https://www.linkedin.com/in/majumdarsourav/
