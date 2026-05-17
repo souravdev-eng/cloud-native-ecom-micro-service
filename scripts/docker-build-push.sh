@@ -59,5 +59,13 @@ for svc in $TARGETS; do
   echo "==> Done: ${svc}"
 done
 
+echo "Pulling Elastic Search Image"
+docker pull docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+echo "Elastic Search Image pulled successfully"
+
+echo "Pulling Redis Image"
+docker pull redis:alpine
+echo "Redis Image pulled successfully"
+
 echo ""
 echo "All done!"

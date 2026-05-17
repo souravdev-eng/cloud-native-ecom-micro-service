@@ -3,6 +3,7 @@ import app from "./app";
 import { connectRedis } from "./redisClient";
 import { rabbitMQWrapper } from "./rabbitMQWrapper";
 import { ProductQuantityUpdateListener } from "./queues/listeners/productQuantityUpdate";
+import { connectElasticsearch } from "./services/elasticClient";
 
 const startRedisServer = async () => {
   try {
@@ -51,6 +52,7 @@ const start = async () => {
     await listener.listen();
 
     await startRedisServer();
+    await connectElasticsearch();
 
     app.listen(PORT, () => {
       console.log(`Product server running on PORT ${PORT}`);

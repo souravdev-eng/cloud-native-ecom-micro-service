@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import { DataSource } from "typeorm";
+import { Client as ElasticClient } from "@elastic/elasticsearch";
 import { Product as CartProduct } from "../entities/CartProduct";
 import { Cart } from "../entities/Cart";
 
@@ -7,11 +8,13 @@ export class DatabaseConnections {
   private static mongoConnection: mongoose.Connection;
   private static orderMongoConnection: mongoose.Connection;
   private static postgresConnection: DataSource;
+  private static elasticClient: ElasticClient;
 
   static async initialize() {
     await this.connectProductMongoDB();
     await this.connectOrderMongoDB();
     await this.connectPostgreSQL();
+    await this.connectElasticsearch();
   }
 
   /**
@@ -110,6 +113,13 @@ export class DatabaseConnections {
     return this.postgresConnection;
   }
 
+  static getElasticClient() {
+    if (!this.elasticClient) {
+      throw new Error("Elasticsearch connection not initialized");
+    }
+    return this.elasticClient;
+  }
+
   static async close() {
     try {
       if (this.mongoConnection) {
@@ -126,13 +136,41 @@ export class DatabaseConnections {
         await this.postgresConnection.destroy();
         console.log("PostgreSQL connection closed");
       }
+
+      if (this.elasticClient) {
+        await this.elasticClient.close();
+        console.log("Elasticsearch connection closed");
+      }
     } catch (error: any) {
       console.error("Error closing database connections:", error.message);
     }
   }
 
+  /**
+   * Connect to Elasticsearch (target for product search sync)
+   */
+  private static async connectElasticsearch() {
+    try {
+      const esUrl = process.env.ELASTICSEARCH_URL;
+      if (!esUrl) {
+        console.warn("ELASTICSEARCH_URL not set, skipping Elasticsearch connection");
+        return;
+      }
+
+      this.elasticClient = new ElasticClient({ node: esUrl });
+
+      // Verify connection
+      const info = await this.elasticClient.info();
+      console.log(`ETL: Elasticsearch connected (cluster: ${info.cluster_name})`);
+    } catch (error: any) {
+      console.error("Elasticsearch connection error:", error.message);
+      // Non-fatal: ETL can still run other pipelines without ES
+      console.warn("ETL: Elasticsearch sync will be unavailable");
+    }
+  }
+
   static async testConnections() {
-    const status = { productMongodb: false, orderMongodb: false, postgresql: false };
+    const status = { productMongodb: false, orderMongodb: false, postgresql: false, elasticsearch: false };
 
     try {
       // Test Product MongoDB
@@ -158,6 +196,16 @@ export class DatabaseConnections {
       status.postgresql = true;
     } catch (e: any) {
       console.error("PostgreSQL test failed:", e.message);
+    }
+
+    try {
+      // Test Elasticsearch
+      if (this.elasticClient) {
+        await this.elasticClient.ping();
+        status.elasticsearch = true;
+      }
+    } catch (e: any) {
+      console.error("Elasticsearch test failed:", e.message);
     }
 
     return status;

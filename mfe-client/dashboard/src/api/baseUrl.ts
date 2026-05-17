@@ -1,14 +1,19 @@
-import axios from "axios"
+import axios from 'axios';
 
-export const baseUrl = "http://localhost:4100/api"
-export const cartUrl = "http://localhost:4200/api"
+export const baseUrl = 'http://localhost:4100/api';
+export const cartUrl = 'http://localhost:4200/api';
 
 export const productApi = axios.create({
-    baseURL: `${baseUrl}/product`,
-    withCredentials: true,
-})
+	baseURL: `${baseUrl}/product`,
+	withCredentials: true,
+});
+
+export const productSearchApi = axios.create({
+	baseURL: `${baseUrl}/product/search`,
+	withCredentials: true,
+});
 
 export const cartApi = axios.create({
-    baseURL: `${cartUrl}/cart`,
-    withCredentials: true,
-})
+	baseURL: `${cartUrl}/cart`,
+	withCredentials: true,
+});
