@@ -27,6 +27,8 @@ const ProductsPage: React.FC = () => {
         hasNextPage,
         hasPrevPage,
         activeFilters,
+        searchSource,
+        parsedFilters,
         handleNextPage,
         handlePrevPage,
         handleFirstPage,
@@ -96,6 +98,40 @@ const ProductsPage: React.FC = () => {
                         </S.SortSelect>
                     </S.RightControls>
                 </S.ContentHeader>
+
+                {/* Search info bar */}
+                {searchSource !== 'listing' && filters.search && (
+                    <S.ActiveFiltersRow>
+                        <S.ActiveChip>
+                            {searchSource === 'elasticsearch' ? '⚡ ES' : '🗂 MongoDB'}
+                        </S.ActiveChip>
+                        {parsedFilters?.parsedSearchText && (
+                            <S.ActiveChip>
+                                Search: "{parsedFilters.parsedSearchText}"
+                            </S.ActiveChip>
+                        )}
+                        {parsedFilters?.priceMax && (
+                            <S.ActiveChip>
+                                Price ≤ ${parsedFilters.priceMax}
+                            </S.ActiveChip>
+                        )}
+                        {parsedFilters?.priceMin && (
+                            <S.ActiveChip>
+                                Price ≥ ${parsedFilters.priceMin}
+                            </S.ActiveChip>
+                        )}
+                        {parsedFilters?.minRating && (
+                            <S.ActiveChip>
+                                Rating ≥ {parsedFilters.minRating}★
+                            </S.ActiveChip>
+                        )}
+                        {meta.total !== undefined && (
+                            <span style={{ fontSize: 12, color: '#64748b', marginLeft: 'auto' }}>
+                                {meta.total} result{meta.total !== 1 ? 's' : ''} found
+                            </span>
+                        )}
+                    </S.ActiveFiltersRow>
+                )}
 
                 {/* Active filter chips */}
                 {activeFilters.length > 0 && (
@@ -229,8 +265,8 @@ const ProductsPage: React.FC = () => {
                                                     p === currentPage
                                                         ? undefined
                                                         : p === 1
-                                                          ? handleFirstPage
-                                                          : undefined // only first/prev/next navigable via cursor
+                                                            ? handleFirstPage
+                                                            : undefined // only first/prev/next navigable via cursor
                                                 }
                                                 title={`Page ${p}`}
                                             >

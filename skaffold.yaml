@@ -15,7 +15,7 @@ kind: Config
 profiles:
   # ----------------------------------------------------------
   # MINIMAL (default) - Core services for everyday dev
-  # Pods: Auth, Product, Cart + PostgreSQL, RabbitMQ, Redis
+  # Pods: Auth, Product, Cart + PostgreSQL, RabbitMQ, Redis, Elasticsearch
   # ----------------------------------------------------------
   - name: minimal
     activation:
@@ -28,9 +28,12 @@ profiles:
         - ./k8s/volumes/postgres-pvc.yml
         - ./k8s/volumes/redis-pv.yml
         - ./k8s/volumes/redis-pvc.yml
+        - ./k8s/volumes/elasticsearch-pv.yml
+        - ./k8s/volumes/elasticsearch-pvc.yml
         - ./k8s/postgres-depl.yml
         - ./k8s/rabbitmq-depl.yml
         - ./k8s/product-redis-depl.yml
+        - ./k8s/elasticsearch-depl.yml
         - ./k8s/auth-depl.yml
         - ./k8s/product-depl.yml
         - ./k8s/cart-depl.yml
@@ -79,9 +82,12 @@ profiles:
         - ./k8s/volumes/postgres-pvc.yml
         - ./k8s/volumes/redis-pv.yml
         - ./k8s/volumes/redis-pvc.yml
+        - ./k8s/volumes/elasticsearch-pv.yml
+        - ./k8s/volumes/elasticsearch-pvc.yml
         - ./k8s/postgres-depl.yml
         - ./k8s/rabbitmq-depl.yml
         - ./k8s/product-redis-depl.yml
+        - ./k8s/elasticsearch-depl.yml
         - ./k8s/auth-depl.yml
         - ./k8s/product-depl.yml
         - ./k8s/cart-depl.yml

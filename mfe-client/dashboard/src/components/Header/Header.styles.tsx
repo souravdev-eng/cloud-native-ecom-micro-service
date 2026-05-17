@@ -276,3 +276,89 @@ export const DropdownLogout = styled(DropdownBtn)({
     color: '#dc2626',
     '&:hover': { backgroundColor: '#fff5f5' },
 });
+
+// ── Search suggestions ────────────────────────────────────────────────────────
+
+export const SearchWrapper = styled(Box)({
+    position: 'relative',
+    flex: 1,
+    maxWidth: 480,
+});
+
+export const SuggestionsDropdown = styled(Box)({
+    position: 'absolute',
+    top: 'calc(100% + 4px)',
+    left: 0,
+    right: 0,
+    backgroundColor: '#fff',
+    border: '1px solid #e2e8f0',
+    borderRadius: 10,
+    boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+    zIndex: 300,
+    overflow: 'hidden',
+    maxHeight: 400,
+    overflowY: 'auto',
+});
+
+export const SuggestionItem = styled('button')({
+    display: 'flex',
+    alignItems: 'center',
+    gap: 12,
+    width: '100%',
+    padding: '10px 14px',
+    border: 'none',
+    backgroundColor: 'transparent',
+    cursor: 'pointer',
+    textAlign: 'left',
+    transition: 'background 0.12s',
+
+    '&:hover, &[data-active="true"]': {
+        backgroundColor: '#f1f5f9',
+    },
+
+    '& em': {
+        fontStyle: 'normal',
+        fontWeight: 700,
+        color: '#2563eb',
+    },
+});
+
+export const SuggestionImage = styled('img')({
+    width: 36,
+    height: 36,
+    borderRadius: 6,
+    objectFit: 'cover',
+    flexShrink: 0,
+    backgroundColor: '#f8fafc',
+});
+
+export const SuggestionInfo = styled(Box)({
+    flex: 1,
+    minWidth: 0,
+});
+
+export const SuggestionTitle = styled('span')({
+    display: 'block',
+    fontSize: 13,
+    fontWeight: 500,
+    color: '#0f172a',
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+});
+
+export const SuggestionMeta = styled('span')({
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+    fontSize: 11,
+    color: '#64748b',
+    marginTop: 1,
+});
+
+export const SuggestionPrice = styled('span')({
+    fontSize: 13,
+    fontWeight: 600,
+    color: '#0f172a',
+    flexShrink: 0,
+});

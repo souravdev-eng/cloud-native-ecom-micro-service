@@ -1,0 +1,106 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: elasticsearch-product-index-config
+  labels:
+    app: elasticsearch
+data:
+  product-index-settings.json: |
+    {
+      "settings": {
+        "number_of_shards": 1,
+        "number_of_replicas": 0,
+        "analysis": {
+          "analyzer": {
+            "product_analyzer": {
+              "type": "custom",
+              "tokenizer": "standard",
+              "filter": ["lowercase", "trim", "product_synonym", "product_stemmer"]
+            },
+            "autocomplete_analyzer": {
+              "type": "custom",
+              "tokenizer": "autocomplete_tokenizer",
+              "filter": ["lowercase"]
+            }
+          },
+          "tokenizer": {
+            "autocomplete_tokenizer": {
+              "type": "edge_ngram",
+              "min_gram": 2,
+              "max_gram": 20,
+              "token_chars": ["letter", "digit"]
+            }
+          },
+          "filter": {
+            "product_synonym": {
+              "type": "synonym",
+              "synonyms": [
+                "phone, mobile, smartphone",
+                "laptop, notebook",
+                "tv, television",
+                "shirt, tee, t-shirt"
+              ]
+            },
+            "product_stemmer": {
+              "type": "stemmer",
+              "language": "english"
+            }
+          }
+        }
+      },
+      "mappings": {
+        "properties": {
+          "title": {
+            "type": "text",
+            "analyzer": "product_analyzer",
+            "fields": {
+              "autocomplete": {
+                "type": "text",
+                "analyzer": "autocomplete_analyzer",
+                "search_analyzer": "standard"
+              },
+              "keyword": {
+                "type": "keyword"
+              }
+            }
+          },
+          "description": {
+            "type": "text",
+            "analyzer": "product_analyzer"
+          },
+          "category": {
+            "type": "keyword",
+            "fields": {
+              "text": {
+                "type": "text",
+                "analyzer": "product_analyzer"
+              }
+            }
+          },
+          "price": {
+            "type": "float"
+          },
+          "originalPrice": {
+            "type": "float"
+          },
+          "rating": {
+            "type": "float"
+          },
+          "tags": {
+            "type": "keyword"
+          },
+          "sellerId": {
+            "type": "keyword"
+          },
+          "productId": {
+            "type": "keyword"
+          },
+          "createdAt": {
+            "type": "date"
+          },
+          "updatedAt": {
+            "type": "date"
+          }
+        }
+      }
+    }

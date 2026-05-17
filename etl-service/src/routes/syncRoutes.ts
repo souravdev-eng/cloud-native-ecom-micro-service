@@ -2,6 +2,7 @@ import { Router, Request, Response } from "express";
 import { requireAuth, restrictTo, BadRequestError } from "@ecom-micro/common";
 import { ProductSyncService, SyncOptions } from "../etl/productSync";
 import { CartOrderSyncService, CartSyncOptions } from "../etl/cartOrderSync";
+import { ProductElasticSyncService, ElasticSyncOptions } from "../etl/productElasticSync";
 
 const router = Router();
 
@@ -181,6 +182,75 @@ router.get(
       res.status(500).json({
         success: false,
         message: "Failed to get sync stats",
+        error: error.message,
+      });
+    }
+  },
+);
+
+/**
+ * POST /api/etl/sync/elasticsearch
+ * Sync products from MongoDB → Elasticsearch
+ */
+router.post(
+  "/api/etl/sync/elasticsearch",
+  requireAuth,
+  async (req: Request, res: Response) => {
+    try {
+      const { dryRun = false, batchSize = 100 } = req.body;
+
+      if (batchSize < 1 || batchSize > 1000) {
+        throw new BadRequestError("Batch size must be between 1 and 1000");
+      }
+
+      const options: ElasticSyncOptions = {
+        dryRun: Boolean(dryRun),
+        batchSize: Number(batchSize),
+      };
+
+      console.log(`ES sync triggered by user ${req.user?.id}`, options);
+
+      const result = await ProductElasticSyncService.syncProducts(options);
+
+      res.status(200).json({
+        success: true,
+        message: dryRun
+          ? "Dry run completed"
+          : "Elasticsearch sync completed",
+        result,
+      });
+    } catch (error: any) {
+      console.error("ES sync failed:", error.message);
+      res.status(500).json({
+        success: false,
+        message: "Elasticsearch sync failed",
+        error: error.message,
+      });
+    }
+  },
+);
+
+/**
+ * GET /api/etl/sync/elasticsearch/stats
+ * Get Elasticsearch index statistics
+ */
+router.get(
+  "/api/etl/sync/elasticsearch/stats",
+  requireAuth,
+  async (req: Request, res: Response) => {
+    try {
+      const stats = await ProductElasticSyncService.getStats();
+
+      res.status(200).json({
+        success: true,
+        stats,
+        timestamp: new Date(),
+      });
+    } catch (error: any) {
+      console.error("Failed to get ES stats:", error.message);
+      res.status(500).json({
+        success: false,
+        message: "Failed to get Elasticsearch stats",
         error: error.message,
       });
     }
