@@ -32,37 +32,101 @@ An **end-to-end e-commerce system** that runs as independent microservices on Ku
 - **Elasticsearch + MongoDB dual search** — ES for speed, MongoDB as automatic fallback
 - **Autocomplete suggestions** — Debounced edge-ngram suggestions as you type
 - **ETL pipeline** — Syncs data across services (MongoDB → PostgreSQL, MongoDB → Elasticsearch)
-- **CNPG read replicas** — PostgreSQL read/write splitting for cart/order services
+- **CNPG read replicas** — PostgreSQL read/write splitting for cart service
 - **Event-driven** — Product changes propagate to cart, orders, and notifications via RabbitMQ
 
 ---
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    NGINX Ingress Controller                      │
-└──────────┬──────────┬──────────┬──────────┬──────────┬──────────┘
-           │          │          │          │          │
-      ┌────▼───┐ ┌────▼───┐ ┌───▼────┐ ┌───▼───┐ ┌───▼────┐
-      │  Auth  │ │Product │ │  Cart  │ │ Order │ │Notific.│
-      │Service │ │Service │ │Service │ │Service│ │Service │
-      └───┬────┘ └──┬──┬──┘ └──┬──┬──┘ └──┬────┘ └───┬────┘
-          │         │  │       │  │        │          │
-       MongoDB   Mongo Redis  PG  PG    MongoDB    RabbitMQ
-                    │           │                      │
-                    └─── Elasticsearch ◄── ETL Service ┘
+### System Overview
+
+```mermaid
+graph TB
+    Client([🌐 Client])
+
+    subgraph K8s [☸ Kubernetes Cluster]
+        direction TB
+
+        Ingress[⚖️ NGINX Ingress<br/>LoadBalancer]
+
+        subgraph services [Microservices]
+            direction LR
+            Auth[🔐 Auth]
+            Product[📦 Product]
+            Cart[🛒 Cart]
+            Order[📋 Order]
+            Review[⭐ Review<br/>Go]
+            Notif[� Notification]
+            ETL[� ETL]
+        end
+
+        subgraph data [Data Layer]
+            direction LR
+            Mongo[(🍃 MongoDB)]
+            PG[(🐘 PostgreSQL<br/>CNPG)]
+            Redis[(⚡ Redis)]
+            ES[(🔍 Elasticsearch)]
+        end
+
+        MQ[🐇 RabbitMQ]
+    end
+
+    Client -->|HTTPS| Ingress
+    Ingress --> Auth & Product & Cart & Order & Review
+
+    Auth --> Mongo
+    Product --> Mongo & Redis & ES
+    Cart --> PG
+    Order --> Mongo
+    Review --> PG
+
+    Product -.->|events| MQ
+    Cart -.->|events| MQ
+    MQ -.-> Order & Cart & Notif
+
+    ETL -.->|sync| Mongo & PG & ES
+
+    classDef svc fill:#3b82f6,stroke:#1e40af,color:#fff
+    classDef go fill:#00ADD8,stroke:#007d9c,color:#fff
+    classDef etl fill:#8b5cf6,stroke:#6d28d9,color:#fff
+    classDef db fill:#0f172a,stroke:#334155,color:#e2e8f0
+    classDef mq fill:#ff6600,stroke:#cc5200,color:#fff
+    classDef ing fill:#1e293b,stroke:#475569,color:#e2e8f0
+
+    class Auth,Product,Cart,Order,Notif svc
+    class Review go
+    class ETL etl
+    class Mongo,PG,Redis,ES db
+    class MQ mq
+    class Ingress ing
 ```
 
-| Service          | Stack        | Database             | Purpose                                |
-| ---------------- | ------------ | -------------------- | -------------------------------------- |
-| **Auth**         | Node.js / TS | MongoDB              | JWT auth, RBAC, password reset         |
-| **Product**      | Node.js / TS | MongoDB + Redis + ES | Catalog, search, caching, autocomplete |
-| **Cart**         | Node.js / TS | PostgreSQL (CNPG)    | Cart management, inventory sync        |
-| **Order**        | Node.js / TS | PostgreSQL           | Order processing, payment              |
-| **Notification** | Node.js / TS | RabbitMQ             | Email/SMS alerts                       |
-| **ETL**          | Node.js / TS | All DBs              | Cross-service data sync pipelines      |
-| **Review**       | Go / Gin     | PostgreSQL           | Product reviews (high-perf)            |
+### Event Flow (RabbitMQ)
+
+```mermaid
+graph LR
+    P[📦 Product] -->|product.created<br/>product.updated<br/>product.deleted| MQ[🐇 RabbitMQ]
+    C[🛒 Cart] -->|cart.created<br/>cart.updated<br/>cart.deleted| MQ
+    MQ -->|product events| C
+    MQ -->|cart events| O[📋 Order]
+    MQ -->|auth emails| N[🔔 Notification]
+
+    classDef svc fill:#3b82f6,stroke:#1e40af,color:#fff
+    classDef mq fill:#ff6600,stroke:#cc5200,color:#fff
+    class P,C,O,N svc
+    class MQ mq
+```
+
+| Service | Stack | Database | Messaging | Purpose |
+| --- | --- | --- | --- | --- |
+| **Auth** | Node.js / TS | MongoDB | — | JWT auth, RBAC, password reset |
+| **Product** | Node.js / TS | MongoDB + Redis + ES | RabbitMQ | Catalog, search, caching, autocomplete |
+| **Cart** | Node.js / TS | PostgreSQL (CNPG) | RabbitMQ | Cart management, inventory sync |
+| **Order** | Node.js / TS | MongoDB | RabbitMQ | Order processing, payment (Stripe) |
+| **Notification** | Node.js / TS | — | RabbitMQ | Email/SMS alerts |
+| **ETL** | Node.js / TS | All DBs | — | Cross-service data sync pipelines |
+| **Review** | Go / Gin | PostgreSQL | — | Product reviews (high-perf) |
 
 ---
 
@@ -175,17 +239,17 @@ curl -X POST -b <auth-cookie> http://localhost:4100/api/etl/sync/elasticsearch
 
 ## Infrastructure
 
-| Component        | Technology                  | Role                               |
-| ---------------- | --------------------------- | ---------------------------------- |
-| Orchestration    | Kubernetes (Docker Desktop) | Service deployment & scaling       |
-| Ingress          | NGINX Ingress Controller    | API gateway, routing, SSL          |
-| Messaging        | RabbitMQ                    | Event-driven service communication |
-| Caching          | Redis                       | Product listing cache (TTL-based)  |
-| Search           | Elasticsearch 8.11          | Full-text search, autocomplete     |
-| SQL DB           | PostgreSQL (CNPG)           | Cart & order data, read replicas   |
-| NoSQL DB         | MongoDB                     | Auth, product, notification data   |
-| CI/CD            | GitHub Actions              | Build, test, deploy pipeline       |
-| Containerization | Docker                      | Service images                     |
+| Component        | Technology                  | Role                                    |
+| ---------------- | --------------------------- | --------------------------------------- |
+| Orchestration    | Kubernetes (Docker Desktop) | Service deployment & scaling            |
+| Ingress          | NGINX Ingress Controller    | API gateway, routing, SSL               |
+| Messaging        | RabbitMQ                    | Event-driven service communication      |
+| Caching          | Redis                       | Product listing cache (TTL-based)       |
+| Search           | Elasticsearch 8.11          | Full-text search, autocomplete          |
+| SQL DB           | PostgreSQL (CNPG)           | Cart & review data, read replicas       |
+| NoSQL DB         | MongoDB                     | Auth, product, order, notification data |
+| CI/CD            | GitHub Actions              | Build, test, deploy pipeline            |
+| Containerization | Docker                      | Service images                          |
 
 ---
 
