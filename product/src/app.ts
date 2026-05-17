@@ -11,6 +11,7 @@ import { productUpdateRouter } from "./routes/updateProduct";
 import { productDeleteRouter } from "./routes/deleteProduct";
 import { productSellerIdUpdateRouter } from "./routes/updateAllSellerId";
 import { showAllSellerProducts } from "./routes/showAllSellerProducts";
+import { searchProductRouter } from "./routes/searchProduct";
 
 const app = express();
 
@@ -40,6 +41,7 @@ app.use(
 app.use(currentUser);
 
 // routes
+app.use(searchProductRouter); // ES-powered full-text search
 app.use(newProductRouter);
 app.use(showProductRouter);
 app.use(showAllSellerProducts); // Must be before :id routes (specific routes first)
