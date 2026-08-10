@@ -22,7 +22,6 @@ profiles:
       - command: dev
     manifests:
       rawYaml:
-        - ./k8s/secret/*
         - ./k8s/config/*
         - ./k8s/volumes/postgres-pv.yml
         - ./k8s/volumes/postgres-pvc.yml
@@ -76,7 +75,6 @@ profiles:
   - name: backend
     manifests:
       rawYaml:
-        - ./k8s/secret/*
         - ./k8s/config/*
         - ./k8s/volumes/postgres-pv.yml
         - ./k8s/volumes/postgres-pvc.yml
@@ -157,7 +155,6 @@ profiles:
   - name: full
     manifests:
       rawYaml:
-        - ./k8s/secret/*
         - ./k8s/config/*
         - ./k8s/volumes/*
         - ./k8s/cnpg/*
