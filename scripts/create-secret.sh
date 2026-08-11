@@ -1,46 +1,54 @@
 #!/bin/bash
 
 # ============================================================
-# CREATE A SERVICE K8S SECRET FROM ROOT .env  (generic)
+# CREATE THE K8S SECRET FROM ROOT .env  (generic)
 # ============================================================
-# Reads sensitive values from the repo-root .env (gitignored)
-# and creates/updates a Kubernetes secret for a given service.
-# Values never live in a committed manifest.
+# There is exactly ONE secret for the whole platform: "ecom-secret"
+# (see k8s/secret/ecom-secret.example.yml for the full key list).
+# This script builds it from the repo-root .env (gitignored) so the
+# values never have to live in a manifest on disk.
 #
 # Usage:
-#   ./scripts/create-secret.sh <service> [KEY=ENV_VAR ...]
+#   ./scripts/create-secret.sh ecom              # the platform secret
+#   ./scripts/create-secret.sh ecom KEY=ENV_VAR  # ad-hoc override/extra
 #
-# Examples:
-#   ./scripts/create-secret.sh order
-#   ./scripts/create-secret.sh auth
-#   # ad-hoc, without touching the registry below:
-#   ./scripts/create-secret.sh order DB_URL=ORDER_POSTGRESQL_DB_URL
+# Alternative: kubectl apply -f k8s/secret/ecom-secret.yml
 #
 # Behavior:
-#   - Secret name defaults to "<service>-secret" (override with SECRET_NAME=...)
-#   - Namespace defaults to "default"           (override with NAMESPACE=...)
+#   - Secret name defaults to "ecom-secret" for target "ecom",
+#     otherwise "<target>-secret"  (override with SECRET_NAME=...)
+#   - Namespace defaults to "default"          (override with NAMESPACE=...)
 #   - Mappings come from CLI args if given, else the registry() below.
-#   - Idempotent: re-running just updates the secret.
+#   - Idempotent, but a FULL REPLACE: keys absent from .env are dropped
+#     from the secret. Keep every key below present in .env, or use the
+#     manifest path instead.
 # ============================================================
 
 set -euo pipefail
 
 # ------------------------------------------------------------
-# Per-service mapping registry:  <k8s-secret-key>:<var-in-root-.env>
-# Add a case per service as you onboard them.
+# Mapping registry:  <k8s-secret-key>:<var-in-root-.env>
 # ------------------------------------------------------------
 registry() {
   case "$1" in
-    order)
-      echo "DB_URL:ORDER_POSTGRESQL_DB_URL"
-      ;;
-    auth)
-      echo "AUTH_DB:AUTH_DB"
+    ecom)
+      # Auth
+      echo "JWT_KEY:JWT_KEY"
+      # MongoDB (auth, product, review)
       echo "MONGO_USER:MONGO_USER"
       echo "MONGO_PASSWORD:MONGO_PASSWORD"
-      ;;
-    cart)
-      echo "DB_URL:AUTH_POSTGRESQL_DB_URL"
+      echo "AUTH_SERVICE_MONGODB_URL:AUTH_DB"
+      echo "PRODUCT_SERVICE_MONGODB_URL:PRODUCT_SERVICE_MONGODB_URL"
+      echo "REVIEW_MONGODB_URL:REVIEW_MONGODB_URL"
+      # PostgreSQL
+      echo "POSTGRES_PASSWORD:POSTGRES_PASSWORD"
+      echo "CART_DB_URL:CART_DB_URL"
+      echo "ORDER_DB_URL:ORDER_POSTGRESQL_DB_URL"
+      # Email (auth, notification)
+      echo "EMAIL_USER:EMAIL_USER"
+      echo "EMAIL_APP_PASSWORD:EMAIL_APP_PASSWORD"
+      # Payments (order)
+      echo "STRIPE_SECRET_KEY:STRIPE_SECRET_KEY"
       ;;
     *)
       return 0
@@ -51,12 +59,16 @@ registry() {
 # ------------------------------------------------------------
 SERVICE="${1:-}"
 if [ -z "$SERVICE" ]; then
-  echo "Usage: $0 <service> [KEY=ENV_VAR ...]"
+  echo "Usage: $0 ecom [KEY=ENV_VAR ...]"
   exit 1
 fi
 shift || true
 
-SECRET_NAME="${SECRET_NAME:-${SERVICE}-secret}"
+if [ "$SERVICE" = "ecom" ]; then
+  SECRET_NAME="${SECRET_NAME:-ecom-secret}"
+else
+  SECRET_NAME="${SECRET_NAME:-${SERVICE}-secret}"
+fi
 NAMESPACE="${NAMESPACE:-default}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

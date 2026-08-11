@@ -1,9 +1,33 @@
+# ============================================================
+# SINGLE APP CONFIGMAP — non-secret values for ALL services
+# ============================================================
+# Every Node/Go service loads this via:
+#   envFrom:
+#     - configMapRef:
+#         name: ecom-config
+#
+# Rules:
+#   - Only NON-SECRET values live here. Anything credential-like
+#     (passwords, DB URLs with passwords, API keys) belongs in
+#     the single Secret: k8s/secret/ecom-secret.yml
+#   - Keys are global. A key needed by exactly one service and
+#     never shared (e.g. ETL cron schedules) stays inline in that
+#     service's *-depl.yml instead of polluting this map.
+# ============================================================
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: app-config
+  name: ecom-config
   labels:
-    app: postgres
+    app: ecom
 data:
-  NATS_URL: 'http://nats-srv:4222'
+  NODE_ENV: 'development'
+
+  # Messaging — event-driven comms via @ecom-micro/common
   RABBITMQ_ENDPOINT: 'amqp://ecom:password@rabbitmq-srv:5672'
+
+  # Caching (product service)
+  PRODUCT_REDIS_URL: 'redis://product-redis-service:6379'
+
+  # Search + logging sink
+  ELASTICSEARCH_URL: 'http://elasticsearch-srv:9200'

@@ -16,10 +16,10 @@ spec:
         - name: product
           image: souravdeveloper/ecom-product
           envFrom:
-            - secretRef:
-                name: secret-credential
             - configMapRef:
-                name: ecom-global-config
+                name: ecom-config
+            - secretRef:
+                name: ecom-secret
 ---
 apiVersion: v1
 kind: Service

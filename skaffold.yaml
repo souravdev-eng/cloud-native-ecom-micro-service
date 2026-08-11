@@ -33,6 +33,7 @@ profiles:
         - ./k8s/rabbitmq-depl.yml
         - ./k8s/product-redis-depl.yml
         - ./k8s/elasticsearch-depl.yml
+        - ./k8s/elasticsearch-index-config.yml
         - ./k8s/auth-depl.yml
         - ./k8s/product-depl.yml
         - ./k8s/cart-depl.yml
@@ -86,6 +87,7 @@ profiles:
         - ./k8s/rabbitmq-depl.yml
         - ./k8s/product-redis-depl.yml
         - ./k8s/elasticsearch-depl.yml
+        - ./k8s/elasticsearch-index-config.yml
         - ./k8s/auth-depl.yml
         - ./k8s/product-depl.yml
         - ./k8s/cart-depl.yml
@@ -149,15 +151,13 @@ profiles:
         push: true
 
   # ----------------------------------------------------------
-  # FULL - Everything including ELK stack + CNPG read replicas
-  # Prereq: ./scripts/setup-cnpg.sh (one-time operator install)
+  # FULL - Everything including ELK stack
   # ----------------------------------------------------------
   - name: full
     manifests:
       rawYaml:
         - ./k8s/config/*
         - ./k8s/volumes/*
-        - ./k8s/cnpg/*
         - ./k8s/*.yml
     deploy:
       kubectl: {}

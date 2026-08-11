@@ -66,12 +66,18 @@ spec:
           env:
             - name: ELASTICSEARCH_HOSTS
               value: "http://elasticsearch-srv:9200"
+            # Keep the V8 heap under the container limit below. Without this
+            # Node sizes the heap from the host's RAM, not the cgroup, and
+            # Kibana gets OOMKilled (exit 137) during fleet/APM bootstrap.
+            - name: NODE_OPTIONS
+              value: "--max-old-space-size=1024"
           resources:
+            # Kibana 8.11 needs ~1GB heap on its own; 512Mi OOMKills at boot.
             limits:
-              memory: "512Mi"
-              cpu: "500m"
+              memory: "1536Mi"
+              cpu: "1000m"
             requests:
-              memory: "256Mi"
+              memory: "1Gi"
               cpu: "250m"
       volumes:
         - name: kibana-config-volume

@@ -17,9 +17,9 @@ spec:
           image: souravdeveloper/ecom-notification
           envFrom:
             - configMapRef:
-                name: ecom-global-config
+                name: ecom-config
             - secretRef:
-                name: secret-credential
+                name: ecom-secret
 ---
 apiVersion: v1
 kind: Service

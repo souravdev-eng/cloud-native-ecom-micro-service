@@ -11,3 +11,4 @@ config.MD
 build/
 .DS_Store
 k8s/secret/*
+!k8s/secret/*.example.yml

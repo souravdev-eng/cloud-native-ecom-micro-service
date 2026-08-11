@@ -15,20 +15,11 @@ spec:
       containers:
         - name: cart
           image: souravdeveloper/ecom-cart
-          env:
-            - name: CART_DB_URL
-              valueFrom:
-                secretKeyRef:
-                  name: postgres-secret
-                  key: CART_DB_URL
           envFrom:
             - configMapRef:
-                name: ecom-global-config
+                name: ecom-config
             - secretRef:
-                name: secret-credential
-            - secretRef:
-                name: cnpg-cart-urls
-                optional: true
+                name: ecom-secret
 ---
 apiVersion: v1
 kind: Service

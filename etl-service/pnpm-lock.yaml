@@ -11,6 +11,9 @@ importers:
       '@ecom-micro/common':
         specifier: ^2.0.48
         version: 2.0.48
+      '@elastic/elasticsearch':
+        specifier: ^8.19.1
+        version: 8.19.1
       '@types/amqplib':
         specifier: ^0.10.5
         version: 0.10.8

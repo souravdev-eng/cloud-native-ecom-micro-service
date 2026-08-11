@@ -11,7 +11,7 @@
 # folder. So they are plain repo-root-relative paths (no `../`).
 #
 # Usage (run from repo root):
-#   1. ./scripts/create-secret.sh order      # once per fresh cluster
+#   1. ./scripts/create-secret.sh ecom       # once per fresh cluster
 #   2. skaffold dev -f skaffold/order.yaml
 #
 # Access:
@@ -49,11 +49,11 @@ deploy:
 # Grouped: shared config → dependency → the service itself.
 manifests:
   rawYaml:
-    # config (ConfigMap: RABBITMQ_ENDPOINT / NATS_URL)
+    # config (single ConfigMap: ecom-config)
     - k8s/config/app-config.yml
     # dependency (event-driven messaging via @ecom-micro/common)
     - k8s/rabbitmq-depl.yml
-    # service (reads order-secret created by scripts/create-secret.sh)
+    # service (reads ecom-secret created by scripts/create-secret.sh)
     - k8s/order-depl.yml
     # routing (exposes /api/order via nginx ingress)
     - k8s/ingress-depl.yml

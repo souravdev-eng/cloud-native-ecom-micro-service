@@ -5,7 +5,7 @@ import { relations } from "../models/relations";
 import * as schema from "../models";
 
 // Neon Postgres — SSL is driven by the sslmode param in DB_URL.
-export const pool = new Pool({ connectionString: config.DB_URL });
+export const pool = new Pool({ connectionString: config.ORDER_DB_URL });
 
 // Relations v2: pass `relations` so db.query.* is available.
 export const db = drizzle({ client: pool, relations });

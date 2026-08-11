@@ -19,9 +19,9 @@ spec:
             - containerPort: 4000
           envFrom:
             - configMapRef:
-                name: app-config
+                name: ecom-config
             - secretRef:
-                name: order-secret
+                name: ecom-secret
 ---
 apiVersion: v1
 kind: Service
