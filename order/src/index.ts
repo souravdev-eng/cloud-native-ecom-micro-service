@@ -1,58 +1,40 @@
-import mongoose from 'mongoose';
-import app from './app';
-import { rabbitMQWrapper } from './rabbitMQWrapper';
-import { CartCreatedListener } from './queue/listeners/cartCreatedListener';
-import { CartUpdatedListener } from './queue/listeners/cartUpdatedListener';
-import { CartDeletedListener } from './queue/listeners/cartDeletedListener';
+import { app } from "./app";
+import { config } from "./config";
+import { connectDB, pool } from "./db";
+import { rabbitMQWrapper } from "./rabbitMQWrapper";
+import { ProductCreatedListener } from "./queue/listener/productCreatedListener";
+import { ProductUpdatedListener } from "./queue/listener/productUpdatedListener";
+import { ProductDeleteListener } from "./queue/listener/productDeleteListener";
+import { ProductQuantityUpdateListener } from "./queue/listener/productQuantityUpdateListener";
 
-const start = async () => {
-  if (!process.env.ORDER_SERVICE_MONGODB_URL) {
-    throw new Error('ORDER_SERVICE_MONGODB_URL must be defined');
-  }
-
-  if (!process.env.MONGO_USER) {
-    throw new Error('MONGO_USER must be defined');
-  }
-
-  if (!process.env.MONGO_PASSWORD) {
-    throw new Error('MONGO_PASSWORD must be defined');
-  }
-
-  if (!process.env.RABBITMQ_ENDPOINT) {
-    throw new Error('RABBITMQ_ENDPOINT must be defined');
-  }
-
-  if (!process.env.STRIPE_SECRET_KEY) {
-    throw new Error('STRIPE_SECRET_KEY must be defined');
-  }
-
+const startServer = async () => {
   try {
-    mongoose.set('strictQuery', true);
-    mongoose
-      .connect(process.env.ORDER_SERVICE_MONGODB_URL!, {
-        user: process.env.MONGO_USER,
-        pass: process.env.MONGO_PASSWORD,
-      })
-      .then(() => console.log('Order Service DB is connected ~~ 🚀🚀'))
-      .catch((err) => {
-        console.log(err.message);
-        process.exit(1);
-      });
+    await connectDB();
 
-    await rabbitMQWrapper.connect(process.env.RABBITMQ_ENDPOINT!);
+    // Connect to RabbitMQ, then start the listeners that keep the local
+    // `products` replica in sync with the product service.
+    await rabbitMQWrapper.connect(config.RABBITMQ_ENDPOINT);
+    await new ProductCreatedListener(rabbitMQWrapper.channel).listen();
+    await new ProductUpdatedListener(rabbitMQWrapper.channel).listen();
+    await new ProductDeleteListener(rabbitMQWrapper.channel).listen();
+    await new ProductQuantityUpdateListener(rabbitMQWrapper.channel).listen();
 
-    // Set up cart event listeners
-    await new CartCreatedListener(rabbitMQWrapper.channel).listen();
-    await new CartUpdatedListener(rabbitMQWrapper.channel).listen();
-    await new CartDeletedListener(rabbitMQWrapper.channel).listen();
-
-    const PORT = process.env.PORT || 4000;
-    app.listen(PORT, () => {
-      console.log(`Order server running on PORT ~~ ${PORT}`);
+    const server = app.listen(config.PORT, () => {
+      console.log(`Order Service running on port: ${config.PORT}`);
     });
-  } catch (error: any) {
-    console.log(error.message);
+
+    const shutdown = async () => {
+      await rabbitMQWrapper.close();
+      await pool.end();
+      server.close(() => process.exit(0));
+    };
+
+    process.on("SIGTERM", shutdown);
+    process.on("SIGINT", shutdown);
+  } catch (error) {
+    console.error("Order startup error", error);
+    process.exit(1);
   }
 };
 
-start();
+startServer();

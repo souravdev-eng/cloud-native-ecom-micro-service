@@ -1,24 +1,29 @@
-import amqp, { Channel } from 'amqplib';
+import amqp, { Channel } from "amqplib";
 
+// Singleton holder for the AMQP connection + channel, shared by every
+// listener. Mirrors the wrapper used by the other Node services so the
+// connection lifecycle is identical across the system.
 class RabbitMQWrapper {
   private _channel?: Channel;
+  private _connection?: Awaited<ReturnType<typeof amqp.connect>>;
 
   get channel() {
     if (!this._channel) {
-      throw new Error('Cannot access MQ channel before connecting');
+      throw new Error("Cannot access MQ channel before connecting");
     }
     return this._channel;
   }
 
   async connect(url: string) {
-    try {
-      const connection = await amqp.connect(url);
-      this._channel = await connection.createChannel();
-      console.log('Order Service MQ Server connected ~~ 🚀🚀');
-    } catch (error) {
-      console.log(error);
-      throw new Error('Not able to connect MQ server! ~~ 🤨🤨');
-    }
+    const connection = await amqp.connect(url);
+    this._connection = connection;
+    this._channel = await connection.createChannel();
+    console.log("MQ Server connected...");
+  }
+
+  async close() {
+    await this._channel?.close();
+    await this._connection?.close();
   }
 }
 

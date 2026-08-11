@@ -15,27 +15,10 @@ spec:
       containers:
         - name: etl
           image: souravdeveloper/ecom-etl
+          # CART_DB_URL, PRODUCT_SERVICE_MONGODB_URL, MONGO_USER and
+          # MONGO_PASSWORD all arrive via envFrom → ecom-secret below.
+          # Only ETL-specific tunables are declared inline here.
           env:
-            - name: CART_DB_URL
-              valueFrom:
-                secretKeyRef:
-                  name: postgres-secret
-                  key: CART_DB_URL
-            - name: PRODUCT_SERVICE_MONGODB_URL
-              valueFrom:
-                secretKeyRef:
-                  name: secret-credential
-                  key: PRODUCT_SERVICE_MONGODB_URL
-            - name: MONGO_USER
-              valueFrom:
-                secretKeyRef:
-                  name: secret-credential
-                  key: MONGO_USER
-            - name: MONGO_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: secret-credential
-                  key: MONGO_PASSWORD
             - name: SYNC_CRON_SCHEDULE
               value: "*/30 * * * *"
             - name: HEALTH_CHECK_CRON_SCHEDULE
@@ -48,31 +31,9 @@ spec:
               value: "UTC"
           envFrom:
             - configMapRef:
-                name: ecom-global-config
+                name: ecom-config
             - secretRef:
-                name: secret-credential
-            - secretRef:
-                name: cnpg-cart-urls
-                optional: true
-          # livenessProbe:
-          #   httpGet:
-          #     path: /api/etl/live
-          #     port: 4000
-          #   initialDelaySeconds: 30
-          #   periodSeconds: 10
-          # readinessProbe:
-          #   httpGet:
-          #     path: /api/etl/ready
-          #     port: 4000
-          #   initialDelaySeconds: 5
-          #   periodSeconds: 5
-          # resources:
-          #   requests:
-          #     memory: "128Mi"
-          #     cpu: "100m"
-          #   limits:
-          #     memory: "512Mi"
-          #     cpu: "500m"
+                name: ecom-secret
 ---
 apiVersion: v1
 kind: Service

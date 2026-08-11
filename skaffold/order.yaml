@@ -1,0 +1,59 @@
+# ============================================================
+# SINGLE-SERVICE DEV CONFIG — ORDER
+# ============================================================
+# Runs ONLY the order service + its required in-cluster deps,
+# so your machine uses far fewer resources than a full
+# `skaffold dev`. The order DB is external (Neon Postgres),
+# so no postgres pod is needed.
+#
+# NOTE: skaffold resolves the paths below relative to the working
+# directory you invoke it from — i.e. the repo root — NOT this file's
+# folder. So they are plain repo-root-relative paths (no `../`).
+#
+# Usage (run from repo root):
+#   1. ./scripts/create-secret.sh ecom       # once per fresh cluster
+#   2. skaffold dev -f skaffold/order.yaml
+#
+# Access:
+#   kubectl port-forward svc/order-srv 4300:4000
+#   → http://localhost:4300/api/order
+# ============================================================
+
+apiVersion: skaffold/v4beta2
+kind: Config
+metadata:
+  name: order-only
+
+# ---- Build -------------------------------------------------
+# Only the order image is built. push:false uses the locally
+# built image directly (faster, no registry round-trip). Flip
+# to true if your cluster can't reach local images.
+build:
+  local:
+    push: false
+  artifacts:
+    - image: souravdeveloper/ecom-order
+      context: order
+      docker:
+        dockerfile: Dockerfile
+      sync:
+        manual:
+          - src: src/**/*.ts
+            dest: .
+
+# ---- Deploy ------------------------------------------------
+deploy:
+  kubectl: {}
+
+# ---- Manifests ---------------------------------------------
+# Grouped: shared config → dependency → the service itself.
+manifests:
+  rawYaml:
+    # config (single ConfigMap: ecom-config)
+    - k8s/config/app-config.yml
+    # dependency (event-driven messaging via @ecom-micro/common)
+    - k8s/rabbitmq-depl.yml
+    # service (reads ecom-secret created by scripts/create-secret.sh)
+    - k8s/order-depl.yml
+    # routing (exposes /api/order via nginx ingress)
+    - k8s/ingress-depl.yml

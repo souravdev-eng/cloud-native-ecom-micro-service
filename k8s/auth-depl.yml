@@ -17,11 +17,9 @@ spec:
           image: souravdeveloper/ecom-auth
           envFrom:
             - configMapRef:
-                name: auth-config
+                name: ecom-config
             - secretRef:
-                name: auth-credential
-            - secretRef:
-                name: secret-credential
+                name: ecom-secret
 ---
 apiVersion: v1
 kind: Service

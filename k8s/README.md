@@ -1,113 +1,92 @@
 # Kubernetes Configuration
 
-## Secret Files Setup
+Configuration is centralized into **two files**:
 
-The `secret/` folder is gitignored for security reasons. You need to create the following secret files manually before deploying to Kubernetes.
+| File | Object | Contents |
+| --- | --- | --- |
+| `k8s/config/app-config.yml` | ConfigMap `ecom-config` | non-secret, cluster-wide env (RabbitMQ, Redis, Elasticsearch, `NODE_ENV`) — **committed** |
+| `k8s/secret/ecom-secret.yml` | Secret `ecom-secret` | all credentials (JWT, Mongo, Postgres, email, Stripe) — **gitignored** |
 
-### Required Secret Files
-
-Create the following files inside the `k8s/secret/` directory:
-
----
-
-### 1. `auth-secret.yml`
-
-Used by: **Auth Service**
+Every service consumes both the same way:
 
 ```yaml
-apiVersion: v1
-kind: Secret
-metadata:
-  name: auth-credential
-type: Opaque
-stringData:
-  AUTH_SERVICE_MONGODB_URL: 'mongodb+srv://<username>:<password>@<cluster>.mongodb.net/<database>'
-  MONGO_USER: '<your-mongo-username>'
-  MONGO_PASSWORD: '<your-mongo-password>'
+envFrom:
+  - configMapRef:
+      name: ecom-config
+  - secretRef:
+      name: ecom-secret
 ```
 
----
+There are no per-service ConfigMaps or Secrets. Add a key to the shared object
+rather than creating a new one. A value used by exactly one service and never
+shared (e.g. the ETL cron schedules) stays inline in that service's `*-depl.yml`.
 
-### 2. `postgres-secret.yml`
+## Setting up the secret
 
-Used by: **PostgreSQL**, **Cart Service**
+`k8s/secret/` is gitignored except for the template. Pick one of two paths:
 
-```yaml
-apiVersion: v1
-kind: Secret
-metadata:
-  name: postgres-secret
-type: Opaque
-stringData:
-  POSTGRES_PASSWORD: '<your-postgres-password>'
-  CART_DB_URL: 'postgresql://cartuser:<your-postgres-password>@postgres-srv:5432/cartdb'
-```
-
----
-
-### 3. `secret-credential.yml`
-
-Used by: **Auth**, **Cart**, **Order**, **Notification** services
-
-```yaml
-apiVersion: v1
-kind: Secret
-metadata:
-  name: secret-credential
-type: Opaque
-stringData:
-  EMAIL_USER: '<your-email@gmail.com>'
-  EMAIL_APP_PASSWORD: '<your-gmail-app-password>'
-```
-
-> **Note:** For Gmail, you need to generate an [App Password](https://support.google.com/accounts/answer/185833) instead of using your regular password.
-
----
-
-### 4. `cart-secret.yml` (Optional)
-
-If you need additional cart-specific secrets:
-
-```yaml
-apiVersion: v1
-kind: Secret
-metadata:
-  name: cart-secret
-type: Opaque
-stringData:
-  # Add any cart-specific secrets here
-```
-
----
-
-## Applying Secrets
-
-After creating the secret files, apply them to your Kubernetes cluster:
+**a) Manifest** — copy the template and fill in real values:
 
 ```bash
-kubectl apply -f k8s/secret/
+cp k8s/secret/ecom-secret.example.yml k8s/secret/ecom-secret.yml
+$EDITOR k8s/secret/ecom-secret.yml
+kubectl apply -f k8s/secret/ecom-secret.yml
 ```
 
-Or apply individually:
+`stringData` takes plain text — Kubernetes base64-encodes it. Do not pre-encode.
+
+**b) From the root `.env`** — no plaintext manifest on disk:
 
 ```bash
-kubectl apply -f k8s/secret/auth-secret.yml
-kubectl apply -f k8s/secret/postgres-secret.yml
-kubectl apply -f k8s/secret/secret-credential.yml
+./scripts/create-secret.sh ecom
 ```
 
-## Verifying Secrets
+The script maps root-`.env` variables to secret keys (see `registry()` in the
+script). It is a **full replace**: any key missing from `.env` is dropped from
+the secret, so keep all of them present or use path (a).
 
-Check if secrets are created:
+> Gmail needs an [App Password](https://support.google.com/accounts/answer/185833),
+> not your account password.
+
+## Verifying
 
 ```bash
-kubectl get secrets
+kubectl get configmap ecom-config -o yaml
+kubectl get secret ecom-secret -o jsonpath='{.data}' | jq 'keys'
 ```
 
-View secret details (base64 encoded):
+## Key-name conventions
+
+Because one Secret is injected into every pod, keys must be globally unique —
+no two services may want a different value under the same name:
+
+- Mongo URLs are per-service: `AUTH_SERVICE_MONGODB_URL`, `PRODUCT_SERVICE_MONGODB_URL`, `REVIEW_MONGODB_URL`
+- Postgres URLs are per-service: `CART_DB_URL`, `ORDER_DB_URL`
+- Where a service insists on a generic name, map it in its deployment. Order
+  reads `DB_URL`, so `order-depl.yml` does:
+
+  ```yaml
+  env:
+    - name: DB_URL
+      valueFrom:
+        secretKeyRef:
+          name: ecom-secret
+          key: ORDER_DB_URL
+  ```
+
+## Objects that intentionally stay separate
+
+These are not duplicates of the two shared files:
+
+- `k8s/elasticsearch-index-config.yml` — a JSON index-settings document, not
+  env vars.
+
+## Applying everything
+
+Skaffold applies the ConfigMap for you; the secret is applied once per fresh
+cluster:
 
 ```bash
-kubectl describe secret auth-credential
-kubectl describe secret postgres-secret
-kubectl describe secret secret-credential
+kubectl apply -f k8s/secret/ecom-secret.yml   # or ./scripts/create-secret.sh ecom
+skaffold dev                                  # minimal profile
 ```
