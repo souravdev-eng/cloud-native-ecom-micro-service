@@ -30,6 +30,11 @@ jest.mock('../redisClient', () => ({
   connectRedis: jest.fn().mockResolvedValue(undefined),
 }));
 
+// Mock AWS image upload to avoid requiring real AWS credentials in tests
+jest.mock('../services/uploadImageToAws', () => ({
+  uploadImageToAws: jest.fn().mockResolvedValue('https://test-bucket.s3.amazonaws.com/test-image.jpg'),
+}));
+
 declare global {
   function signIn(): string[];
   function sellerSignIn(): any;

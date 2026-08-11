@@ -22,8 +22,8 @@ export const productValidation = [
 export const productUpdateValidation = [
   body('price')
     .optional()
-    .isFloat({ min: 10, max: 5000000 })
-    .withMessage('Price must be greater than 100 and less than 5000000'),
+    .isFloat({ min: 100, max: 5000000 })
+    .withMessage('Price must be greater than or equal to 100 and less than 5000000'),
   body('category')
     .optional()
     .isIn(validCategories)
