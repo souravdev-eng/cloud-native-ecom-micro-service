@@ -21,7 +21,7 @@ spec:
             - configMapRef:
                 name: app-config
             - secretRef:
-                name: secret-credential
+                name: order-secret
 ---
 apiVersion: v1
 kind: Service
