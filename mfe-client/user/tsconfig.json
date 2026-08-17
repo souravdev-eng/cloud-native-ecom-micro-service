@@ -2,6 +2,9 @@
 	"compilerOptions": {
 		"target": "ES2020",
 		"lib": ["DOM", "ES2020"],
+		// bootstrap.tsx branches on process.env.NODE_ENV (rspack inlines it at
+		// build time), so the node globals have to be in scope for type-check.
+		"types": ["node"],
 		"module": "ESNext",
 		"jsx": "react-jsx",
 		"strict": true,

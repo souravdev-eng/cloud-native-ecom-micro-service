@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { cartApi } from '../../api/baseUrl';
+import { parseErrorMessage } from '../../utils/parseError';
 
 interface CartItem {
     product_id: string;
@@ -17,30 +18,6 @@ interface CartState {
     loading: boolean;
     error: string | null;
 }
-
-// Helper function to parse error response
-// Handles: { errors: [{ message: "..." }] } format
-const parseErrorMessage = (err: any): string => {
-    // Handle { errors: [{ message: "..." }] } format
-    if (err.response?.data?.errors && Array.isArray(err.response.data.errors)) {
-        const messages = err.response.data.errors
-            .map((e: any) => e.message)
-            .filter(Boolean);
-        if (messages.length > 0) {
-            return messages.join('. ');
-        }
-    }
-    // Handle { message: "..." } format
-    if (err.response?.data?.message) {
-        return err.response.data.message;
-    }
-    // Handle { error: "..." } format
-    if (err.response?.data?.error) {
-        return err.response.data.error;
-    }
-    // Default fallback
-    return 'Something went wrong. Please try again.';
-};
 
 export const useCart = () => {
     const [cartState, setCartState] = useState<CartState>({

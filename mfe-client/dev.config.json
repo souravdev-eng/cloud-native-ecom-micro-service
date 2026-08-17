@@ -1,0 +1,98 @@
+{
+	"//": "SINGLE SOURCE OF TRUTH for MFE local dev. Read by scripts/dev.mjs (port-forwards + dev servers) and by every rspack.config.ts (devServer port, publicPath, API endpoints). Change a port here and nowhere else.",
+	"cluster": {
+		"namespace": "default",
+		"context": null,
+		"waitForReadySeconds": 120
+	},
+	"apps": [
+		{
+			"name": "host",
+			"port": 3000,
+			"role": "shell",
+			"//": "shell that federates the remotes below"
+		},
+		{
+			"name": "user",
+			"port": 3001,
+			"role": "remote",
+			"exposes": "./UserApp"
+		},
+		{
+			"name": "dashboard",
+			"port": 3002,
+			"role": "remote",
+			"exposes": "./dashboardApp"
+		},
+		{
+			"name": "shared",
+			"port": 3003,
+			"role": "library",
+			"//": "consumed as a library, not federated — started first"
+		},
+		{
+			"name": "admin",
+			"port": 3004,
+			"role": "remote",
+			"exposes": "./adminApp"
+		}
+	],
+	"backends": [
+		{
+			"key": "AUTH",
+			"service": "auth-srv",
+			"deployment": "auth-deployment",
+			"remotePort": 3000,
+			"localPort": 3100,
+			"required": true
+		},
+		{
+			"key": "PRODUCT",
+			"service": "product-srv",
+			"deployment": "product-deployment",
+			"remotePort": 4000,
+			"localPort": 4100,
+			"required": true
+		},
+		{
+			"key": "CART",
+			"service": "cart-srv",
+			"deployment": "cart-deployment",
+			"remotePort": 4000,
+			"localPort": 4200,
+			"required": true
+		},
+		{
+			"key": "ORDER",
+			"service": "order-srv",
+			"deployment": "order-deployment",
+			"remotePort": 4000,
+			"localPort": 4300,
+			"required": false,
+			"//": "only in `skaffold dev -p backend|full`"
+		},
+		{
+			"key": "ETL",
+			"service": "etl-srv",
+			"deployment": "etl-deployment",
+			"remotePort": 4000,
+			"localPort": 4400,
+			"required": false,
+			"//": "only in `skaffold dev -p backend|full`"
+		},
+		{
+			"key": "REVIEW",
+			"service": "review-service",
+			"deployment": "review-deployment",
+			"remotePort": 3000,
+			"localPort": 3200,
+			"required": false,
+			"//": "Go service — no k8s manifest yet, skipped when absent"
+		}
+	],
+	"production": {
+		"apiBaseUrl": "http://ecom.dev",
+		"remoteUrlPattern": "http://ecom.dev/mfe/{name}/remoteEntry.js",
+		"//": "apiBaseUrl must match the `host:` in k8s/ingress-depl.yml. remoteUrlPattern needs matching /mfe/* ingress paths before MFEs are deployed to k8s — they are dev-only today."
+	}
+}

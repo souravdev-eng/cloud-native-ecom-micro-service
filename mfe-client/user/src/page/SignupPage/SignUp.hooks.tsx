@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { userServiceApi } from '../../api/baseUrl';
-
+import { parseErrorMessage } from '../../utils/parseError';
 
 export const useSignUp = () => {
   const navigate = useNavigate();
@@ -27,13 +27,9 @@ export const useSignUp = () => {
       }
     } catch (error: any) {
       setLoading(false);
-      if (error.response?.data?.message) {
-        setError(error.response.data.message);
-      } else if (error.message) {
-        setError(error.message);
-      } else {
-        setError('Something went wrong. Please try again.');
-      }
+      // The auth service reports validation failures as
+      // { errors: [{ message }] }, which the old check missed entirely.
+      setError(parseErrorMessage(error));
     }
   };
 

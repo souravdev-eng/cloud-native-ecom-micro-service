@@ -4,7 +4,10 @@ kind: Config
 # ============================================================
 # SKAFFOLD PROFILES FOR BACKEND DEVELOPMENT
 # ============================================================
-# MFEs run locally: cd mfe-client && ./scripts/start-dev.sh
+# MFEs run locally, not in the cluster. In a second terminal:
+#   cd mfe-client && pnpm dev
+# That opens the kubectl port-forwards the MFEs need and starts every
+# dev server. All ports live in mfe-client/dev.config.json.
 #
 # Usage:
 #   skaffold dev              # minimal - core services (default)

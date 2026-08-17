@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { productApi, productSearchApi } from '../../api/baseUrl';
+import { isUnauthorized, parseErrorMessage } from '../../utils/parseError';
 
 export interface Product {
     id: string;
@@ -114,11 +115,17 @@ export const useProductsPage = () => {
     const [currentPageIndex, setCurrentPageIndex] = useState(0);
     const [searchSource, setSearchSource] = useState<'listing' | 'elasticsearch' | 'mongodb'>('listing');
     const [parsedFilters, setParsedFilters] = useState<SearchFilters | null>(null);
+    // A failed fetch used to only reach console.error, leaving the grid empty
+    // and indistinguishable from "no products match these filters".
+    const [error, setError] = useState<string | null>(null);
+    const [requiresAuth, setRequiresAuth] = useState(false);
 
     // ── Fetch (ES search) ────────────────────────────────────────────────────
 
     const fetchWithSearch = useCallback(async (f: Filters, page: number = 1) => {
         setIsLoading(true);
+        setError(null);
+        setRequiresAuth(false);
         try {
             const params = new URLSearchParams();
             params.append('q', f.search);
@@ -159,7 +166,8 @@ export const useProductsPage = () => {
                 setParsedFilters(res.data.filters ?? null);
             }
         } catch (err) {
-            console.error('Error searching products:', err);
+            setRequiresAuth(isUnauthorized(err));
+            setError(parseErrorMessage(err, 'Product search failed'));
             setProducts([]);
             setSearchSource('listing');
         } finally {
@@ -179,6 +187,8 @@ export const useProductsPage = () => {
         setSearchSource('listing');
         setParsedFilters(null);
         setIsLoading(true);
+        setError(null);
+        setRequiresAuth(false);
         try {
             const res = await productApi.get(`/?${buildQuery(f, cursor).toString()}`);
             if (res.status === 200) {
@@ -193,7 +203,8 @@ export const useProductsPage = () => {
                 });
             }
         } catch (err) {
-            console.error('Error fetching products:', err);
+            setRequiresAuth(isUnauthorized(err));
+            setError(parseErrorMessage(err, 'Could not load products'));
             setProducts([]);
         } finally {
             setIsLoading(false);
@@ -335,7 +346,8 @@ export const useProductsPage = () => {
     }, []);
 
     return {
-        products, isLoading, meta, filters,
+        products, isLoading, meta, filters, error, requiresAuth,
+        retry: () => fetchWithFilters(filters, null),
         categories: CATEGORIES,
         currentPage: filters.search.trim() ? (meta.page ?? 1) : currentPageIndex + 1,
         hasNextPage: meta.hasNextPage,

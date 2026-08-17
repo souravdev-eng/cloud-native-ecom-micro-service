@@ -2,12 +2,12 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import SearchIcon from '@mui/icons-material/SearchRounded';
 import ShoppingCartOutlinedIcon from '@mui/icons-material/ShoppingCartOutlined';
-import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorderRounded';
 import PersonOutlineIcon from '@mui/icons-material/PersonOutlineRounded';
 import CloseIcon from '@mui/icons-material/CloseRounded';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDownRounded';
 
 import { useAuth } from '../../hooks/useAuth';
+import { useCartCount } from '../../hooks/useCartCount';
 import { productSearchApi } from '../../api/baseUrl';
 import Footer from '../Footer/Footer';
 import * as S from './Header.styles';
@@ -22,15 +22,17 @@ interface Suggestion {
     highlight: string;
 }
 
+// Every entry must resolve to a real route. '/about-us' and '/blog' used to sit
+// here with no route and no content behind them, so both rendered the
+// not-found page. Add them back alongside their pages, not before.
 const NAV_LINKS = [
     { label: 'Home', to: '/' },
     { label: 'Products', to: '/products' },
-    { label: 'About', to: '/about-us' },
-    { label: 'Blog', to: '/blog' },
 ];
 
 const Header = ({ children }: { children: React.ReactNode }) => {
-    const { isAuthenticated, logout } = useAuth();
+    const { isAuthenticated, user, logout } = useAuth();
+    const { count: cartCount, refresh: refreshCartCount } = useCartCount();
     const navigate = useNavigate();
 
     const [showAnnouncement, setShowAnnouncement] = useState(true);
@@ -124,6 +126,8 @@ const Header = ({ children }: { children: React.ReactNode }) => {
     const handleLogout = async () => {
         setDropdownOpen(false);
         await logout();
+        // The badge is per-session; clear it so it doesn't linger for the next user.
+        refreshCartCount();
         navigate('/user/auth/signin');
     };
 
@@ -210,24 +214,19 @@ const Header = ({ children }: { children: React.ReactNode }) => {
                         )}
                     </S.SearchWrapper>
 
-                    {/* Right icon cluster */}
+                    {/* Right icon cluster.
+                        The wishlist icon used to live here but pointed at
+                        /user/my-wishlist, a route that doesn't exist and has no
+                        backend behind it — it only ever produced a 404. */}
                     <S.IconCluster>
-                        {/* Wishlist */}
-                        <S.IconBtn
-                            aria-label="Wishlist"
-                            onClick={() => navigate('/user/my-wishlist')}
-                            title="Wishlist"
-                        >
-                            <FavoriteBorderIcon sx={{ fontSize: 20 }} />
-                        </S.IconBtn>
-
                         {/* Cart */}
                         <S.IconBtn
-                            aria-label="Cart"
+                            aria-label={`Cart, ${cartCount} ${cartCount === 1 ? 'item' : 'items'}`}
                             onClick={() => navigate('/user/cart')}
                             title="Cart"
                         >
                             <ShoppingCartOutlinedIcon sx={{ fontSize: 20 }} />
+                            {cartCount > 0 && <S.Badge>{cartCount > 99 ? '99+' : cartCount}</S.Badge>}
                         </S.IconBtn>
 
                         <S.Divider />
@@ -254,14 +253,15 @@ const Header = ({ children }: { children: React.ReactNode }) => {
 
                                 {dropdownOpen && (
                                     <S.Dropdown>
-                                        <S.DropdownItem to="/user/my-account" onClick={() => setDropdownOpen(false)}>
+                                        {user?.email && <S.DropdownEmail>{user.email}</S.DropdownEmail>}
+                                        <S.DropdownItem to="/user/profile" onClick={() => setDropdownOpen(false)}>
                                             My Account
                                         </S.DropdownItem>
-                                        <S.DropdownItem to="/user/my-wishlist" onClick={() => setDropdownOpen(false)}>
-                                            My Wishlist
+                                        <S.DropdownItem to="/user/orders" onClick={() => setDropdownOpen(false)}>
+                                            My Orders
                                         </S.DropdownItem>
                                         <S.DropdownItem to="/user/cart" onClick={() => setDropdownOpen(false)}>
-                                            My Cart
+                                            My Cart{cartCount > 0 ? ` (${cartCount})` : ''}
                                         </S.DropdownItem>
                                         <S.DropdownDivider />
                                         <S.DropdownLogout onClick={handleLogout}>

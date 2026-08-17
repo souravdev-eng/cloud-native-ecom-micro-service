@@ -434,3 +434,44 @@ export const SecureBadge = styled('div')({
     fontSize: 12,
 });
 
+// Side-by-side actions under the confirmation message
+export const SuccessActions = styled('div')({
+    display: 'flex',
+    gap: 12,
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+});
+
+export const SecondaryLink = styled(RouterLink)({
+    display: 'inline-block',
+    padding: '14px 32px',
+    backgroundColor: '#fff',
+    border: '1px solid #dee2e6',
+    borderRadius: 10,
+    fontSize: 15,
+    fontWeight: 500,
+    color: '#495057',
+    textDecoration: 'none',
+    transition: 'all 0.2s ease',
+    '&:hover': {
+        backgroundColor: '#f8f9fa',
+        borderColor: '#adb5bd',
+    },
+});
+
+// Caveats about what the API does and doesn't store, kept visible rather than
+// silently dropped (e.g. the order service has no shipping-address column yet).
+export const Note = styled('div')({
+    display: 'flex',
+    alignItems: 'flex-start',
+    gap: 8,
+    padding: '12px 14px',
+    backgroundColor: '#f8f9fa',
+    border: '1px solid #e9ecef',
+    borderRadius: 8,
+    color: '#868e96',
+    fontSize: 12,
+    lineHeight: 1.5,
+    marginTop: 16,
+});
+

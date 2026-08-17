@@ -1,46 +1,52 @@
 import { useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+
 import { userServiceApi } from '../../api/baseUrl';
-import { useNavigate } from 'react-router-dom';
+import { parseErrorMessage } from '../../utils/parseError';
 
 export const useSignIn = () => {
-    const navigate = useNavigate();
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState('');
-    const [formData, setFormData] = useState({
-        email: '',
-        password: '',
-    });
+	const navigate = useNavigate();
+	const [searchParams] = useSearchParams();
+	const [loading, setLoading] = useState(false);
+	const [error, setError] = useState('');
+	const [formData, setFormData] = useState({
+		email: '',
+		password: '',
+	});
 
-    const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
-        e.preventDefault();
-        setLoading(true);
-        setError('');
-        try {
-            const response = await userServiceApi.post('/login', formData);
-            if (response.status === 200) {
-                navigate('/');
-            }
-        } catch (error: any) {
-            setLoading(false);
-            if (error.response?.data?.message) {
-                setError(error.response.data.message);
-            } else if (error.message) {
-                setError(error.message);
-            } else {
-                setError('Something went wrong. Please try again.');
-            }
-        }
-    };
+	// Set by the 401 interceptor in api/baseUrl.ts so an expired session returns
+	// to the page it interrupted. Only same-app paths are honoured — an absolute
+	// URL here would be an open redirect.
+	const nextParam = searchParams.get('next');
+	const redirectTo = nextParam?.startsWith('/') && !nextParam.startsWith('//')
+		? nextParam
+		: '/';
 
-    const handleFieldChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        setFormData({ ...formData, [e.target.name]: e.target.value });
-    };
+	const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
+		e.preventDefault();
+		setLoading(true);
+		setError('');
+		try {
+			const response = await userServiceApi.post('/login', formData);
+			if (response.status === 200) {
+				navigate(redirectTo);
+			}
+		} catch (error: any) {
+			setLoading(false);
+			setError(parseErrorMessage(error));
+		}
+	};
 
-    return {
-        formData,
-        loading,
-        error,
-        handleFieldChange,
-        handleSignIn,
-    };
+	const handleFieldChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+		setFormData({ ...formData, [e.target.name]: e.target.value });
+	};
+
+	return {
+		formData,
+		loading,
+		error,
+		redirectTo,
+		handleFieldChange,
+		handleSignIn,
+	};
 };

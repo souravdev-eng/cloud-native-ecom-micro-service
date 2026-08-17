@@ -8,6 +8,11 @@ import { mfConfig } from './module-federation.config';
 
 const isDev = process.env.NODE_ENV === 'development';
 
+// Ports and API endpoints come from mfe-client/dev.config.json — the single
+// source of truth shared with scripts/dev.mjs. Never hardcode them here.
+const devConfig = require('../config/dev-config.cjs');
+const serve = devConfig.serve('shared');
+
 // Target browsers, see: https://github.com/browserslist/browserslist
 const targets = ['chrome >= 87', 'edge >= 88', 'firefox >= 78', 'safari >= 14'];
 
@@ -21,13 +26,13 @@ export default defineConfig({
 	},
 
 	devServer: {
-		port: 3003,
+		port: serve.port,
 		historyApiFallback: true,
 		watchFiles: [path.resolve(__dirname, 'src')],
 	},
 	output: {
 		uniqueName: 'shared',
-		publicPath: 'http://localhost:3003/'
+		publicPath: serve.publicPath,
 	},
 
 	experiments: {
@@ -75,6 +80,7 @@ export default defineConfig({
 		new rspack.HtmlRspackPlugin({
 			template: './index.html',
 		}),
+		new rspack.DefinePlugin(devConfig.defineEntries()),
 		new ModuleFederationPlugin(mfConfig),
 		isDev ? new RefreshPlugin() : null,
 	].filter(Boolean),

@@ -6,10 +6,14 @@ import * as path from 'node:path';
 
 const isDev = process.env.NODE_ENV === 'development';
 
-// Import the appropriate module federation config
-const mfConfig = isDev
-	? require('./module-federation.config').mfConfig
-	: require('./module-federation.config.prod').mfConfig;
+// Ports and API endpoints come from mfe-client/dev.config.json — the single
+// source of truth shared with scripts/dev.mjs. Never hardcode them here.
+const devConfig = require('../config/dev-config.cjs');
+const serve = devConfig.serve('host');
+
+// One federation config for both modes — it resolves remote URLs from
+// dev.config.json based on NODE_ENV.
+const mfConfig = require('./module-federation.config').mfConfig;
 
 // Target browsers, see: https://github.com/browserslist/browserslist
 const targets = ['chrome >= 87', 'edge >= 88', 'firefox >= 78', 'safari >= 14'];
@@ -24,13 +28,13 @@ export default defineConfig({
 	},
 
 	devServer: {
-		port: 3000,
+		port: serve.port,
 		historyApiFallback: true,
 		watchFiles: [path.resolve(__dirname, 'src')],
 	},
 	output: {
 		uniqueName: 'host',
-		publicPath: 'http://localhost:3000/',
+		publicPath: serve.publicPath,
 	},
 
 	experiments: {
@@ -78,6 +82,7 @@ export default defineConfig({
 		new rspack.HtmlRspackPlugin({
 			template: './index.html',
 		}),
+		new rspack.DefinePlugin(devConfig.defineEntries()),
 		new ModuleFederationPlugin(mfConfig),
 		isDev ? new RefreshPlugin() : null,
 	].filter(Boolean),

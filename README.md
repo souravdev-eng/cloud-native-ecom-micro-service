@@ -34,47 +34,131 @@ The project covers the engineering concerns that appear once a system moves beyo
 
 ## Architecture
 
-```mermaid
-flowchart LR
-    Client[Browser] --> MFE[React micro-frontends]
-    MFE --> Ingress[NGINX Ingress]
+### System topology
 
-    subgraph Services
-        Auth[Auth]
-        Product[Product]
-        Cart[Cart]
-        Order[Order]
-        Review[Review]
-        ETL[ETL]
-        Notification[Notification]
+```mermaid
+flowchart TB
+    Browser[Browser] --> MFE[React micro-frontends<br/>Host + federated remotes]
+
+    subgraph Cluster[Kubernetes cluster]
+        Ingress[NGINX Ingress<br/>host: ecom.dev<br/>path-based API routing]
+
+        subgraph Services[Independent application deployments]
+            Auth[Auth<br/>auth-srv :3000]
+            Product[Product<br/>product-srv :4000]
+            Cart[Cart<br/>cart-srv :4000]
+            Order[Order<br/>order-srv :4000]
+            ETL[ETL<br/>etl-srv :4000]
+            Review[Review - Go<br/>review-service :3000<br/>deployment manifest pending]
+            Notification[Notification<br/>notification-srv :4000<br/>event consumer only]
+        end
+
+        subgraph Infrastructure[In-cluster infrastructure]
+            RabbitMQ[[RabbitMQ<br/>rabbitmq-srv :5672<br/>direct exchanges + durable queues]]
+            CartDB[(Cart PostgreSQL<br/>postgres-srv :5432 / cartdb)]
+            Redis[(Product Redis<br/>product-redis-service :6379)]
+            Elastic[(Elasticsearch<br/>elasticsearch-srv :9200<br/>products index)]
+        end
     end
 
-    Ingress --> Auth
-    Ingress --> Product
-    Ingress --> Cart
-    Ingress --> Order
-    Ingress --> Review
-    Ingress --> ETL
+    MFE -->|HTTP to ecom.dev| Ingress
 
-    Auth --> RabbitMQ[(RabbitMQ)]
-    Product <--> RabbitMQ
-    Cart <--> RabbitMQ
-    Order <--> RabbitMQ
-    RabbitMQ --> Notification
+    Ingress -->|/api/users/*| Auth
+    Ingress -->|/api/product/*| Product
+    Ingress -->|/api/cart/*| Cart
+    Ingress -->|/api/order/*| Order
+    Ingress -->|/api/etl/*| ETL
+    Ingress -->|/api/review/*| Review
 
-    Auth --> MongoDB[(MongoDB)]
-    Product --> MongoDB
-    Review --> MongoDB
-    Cart --> PostgreSQL[(PostgreSQL)]
-    Order --> PostgreSQL
-    Product --> Redis[(Redis)]
-    Product --> Elasticsearch[(Elasticsearch)]
-    ETL --> MongoDB
-    ETL --> PostgreSQL
-    ETL --> Elasticsearch
+    subgraph External[External service-owned stores]
+        AuthDB[(Auth MongoDB<br/>ecom-user-db)]
+        ProductDB[(Product MongoDB<br/>ecom-product-db)]
+        OrderDB[(Order PostgreSQL<br/>order database)]
+        ReviewDB[(Review MongoDB<br/>review database)]
+        S3[(Amazon S3<br/>product images)]
+    end
+
+    Auth --> AuthDB
+    Product --> ProductDB
+    Product --> Redis
+    Product --> Elastic
+    Product --> S3
+    Cart --> CartDB
+    Order --> OrderDB
+    Review --> ReviewDB
+
+    Auth -. auth-email .-> RabbitMQ
+    Product -. product created / updated / deleted .-> RabbitMQ
+    Order -. order-created .-> RabbitMQ
+    Cart -. cart created / updated / deleted .-> RabbitMQ
+
+    RabbitMQ -. email jobs .-> Notification
+    RabbitMQ -. catalog events .-> Cart
+    RabbitMQ -. catalog events .-> Order
+    RabbitMQ -. clear purchased cart lines .-> Cart
+
+    ETL -. batch read / reconciliation .-> ProductDB
+    ETL -. rebuild cart product projection .-> CartDB
+    ETL -. bulk index products .-> Elastic
 ```
 
-HTTP is used at the system boundary; asynchronous events carry domain changes between services. Cart and Order maintain the product data they need locally, avoiding runtime coupling to the Product service for every request.
+Solid arrows represent synchronous request or data-access paths. Dotted arrows represent asynchronous events or maintenance synchronization.
+
+Each service owns a logical database even when databases share the same underlying MongoDB or PostgreSQL infrastructure. Auth cannot query Product data directly, and Product does not query Cart or Order data. ETL is the explicit exception: it performs controlled batch synchronization and search-index rebuilding.
+
+### How ingress routes requests
+
+The NGINX Ingress manifest provides a shared, path-based backend entry point. It reads the request path and forwards traffic to an internal Kubernetes `Service`; that service then selects the matching deployment pod.
+
+| Public path      | Kubernetes service    | Deployment           | Purpose                              |
+| ---------------- | --------------------- | -------------------- | ------------------------------------ |
+| `/api/users/*`   | `auth-srv:3000`       | `auth-deployment`    | Identity and access                  |
+| `/api/product/*` | `product-srv:4000`    | `product-deployment` | Catalog, product details, and search |
+| `/api/cart/*`    | `cart-srv:4000`       | `cart-deployment`    | Shopping carts                       |
+| `/api/order/*`   | `order-srv:4000`      | `order-deployment`   | Orders and payment integration       |
+| `/api/etl/*`     | `etl-srv:4000`        | `etl-deployment`     | Administrative synchronization       |
+| `/api/review/*`  | `review-service:3000` | Manifest pending     | Reviews                              |
+
+Notification is intentionally absent from the ingress table because it consumes RabbitMQ messages and does not expose a user-facing API.
+
+### Where RabbitMQ fits
+
+RabbitMQ is not used for incoming API requests. It carries changes that another service needs after the originating service has completed its own work.
+
+| Publisher | Event                                                   | In-repository consumer | Effect                                               |
+| --------- | ------------------------------------------------------- | ---------------------- | ---------------------------------------------------- |
+| Product   | `product-created`, `product-updated`, `product-deleted` | Cart and Order         | Update their local product projections               |
+| Order     | `order-created`                                         | Cart                   | Remove only the purchased items from the user's cart |
+| Auth      | `auth-email`                                            | Notification           | Deliver password-related email                       |
+
+This lets Cart and Order price or validate items from local PostgreSQL projections instead of making a synchronous Product API call during every request. The shared `common` package defines the event types, routing keys, publishers, listeners, authentication middleware, and error contracts used by the TypeScript services.
+
+### Product cache and search flow
+
+```mermaid
+flowchart LR
+    Detail[GET /api/product/:id] --> ProductAPI[Product service]
+    ProductAPI --> Cache{Redis<br/>product:id}
+    Cache -->|hit| DetailResponse[Return product]
+    Cache -->|miss| Mongo[(Product MongoDB)]
+    Mongo --> Store[Cache for 15 minutes]
+    Store --> DetailResponse
+
+    Mutation[Update, delete, or<br/>inventory event] --> Persist[Write Product MongoDB]
+    Persist --> Invalidate[DEL product:id]
+    Invalidate --> Cache
+
+    Search[GET /api/product/search] --> SearchAPI[Product service]
+    SearchAPI --> Available{Elasticsearch available?}
+    Available -->|yes| Index[(Products index)]
+    Available -->|no or error| MongoFallback[(MongoDB text search)]
+    Index --> SearchResponse[Return ranked results]
+    MongoFallback --> SearchResponse
+
+    ETLJob[ETL product sync] -->|bulk index| Index
+```
+
+Redis currently accelerates product-detail reads; it is not presented as a universal cache for every endpoint. A cache miss loads the product from MongoDB and stores it with a 15-minute TTL. Product updates, deletes, and inventory changes remove the corresponding key so the next read is refreshed. Full-text search uses Elasticsearch when available and falls back to MongoDB if the search cluster is unavailable.
 
 ## Service map
 

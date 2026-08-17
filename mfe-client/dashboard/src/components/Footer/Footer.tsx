@@ -18,12 +18,15 @@ const SHOP_LINKS = [
     { label: 'Fashion', to: '/products?category=fashions' },
 ];
 
-const SUPPORT_LINKS = [
-    { label: 'FAQ', to: '/faq' },
-    { label: 'Shipping & Returns', to: '/shipping' },
-    { label: 'Order Tracking', to: '/track' },
-    { label: 'Size Guide', to: '/size-guide' },
-    { label: 'Contact Us', to: '/contact' },
+// Was FAQ / Shipping / Tracking / Size Guide / Contact — five routes that
+// don't exist, so every one landed on the not-found page. Swapped for the
+// account pages that are actually built.
+const ACCOUNT_LINKS = [
+    { label: 'My Account', to: '/user/profile' },
+    { label: 'My Orders', to: '/user/orders' },
+    { label: 'My Cart', to: '/user/cart' },
+    { label: 'Sign In', to: '/user/auth/signin' },
+    { label: 'Forgot Password', to: '/user/auth/forgot-password' },
 ];
 
 const Footer = () => {
@@ -82,11 +85,11 @@ const Footer = () => {
                     </Styled.ColList>
                 </div>
 
-                {/* Support column */}
+                {/* Account column */}
                 <div>
-                    <Styled.ColTitle>Support</Styled.ColTitle>
+                    <Styled.ColTitle>Account</Styled.ColTitle>
                     <Styled.ColList>
-                        {SUPPORT_LINKS.map((link) => (
+                        {ACCOUNT_LINKS.map((link) => (
                             <Styled.ColLink key={link.label} to={link.to}>
                                 {link.label}
                             </Styled.ColLink>

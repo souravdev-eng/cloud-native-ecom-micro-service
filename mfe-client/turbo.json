@@ -3,11 +3,15 @@
     "globalDependencies": [
         "**/.env.*local",
         ".env",
-        "tsconfig.json"
+        "tsconfig.json",
+        "dev.config.json",
+        "config/dev-config.cjs"
     ],
     "globalEnv": [
         "NODE_ENV",
-        "CI"
+        "CI",
+        "MFE_*",
+        "STRIPE_PUBLISHABLE_KEY"
     ],
     "tasks": {
         "build": {
