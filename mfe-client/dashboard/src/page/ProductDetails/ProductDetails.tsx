@@ -5,14 +5,29 @@ import Rating from '@mui/material/Rating';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCartOutlined';
 import ArrowBackIcon from '@mui/icons-material/ArrowBackRounded';
 import LocalOfferIcon from '@mui/icons-material/LocalOfferRounded';
+import CheckCircleIcon from '@mui/icons-material/CheckCircleRounded';
+import ErrorOutlineIcon from '@mui/icons-material/ErrorOutlineRounded';
+import CloseIcon from '@mui/icons-material/CloseRounded';
+import LockPersonIcon from '@mui/icons-material/LockPersonRounded';
 
 import { useProductDetails } from './ProductDetails.hook';
 import * as Styled from './ProductDetails.styles';
 
 const ProductDetails: React.FC = () => {
     const navigate = useNavigate();
-    const { product, isLoading, qty, incrementQty, decrementQty, handleAddToCart } =
-        useProductDetails();
+    const {
+        product,
+        isLoading,
+        loadError,
+        requiresAuth,
+        qty,
+        incrementQty,
+        decrementQty,
+        handleAddToCart,
+        addingToCart,
+        feedback,
+        dismissFeedback,
+    } = useProductDetails();
 
     if (isLoading) {
         return (
@@ -24,10 +39,93 @@ const ProductDetails: React.FC = () => {
         );
     }
 
+    // The product service guards every route with requireAuth, so a signed-out
+    // visitor previously got a silent console error and a blank page.
+    if (requiresAuth) {
+        return (
+            <Styled.PageWrapper>
+                <Styled.NoticeContainer>
+                    <LockPersonIcon sx={{ fontSize: 64, color: '#dee2e6' }} />
+                    <Styled.NoticeTitle>Sign in to view this product</Styled.NoticeTitle>
+                    <Styled.NoticeText>
+                        The product catalogue requires an account.
+                    </Styled.NoticeText>
+                    <Styled.NoticeActions>
+                        <Styled.AddToCartButton
+                            sx={{ width: 'auto', px: 4 }}
+                            onClick={() =>
+                                navigate(
+                                    `/user/auth/signin?next=${encodeURIComponent(window.location.pathname)}`,
+                                )
+                            }
+                        >
+                            Sign in
+                        </Styled.AddToCartButton>
+                    </Styled.NoticeActions>
+                </Styled.NoticeContainer>
+            </Styled.PageWrapper>
+        );
+    }
+
+    if (loadError || !product) {
+        return (
+            <Styled.PageWrapper>
+                <Styled.NoticeContainer>
+                    <ErrorOutlineIcon sx={{ fontSize: 64, color: '#dee2e6' }} />
+                    <Styled.NoticeTitle>Product unavailable</Styled.NoticeTitle>
+                    <Styled.NoticeText>
+                        {loadError ?? 'This product could not be found.'}
+                    </Styled.NoticeText>
+                    <Styled.NoticeActions>
+                        <Styled.AddToCartButton
+                            sx={{ width: 'auto', px: 4 }}
+                            onClick={() => navigate('/products')}
+                            startIcon={<ArrowBackIcon />}
+                        >
+                            Back to Products
+                        </Styled.AddToCartButton>
+                    </Styled.NoticeActions>
+                </Styled.NoticeContainer>
+            </Styled.PageWrapper>
+        );
+    }
+
     const inStock = (product?.quantity ?? 0) > 0;
 
     return (
         <Styled.PageWrapper>
+            {/* Add-to-cart result */}
+            {feedback && (
+                <Styled.Toast tone={feedback.type}>
+                    {feedback.type === 'success' ? (
+                        <CheckCircleIcon sx={{ fontSize: 20, color: '#12b886' }} />
+                    ) : (
+                        <ErrorOutlineIcon sx={{ fontSize: 20, color: '#e03131' }} />
+                    )}
+                    <span>
+                        {feedback.message}
+                        {feedback.type === 'success' && (
+                            <>
+                                {' '}
+                                <a
+                                    href="/user/cart"
+                                    onClick={(e) => {
+                                        e.preventDefault();
+                                        navigate('/user/cart');
+                                    }}
+                                    style={{ color: '#228be6', fontWeight: 600 }}
+                                >
+                                    View cart
+                                </a>
+                            </>
+                        )}
+                    </span>
+                    <Styled.ToastClose onClick={dismissFeedback} aria-label="Dismiss">
+                        <CloseIcon sx={{ fontSize: 18 }} />
+                    </Styled.ToastClose>
+                </Styled.Toast>
+            )}
+
             <Styled.Breadcrumb>
                 <span onClick={() => navigate('/')}>Home</span>
                 <span className="separator">/</span>
@@ -115,11 +213,21 @@ const ProductDetails: React.FC = () => {
                     </Styled.QuantityRow>
 
                     <Styled.AddToCartButton
-                        disabled={!inStock}
+                        disabled={!inStock || addingToCart}
                         onClick={handleAddToCart}
-                        startIcon={<ShoppingCartIcon />}
+                        startIcon={
+                            addingToCart ? (
+                                <CircularProgress size={16} sx={{ color: '#adb5bd' }} />
+                            ) : (
+                                <ShoppingCartIcon />
+                            )
+                        }
                     >
-                        {inStock ? 'Add to Cart' : 'Out of Stock'}
+                        {!inStock
+                            ? 'Out of Stock'
+                            : addingToCart
+                              ? 'Adding…'
+                              : 'Add to Cart'}
                     </Styled.AddToCartButton>
 
                     <Styled.AddToCartButton

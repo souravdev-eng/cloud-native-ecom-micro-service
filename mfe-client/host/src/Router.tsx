@@ -1,28 +1,20 @@
-import { createBrowserRouter, Link, Outlet } from 'react-router-dom';
+import { createBrowserRouter } from 'react-router-dom';
 
 import DashboardModule from './modules/DashboardModule';
 import UserModule from './modules/UserModule';
 import AdminModule from './modules/AdminModule';
 
-const Layout = () => {
-	return (
-		<div className="app">
-			<nav>
-				<Link to="/">Home</Link>
-				<Link to="/user/auth/signin">Login</Link>
-				<Link to="/user/profile">Profile</Link>
-			</nav>
-			<main>
-				<Outlet />
-			</main>
-		</div>
-	);
-};
-
+/**
+ * Path → remote mapping for the shell.
+ *
+ * Each remote owns its own <Routes> internally, so the shell only needs to
+ * decide which one to mount. There is intentionally no shared nav element here:
+ * the storefront chrome lives in the dashboard remote's Header, and the account
+ * pages carry their own PageNav.
+ */
 const router = createBrowserRouter([
 	{
 		path: '/',
-		// element: <Layout />,
 		children: [
 			{
 				index: true,
@@ -41,6 +33,13 @@ const router = createBrowserRouter([
 				element: <UserModule />,
 			},
 			{
+				// The auth service's password-reset email links to
+				// /auth/reset-password?token=…&email= (not /user/auth/...), so that
+				// prefix has to reach the user remote or the link 404s.
+				path: 'auth/*',
+				element: <UserModule />,
+			},
+			{
 				path: 'admin/*',
 				element: <AdminModule />,
 			},
@@ -48,7 +47,7 @@ const router = createBrowserRouter([
 	},
 	{
 		path: '*',
-		element: <div>404 - Page Not Found</div>,
+		element: <DashboardModule />,
 	},
 ]);
 

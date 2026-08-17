@@ -11,6 +11,7 @@ import FirstPageIcon from '@mui/icons-material/FirstPageRounded';
 import CloseIcon from '@mui/icons-material/CloseRounded';
 
 import { useProductsPage, Product } from './ProductsPage.hook';
+import CatalogNotice from '../../components/CatalogNotice/CatalogNotice';
 import ProductFilters from '../../components/ProductFilters/ProductFilters';
 import * as S from './ProductsPage.styles';
 
@@ -23,6 +24,9 @@ const ProductsPage: React.FC = () => {
         isLoading,
         meta,
         filters,
+        error,
+        requiresAuth,
+        retry,
         currentPage,
         hasNextPage,
         hasPrevPage,
@@ -159,6 +163,14 @@ const ProductsPage: React.FC = () => {
                     <S.LoadingContainer>
                         <CircularProgress sx={{ color: '#228be6' }} />
                     </S.LoadingContainer>
+                ) : error ? (
+                    /* A request that failed is not the same as a filter that
+                       matched nothing — say which one happened. */
+                    <CatalogNotice
+                        requiresAuth={requiresAuth}
+                        message={error}
+                        onRetry={retry}
+                    />
                 ) : products.length === 0 ? (
                     <S.EmptyState>
                         <S.EmptyIcon>

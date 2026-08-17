@@ -1,17 +1,17 @@
-import React from 'react';
-
 import ReactDomClient from 'react-dom/client';
-import {
-	createBrowserRouter,
-	createMemoryRouter,
-	RouterProvider,
-} from 'react-router-dom';
+import { createBrowserRouter, createMemoryRouter, RouterProvider } from 'react-router-dom';
 
 import App from './App';
 
+interface RemoteLocation {
+	pathname: string;
+	search?: string;
+}
+
 interface MountOptions {
-	onNavigation?: (location: { pathname: string }) => void;
+	onNavigation?: (location: RemoteLocation) => void;
 	defaultRouter?: any;
+	/** Full path INCLUDING any query string, e.g. `/auth/reset-password?token=x`. */
 	initialPath?: string;
 }
 
@@ -19,7 +19,6 @@ const mount = (
 	el: any,
 	{ onNavigation, defaultRouter, initialPath }: MountOptions,
 ) => {
-	// Create router based on environment or provided router
 	const router =
 		defaultRouter ||
 		createMemoryRouter(
@@ -30,15 +29,19 @@ const mount = (
 				},
 			],
 			{
+				// The whole href, not just the pathname: the reset-password link
+				// carries ?token= & ?email=, and the 401 interceptor adds ?next=.
 				initialEntries: [initialPath || '/user/auth/signin'],
 				initialIndex: 0,
 			},
 		);
 
-	// Set up navigation listener if provided
 	if (onNavigation && router.subscribe) {
 		router.subscribe((state: any) => {
-			onNavigation({ pathname: state.location.pathname });
+			onNavigation({
+				pathname: state.location.pathname,
+				search: state.location.search,
+			});
 		});
 	}
 
@@ -46,10 +49,12 @@ const mount = (
 	root.render(<RouterProvider router={router} />);
 
 	return {
-		onParentNavigate: (location: { pathname: string }): void => {
-			const currentLocation = router.state?.location?.pathname;
-			if (currentLocation !== location.pathname) {
-				router.navigate(location.pathname);
+		onParentNavigate: (location: RemoteLocation): void => {
+			const current = router.state?.location;
+			const currentHref = `${current?.pathname ?? ''}${current?.search ?? ''}`;
+			const nextHref = `${location.pathname}${location.search ?? ''}`;
+			if (currentHref !== nextHref) {
+				router.navigate(nextHref);
 			}
 		},
 	};

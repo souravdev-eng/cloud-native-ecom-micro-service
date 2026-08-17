@@ -55,3 +55,22 @@ export const DontHaveAccount = styled('span')({
 	color: '#212529',
 	fontWeight: 400,
 });
+
+// Inline validation / API error. Both auth forms previously computed an error
+// message and never rendered it, so a rejected login looked like a dead button.
+export const ErrorText = styled('div')({
+	width: '100%',
+	padding: '10px 14px',
+	borderRadius: 6,
+	border: '1px solid #ffc9c9',
+	backgroundColor: '#fff5f5',
+	color: '#c92a2a',
+	fontSize: 13,
+	lineHeight: 1.4,
+});
+
+export const HelperRow = styled('div')({
+	width: '100%',
+	display: 'flex',
+	justifyContent: 'flex-end',
+});

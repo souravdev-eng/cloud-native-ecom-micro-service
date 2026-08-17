@@ -1,38 +1,10 @@
-import React, { JSX, useEffect, useRef } from 'react';
-
-import { useLocation, useNavigate } from 'react-router-dom';
+import { JSX } from 'react';
 import { mount } from 'user/UserApp';
 
+import { useRemoteMount } from './useRemoteMount';
+
 const UserModule = (): JSX.Element => {
-	const ref = useRef(null);
-	const navigate = useNavigate();
-	const location = useLocation();
-
-	const mountRef = useRef<{
-		onParentNavigate: (location: { pathname: string }) => void;
-	} | null>(null);
-
-	useEffect(() => {
-		if (ref.current && !mountRef.current) {
-			const result = mount(ref.current, {
-				initialPath: location.pathname,
-				onNavigation: (childLocation: { pathname: string }) => {
-					if (location.pathname !== childLocation.pathname) {
-						navigate(childLocation.pathname);
-					}
-				},
-			});
-
-			mountRef.current = result;
-		}
-	}, []);
-
-	useEffect(() => {
-		if (mountRef.current) {
-			mountRef.current.onParentNavigate({ pathname: location.pathname });
-		}
-	}, [location.pathname]);
-
+	const ref = useRemoteMount(mount);
 	return <div ref={ref} />;
 };
 

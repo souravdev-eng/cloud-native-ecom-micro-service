@@ -118,6 +118,17 @@ Order service currently has no tests (no `test` script, no `src/test`).
 
 **MFE architecture.** Host shell (port 3000) dynamically loads `UserApp`, `dashboardApp`, and `adminApp` via Module Federation. `shared/` is consumed as a library, not federated. Turborepo caches builds; `pnpm` is required (packageManager pinned to `pnpm@8.15.0`). Adding a remote means adding one `"role": "remote"` entry to `dev.config.json` — the host's remotes list is derived from it.
 
+Path → remote mapping lives in `host/src/Router.tsx`; `host/src/modules/useRemoteMount.ts` does the mounting for all three. Remotes run on a **memory router** when mounted through the shell, so both directions of the bridge carry `pathname + search` — a dropped query string can't be recovered inside the remote, and `?search=`, `?next=` and the reset-password `?token=` all depend on it.
+
+Route ownership:
+- `dashboard` — `/`, `/products`, `/product/:id` (storefront chrome: `Header`, `Footer`)
+- `user` — `/user/*` (cart, checkout, orders, profile, auth) plus `/auth/*`, which exists only because the auth service emails `http://ecom.dev/auth/reset-password?token=…&email=…`
+- `admin` — `/admin/*`
+
+Every product route is behind `requireAuth`, so the storefront shows nothing to an anonymous visitor. `dashboard/src/components/CatalogNotice` renders that case as "sign in to browse" instead of an empty grid — keep new catalogue screens using it rather than swallowing the 401.
+
+**Order/payment flow in the client.** `user/src/hooks/usePayOrder.tsx` owns the whole card path and is shared by checkout and order-detail: `POST /api/v1/order/:id/payment` → `stripe.confirmCardPayment` → poll `GET /api/v1/order/:id` until the status flips. There is deliberately no client-side "confirm payment" call — the order only becomes `paid` when Stripe hits `POST /api/v1/order/webhook/stripe`. When the poll times out the hook reports `webhook_pending` (card charged, webhook not processed) as distinct from a failed payment; `components/PaymentProgress` renders which of the three steps is running or broke. Note the cart is cleared on order *creation* by cart's `OrderCreatedListener`, not on payment, so an unpaid order legitimately coexists with an empty cart.
+
 **CI.** GitHub Actions workflows exist only for `auth`, `cart`, `product` (`.github/workflows/<svc>-ci.yml`). Other services have no CI gate.
 
 ## Gotchas
@@ -128,5 +139,7 @@ Order service currently has no tests (no `test` script, no `src/test`).
 - Services use Node's npm/ts-node-dev; the MFE monorepo uses pnpm. Don't cross-run.
 - `turbo --filter` matches **package** names (`@mfe/host`), not directory names — `--filter=host` silently matches nothing. `config/dev-config.cjs#packageName()` reads the real name from each app's `package.json`.
 - `mfe-client/scripts/start-dev.sh` is a deprecated shim that execs `scripts/dev.mjs`; use `pnpm dev`.
-- `mfe-client/shared/configs/sharedModules.ts` fails `type-check` (pre-existing, dead code — nothing imports it), so `turbo run type-check` is red for `@mfe/shared`. `admin` and `dashboard` also have pre-existing type errors in `Sidebar.tsx`, `useSignup.ts`, and `bootstrap.tsx`.
+- `mfe-client/shared/configs/sharedModules.ts` fails `type-check` (pre-existing, dead code — nothing imports it), so `turbo run type-check` is red for `@mfe/shared`. `host`, `user`, `dashboard` and `admin` are all clean.
+- `pnpm lint` fails in every workspace: ESLint 9 is installed but the repo still has `.eslintrc.*`, and v9 only reads `eslint.config.js`. Needs a flat-config migration.
+- Building the `user` and `dashboard` remotes prints `Unable to compile federated types #TYPE-001`. The bundle itself compiles fine; only the `@mf-types` declaration emit fails, on TS2883 from MUI `styled()` components under pnpm's nested `node_modules`. Pre-existing.
 - `mfe-client/shared/module-federation.config.ts` has `name: 'sheared'` (typo). Harmless today since `shared` is consumed as a library, but don't rely on that name.

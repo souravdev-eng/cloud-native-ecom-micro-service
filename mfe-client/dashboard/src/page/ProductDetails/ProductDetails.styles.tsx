@@ -244,3 +244,73 @@ export const LoadingContainer = styled(Box)({
     alignItems: 'center',
     minHeight: 400,
 });
+
+// ── Feedback + failure states ────────────────────────────────────────────────
+// Add-to-cart used to console.log its result, so a successful add and a rejected
+// one looked identical on screen.
+
+export const Toast = styled(Box)<{ tone: 'success' | 'error' }>(({ tone }) => ({
+    position: 'fixed',
+    top: 20,
+    right: 20,
+    zIndex: 1300,
+    maxWidth: 380,
+    display: 'flex',
+    alignItems: 'flex-start',
+    gap: 10,
+    padding: '14px 16px',
+    borderRadius: 10,
+    backgroundColor: '#fff',
+    boxShadow: '0 6px 24px rgba(0,0,0,0.14)',
+    borderLeft: `4px solid ${tone === 'success' ? '#12b886' : '#e03131'}`,
+    color: '#212529',
+    fontSize: 14,
+    lineHeight: 1.45,
+    animation: 'toastIn 0.25s ease',
+    '@keyframes toastIn': {
+        from: { transform: 'translateX(110%)', opacity: 0 },
+        to: { transform: 'translateX(0)', opacity: 1 },
+    },
+}));
+
+export const ToastClose = styled('button')({
+    marginLeft: 'auto',
+    border: 'none',
+    background: 'none',
+    cursor: 'pointer',
+    color: '#adb5bd',
+    padding: 0,
+    display: 'flex',
+    '&:hover': { color: '#495057' },
+});
+
+export const NoticeContainer = styled(Box)({
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    textAlign: 'center',
+    minHeight: '55vh',
+    padding: '40px 20px',
+    gap: 8,
+});
+
+export const NoticeTitle = styled(Typography)({
+    fontSize: 22,
+    fontWeight: 700,
+    color: '#212529',
+});
+
+export const NoticeText = styled(Typography)({
+    fontSize: 14,
+    color: '#868e96',
+    maxWidth: 440,
+    marginBottom: 12,
+});
+
+export const NoticeActions = styled(Box)({
+    display: 'flex',
+    gap: 12,
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+});

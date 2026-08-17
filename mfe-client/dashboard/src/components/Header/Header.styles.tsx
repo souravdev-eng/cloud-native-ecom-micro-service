@@ -242,6 +242,20 @@ export const Dropdown = styled(Box)({
     padding: '4px 0',
 });
 
+// Which account the menu belongs to — the JWT carries an email but no name.
+export const DropdownEmail = styled(Box)({
+    padding: '8px 16px 10px',
+    marginBottom: 4,
+    borderBottom: '1px solid #f1f3f5',
+    fontSize: 12,
+    fontWeight: 600,
+    color: '#0f172a',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+    maxWidth: 220,
+});
+
 export const DropdownItem = styled(Link)({
     display: 'block',
     padding: '9px 16px',

@@ -11,9 +11,15 @@ import {
 import App from './App';
 import { store } from './store/store';
 
+interface RemoteLocation {
+	pathname: string;
+	search?: string;
+}
+
 interface MountOptions {
-	onNavigation?: (location: { pathname: string }) => void;
+	onNavigation?: (location: RemoteLocation) => void;
 	defaultRouter?: any;
+	/** Full path INCLUDING any query string. */
 	initialPath?: string;
 }
 
@@ -37,10 +43,14 @@ const mount = (
 			},
 		);
 
-	// Set up navigation listener if provided
+	// Set up navigation listener if provided. The search string travels too —
+	// a memory router can't recover a query the shell dropped on the way in.
 	if (onNavigation && router.subscribe) {
 		router.subscribe((state: any) => {
-			onNavigation({ pathname: state.location.pathname });
+			onNavigation({
+				pathname: state.location.pathname,
+				search: state.location.search,
+			});
 		});
 	}
 
@@ -52,10 +62,12 @@ const mount = (
 	);
 
 	return {
-		onParentNavigate: (location: { pathname: string }): void => {
-			const currentLocation = router.state?.location?.pathname;
-			if (currentLocation !== location.pathname) {
-				router.navigate(location.pathname);
+		onParentNavigate: (location: RemoteLocation): void => {
+			const current = router.state?.location;
+			const currentHref = `${current?.pathname ?? ''}${current?.search ?? ''}`;
+			const nextHref = `${location.pathname}${location.search ?? ''}`;
+			if (currentHref !== nextHref) {
+				router.navigate(nextHref);
 			}
 		},
 	};

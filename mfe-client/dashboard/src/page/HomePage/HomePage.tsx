@@ -11,6 +11,7 @@ import ArrowForwardIcon from '@mui/icons-material/ArrowForwardRounded';
 
 import BannerCard from '../../components/BannerCard/BannerCard';
 import BrandList from '../../components/BrandList/BrandList';
+import CatalogNotice from '../../components/CatalogNotice/CatalogNotice';
 import ProductList from '../../components/ProductList/ProductList';
 import { useHomePage, HomeProduct } from './HomePage.hook';
 
@@ -97,8 +98,12 @@ const TrendingRow = ({
 
 const HomePage = () => {
     const navigate = useNavigate();
-    const { featured, newArrivals } = useHomePage();
+    const { featured, newArrivals, error, requiresAuth } = useHomePage();
     const [activeTab, setActiveTab] = useState<(typeof TABS)[number]>('Top Rated');
+
+    // Nothing loaded and we know why — show the reason instead of a page full of
+    // empty product grids.
+    const catalogUnavailable = !!error && featured.length === 0 && newArrivals.length === 0;
 
     const tabProducts: Record<(typeof TABS)[number], HomeProduct[]> = {
         'Top Rated': featured,
@@ -162,13 +167,19 @@ const HomePage = () => {
                 </Box>
             </Box>
 
+            {catalogUnavailable && (
+                <CatalogNotice requiresAuth={requiresAuth} message={error!} />
+            )}
+
             {/* Featured Products */}
-            <ProductList
-                title="Featured Products"
-                eyebrow="Handpicked for you"
-                products={featured}
-                isTint={false}
-            />
+            {!catalogUnavailable && (
+                <ProductList
+                    title="Featured Products"
+                    eyebrow="Handpicked for you"
+                    products={featured}
+                    isTint={false}
+                />
+            )}
 
             {/* Promo Mini Banners */}
             <Box
@@ -193,12 +204,14 @@ const HomePage = () => {
             </Box>
 
             {/* New Arrivals */}
-            <ProductList
-                title="New Arrivals"
-                eyebrow="Just dropped"
-                products={newArrivals}
-                isTint={true}
-            />
+            {!catalogUnavailable && (
+                <ProductList
+                    title="New Arrivals"
+                    eyebrow="Just dropped"
+                    products={newArrivals}
+                    isTint={true}
+                />
+            )}
 
             {/* Brands */}
             <BrandList />

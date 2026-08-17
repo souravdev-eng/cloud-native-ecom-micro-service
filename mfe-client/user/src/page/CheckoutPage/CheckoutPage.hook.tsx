@@ -1,245 +1,232 @@
-import { useState, useEffect, useCallback } from 'react';
-import { useStripe, useElements, CardElement } from '@stripe/react-stripe-js';
+import { useCallback, useEffect, useState } from 'react';
+
 import { cartApi, orderApi } from '../../api/baseUrl';
+import { usePayOrder } from '../../hooks/usePayOrder';
+import { parseErrorMessage } from '../../utils/parseError';
+import type { Order } from '../../types/order';
+
+/* ============================================================================
+ * Checkout — cart → order → payment.
+ * ============================================================================
+ * The order service's contract (order/src/routes/) is:
+ *
+ *   POST  /api/v1/order/new          body { items: [{ productId, quantity }] }
+ *                                    → 201, the order object itself
+ *   POST  /api/v1/order/:id/payment  → 201 { clientSecret }
+ *
+ * Only productId + quantity are sent. Title, price and stock are re-read from
+ * the service's own product replica, so the totals shown on the confirmation
+ * come from the created order — not from the cart figures on this page.
+ *
+ * Note the cart is NOT cleared here: cart's OrderCreatedListener drops the
+ * ordered lines when it consumes the OrderCreated event. If payment then fails,
+ * the order still exists in "created" and can be paid from /user/orders/:id.
+ * ========================================================================== */
 
 interface CartItem {
-    product_id: string;
-    cart_id: string;
-    title: string;
-    image: string;
-    price: number;
-    quantity: number;
-    total: number;
+	product_id: string;
+	cart_id: string;
+	title: string;
+	image: string;
+	price: number;
+	quantity: number;
+	total: number;
 }
 
-interface ShippingAddress {
-    fullName: string;
-    addressLine1: string;
-    addressLine2?: string;
-    city: string;
-    state: string;
-    postalCode: string;
-    country: string;
-    phone: string;
+export interface ShippingAddress {
+	fullName: string;
+	addressLine1: string;
+	addressLine2?: string;
+	city: string;
+	state: string;
+	postalCode: string;
+	country: string;
+	phone: string;
 }
 
 interface CheckoutState {
-    items: CartItem[];
-    loading: boolean;
-    error: string | null;
-    subtotal: number;
-    shipping: number;
-    tax: number;
-    grandTotal: number;
+	items: CartItem[];
+	loading: boolean;
+	error: string | null;
+	subtotal: number;
+	shipping: number;
+	tax: number;
+	grandTotal: number;
 }
 
 const initialShippingAddress: ShippingAddress = {
-    fullName: '',
-    addressLine1: '',
-    addressLine2: '',
-    city: '',
-    state: '',
-    postalCode: '',
-    country: 'IN', // Default to India
-    phone: '',
+	fullName: '',
+	addressLine1: '',
+	addressLine2: '',
+	city: '',
+	state: '',
+	postalCode: '',
+	country: 'IN',
+	phone: '',
 };
+
+const REQUIRED_FIELDS: (keyof ShippingAddress)[] = [
+	'fullName',
+	'addressLine1',
+	'city',
+	'state',
+	'postalCode',
+	'country',
+	'phone',
+];
 
 export const useCheckout = () => {
-    const stripe = useStripe();
-    const elements = useElements();
+	const [checkoutState, setCheckoutState] = useState<CheckoutState>({
+		items: [],
+		loading: true,
+		error: null,
+		subtotal: 0,
+		shipping: 0,
+		tax: 0,
+		grandTotal: 0,
+	});
 
-    const [checkoutState, setCheckoutState] = useState<CheckoutState>({
-        items: [],
-        loading: true,
-        error: null,
-        subtotal: 0,
-        shipping: 0,
-        tax: 0,
-        grandTotal: 0,
-    });
+	const [shippingAddress, setShippingAddress] =
+		useState<ShippingAddress>(initialShippingAddress);
+	const [activeStep, setActiveStep] = useState(0);
 
-    const [shippingAddress, setShippingAddress] = useState<ShippingAddress>(initialShippingAddress);
-    const [processing, setProcessing] = useState(false);
-    const [paymentError, setPaymentError] = useState<string | null>(null);
-    const [paymentSuccess, setPaymentSuccess] = useState(false);
-    const [orderId, setOrderId] = useState<string | null>(null);
-    const [activeStep, setActiveStep] = useState(0);
+	// The order created in step 2. Kept even when payment fails, so the page can
+	// point at it instead of stranding an unpaid order the user can't find.
+	const [order, setOrder] = useState<Order | null>(null);
+	const [creatingOrder, setCreatingOrder] = useState(false);
+	const [checkoutError, setCheckoutError] = useState<string | null>(null);
 
-    const fetchCart = useCallback(async () => {
-        try {
-            setCheckoutState((prev) => ({ ...prev, loading: true, error: null }));
-            const response = await cartApi.get('/');
-            const items = response.data.carts || [];
-            const subtotal = response.data.total || 0;
-            const shipping = subtotal > 100 ? 0 : 9.99;
-            const tax = subtotal * 0.08;
-            const grandTotal = subtotal + shipping + tax;
+	const payment = usePayOrder();
 
-            setCheckoutState({
-                items,
-                loading: false,
-                error: null,
-                subtotal,
-                shipping,
-                tax,
-                grandTotal,
-            });
-        } catch (err: any) {
-            setCheckoutState((prev) => ({
-                ...prev,
-                loading: false,
-                error: err.response?.data?.message || 'Failed to load cart',
-            }));
-        }
-    }, []);
+	const fetchCart = useCallback(async () => {
+		try {
+			setCheckoutState((prev) => ({ ...prev, loading: true, error: null }));
+			const response = await cartApi.get('/');
+			const items: CartItem[] = response.data.carts || [];
+			const subtotal = response.data.total || 0;
+			const shipping = subtotal > 100 ? 0 : 9.99;
+			const tax = subtotal * 0.08;
 
-    useEffect(() => {
-        fetchCart();
-    }, [fetchCart]);
+			setCheckoutState({
+				items,
+				loading: false,
+				error: null,
+				subtotal,
+				shipping,
+				tax,
+				grandTotal: subtotal + shipping + tax,
+			});
+		} catch (err) {
+			setCheckoutState((prev) => ({
+				...prev,
+				loading: false,
+				error: parseErrorMessage(err, 'Failed to load your cart'),
+			}));
+		}
+	}, []);
 
-    const updateShippingAddress = (field: keyof ShippingAddress, value: string) => {
-        setShippingAddress((prev) => ({ ...prev, [field]: value }));
-    };
+	useEffect(() => {
+		fetchCart();
+	}, [fetchCart]);
 
-    const validateShippingAddress = (): boolean => {
-        const required: (keyof ShippingAddress)[] = [
-            'fullName',
-            'addressLine1',
-            'city',
-            'state',
-            'postalCode',
-            'country',
-            'phone',
-        ];
-        return required.every((field) => shippingAddress[field]?.trim());
-    };
+	const updateShippingAddress = (field: keyof ShippingAddress, value: string) => {
+		setShippingAddress((prev) => ({ ...prev, [field]: value }));
+	};
 
-    const handleNextStep = () => {
-        if (activeStep === 0 && !validateShippingAddress()) {
-            setPaymentError('Please fill in all required shipping fields');
-            return;
-        }
-        setPaymentError(null);
-        setActiveStep((prev) => prev + 1);
-    };
+	const validateShippingAddress = () =>
+		REQUIRED_FIELDS.every((field) => shippingAddress[field]?.trim());
 
-    const handlePrevStep = () => {
-        setPaymentError(null);
-        setActiveStep((prev) => prev - 1);
-    };
+	const handleNextStep = () => {
+		if (activeStep === 0 && !validateShippingAddress()) {
+			setCheckoutError('Please fill in all required shipping fields');
+			return;
+		}
+		setCheckoutError(null);
+		setActiveStep((prev) => prev + 1);
+	};
 
-    const handlePayment = async () => {
-        if (!stripe || !elements) {
-            setPaymentError('Stripe is not loaded yet');
-            return;
-        }
+	const handlePrevStep = () => {
+		setCheckoutError(null);
+		setActiveStep((prev) => Math.max(prev - 1, 0));
+	};
 
-        const cardElement = elements.getElement(CardElement);
-        if (!cardElement) {
-            setPaymentError('Card element not found');
-            return;
-        }
+	/** Stripe billing details, built from the shipping form. */
+	const billingDetails = () => ({
+		name: shippingAddress.fullName,
+		phone: shippingAddress.phone,
+		address: {
+			line1: shippingAddress.addressLine1,
+			line2: shippingAddress.addressLine2 || undefined,
+			city: shippingAddress.city,
+			state: shippingAddress.state,
+			postal_code: shippingAddress.postalCode,
+			country: shippingAddress.country,
+		},
+	});
 
-        setProcessing(true);
-        setPaymentError(null);
+	/** POST /api/v1/order/new — returns the created order, or null on failure. */
+	const createOrder = useCallback(async (): Promise<Order | null> => {
+		setCreatingOrder(true);
+		setCheckoutError(null);
+		try {
+			const items = checkoutState.items.map((item) => ({
+				productId: item.product_id,
+				quantity: item.quantity,
+			}));
 
-        try {
-            // Step 1: Create order with backend first
-            const cartIds = checkoutState.items.map((item) => item.cart_id);
-            const orderResponse = await orderApi.post('/order', {
-                cartIds,
-                shippingAddress: {
-                    ...shippingAddress,
-                    phoneNumber: shippingAddress.phone,
-                },
-                paymentMethod: 'card',
-                notes: '',
-            });
+			// The route sends the order object directly (201), not { success, order }.
+			const { data } = await orderApi.post<Order>('/order/new', { items });
 
-            if (!orderResponse.data.success) {
-                setPaymentError(orderResponse.data.message || 'Order creation failed');
-                setProcessing(false);
-                return;
-            }
+			if (!data?.id) {
+				setCheckoutError('The order service responded without an order id.');
+				return null;
+			}
 
-            const createdOrderId = orderResponse.data.order.id;
-            setOrderId(createdOrderId);
+			setOrder(data);
+			return data;
+		} catch (err) {
+			setCheckoutError(parseErrorMessage(err, 'Could not place your order'));
+			return null;
+		} finally {
+			setCreatingOrder(false);
+		}
+	}, [checkoutState.items]);
 
-            // Step 2: Create payment intent for the order
-            // Currency: INR for Indian export regulations compliance
-            const paymentIntentResponse = await orderApi.post(`/order/${createdOrderId}/payment-intent`, {
-                currency: 'inr',
-            });
+	/**
+	 * Place the order, then pay for it. Re-running after a payment failure
+	 * reuses the order already created rather than placing a duplicate.
+	 */
+	const handlePayment = useCallback(async () => {
+		const target = order ?? (await createOrder());
+		if (!target) return;
 
-            if (!paymentIntentResponse.data.success) {
-                setPaymentError(paymentIntentResponse.data.message || 'Failed to initialize payment');
-                setProcessing(false);
-                return;
-            }
+		const result = await payment.pay(target.id, billingDetails());
 
-            const { clientSecret, paymentIntentId } = paymentIntentResponse.data;
+		// pay() polled the order while waiting for the webhook and returns the
+		// freshest copy, so the confirmation shows the real server-side total and
+		// status. Reading payment.order here would give this render's stale value.
+		if (result.order) setOrder(result.order);
+		if (result.paid) setActiveStep(2);
+	}, [order, createOrder, payment]);
 
-            // Step 3: Confirm payment with Stripe using client secret
-            const { error: confirmError, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
-                payment_method: {
-                    card: cardElement,
-                    billing_details: {
-                        name: shippingAddress.fullName,
-                        phone: shippingAddress.phone,
-                        address: {
-                            line1: shippingAddress.addressLine1,
-                            line2: shippingAddress.addressLine2 || undefined,
-                            city: shippingAddress.city,
-                            state: shippingAddress.state,
-                            postal_code: shippingAddress.postalCode,
-                            country: shippingAddress.country,
-                        },
-                    },
-                },
-            });
-
-            if (confirmError) {
-                setPaymentError(confirmError.message || 'Payment failed');
-                setProcessing(false);
-                return;
-            }
-
-            // Step 4: Confirm payment with backend
-            if (paymentIntent?.status === 'succeeded') {
-                await orderApi.post(`/order/${createdOrderId}/confirm-payment`, {
-                    paymentIntentId,
-                });
-
-                setPaymentSuccess(true);
-                setActiveStep(2);
-            } else {
-                setPaymentError(`Payment status: ${paymentIntent?.status}. Please try again.`);
-            }
-        } catch (err: any) {
-            const errorMessage =
-                err.response?.data?.errors?.[0]?.message ||
-                err.response?.data?.message ||
-                'Payment processing failed';
-            setPaymentError(errorMessage);
-        } finally {
-            setProcessing(false);
-        }
-    };
-
-    return {
-        ...checkoutState,
-        shippingAddress,
-        updateShippingAddress,
-        validateShippingAddress,
-        processing,
-        paymentError,
-        paymentSuccess,
-        orderId,
-        activeStep,
-        handleNextStep,
-        handlePrevStep,
-        handlePayment,
-        isStripeReady: !!stripe && !!elements,
-    };
+	return {
+		...checkoutState,
+		shippingAddress,
+		updateShippingAddress,
+		validateShippingAddress,
+		activeStep,
+		handleNextStep,
+		handlePrevStep,
+		handlePayment,
+		order,
+		creatingOrder,
+		checkoutError,
+		// A created-but-unpaid order: payment can be retried from here or later
+		// from the order page, but the cart lines are already gone.
+		hasUnpaidOrder: !!order && payment.stage !== 'succeeded',
+		payment,
+		processing: creatingOrder || payment.processing,
+		paymentSuccess: payment.stage === 'succeeded',
+		isStripeReady: payment.isStripeReady,
+	};
 };
-
