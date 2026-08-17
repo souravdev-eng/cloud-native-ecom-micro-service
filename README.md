@@ -1,325 +1,229 @@
-<a name="readme-top"></a>
+<h1 align="center">Cloud-Native E-Commerce Platform</h1>
 
-[![LinkedIn][linkedin-shield]][linkedin-url]
+<p align="center"><strong>A distributed commerce system built with independently deployable services, asynchronous messaging, polyglot persistence, and a federated frontend.</strong></p>
 
-<div align="center">
-  <a href="https://github.com/souravdev-eng/cloud-native-ecom-micro-service">
-    <img src="https://img.freepik.com/premium-vector/ecommerce-logo-design_624194-152.jpg" alt="Logo" width="100" height="100">
-  </a>
-  <h2>Cloud-Native E-Commerce Microservices Platform</h2>
-  <p>
-    A full-stack e-commerce platform built with <strong>7 microservices</strong>, event-driven architecture,<br/>
-    Elasticsearch-powered search, and Kubernetes orchestration.
-  </p>
+<table align="center">
+  <tr>
+    <td align="center" width="96"><img src="static/icons/typescript.png" height="38" alt="TypeScript"><br><sub><b>TypeScript</b></sub></td>
+    <td align="center" width="96"><img src="static/icons/nodejs.png" height="38" alt="Node.js"><br><sub><b>Node.js</b></sub></td>
+    <td align="center" width="96"><img src="static/icons/express.png" height="38" alt="Express"><br><sub><b>Express</b></sub></td>
+    <td align="center" width="96"><img src="static/icons/golang.png" height="38" alt="Go"><br><sub><b>Go</b></sub></td>
+    <td align="center" width="96"><img src="static/icons/react.svg" height="38" alt="React"><br><sub><b>React</b></sub></td>
+  </tr>
+  <tr>
+    <td align="center" width="96"><img src="static/icons/mui.png" height="38" alt="Material UI"><br><sub><b>Material UI</b></sub></td>
+    <td align="center" width="96"><img src="static/icons/redux.svg" height="38" alt="Redux"><br><sub><b>Redux</b></sub></td>
+    <td align="center" width="96"><img src="static/icons/mongodb.png" height="38" alt="MongoDB"><br><sub><b>MongoDB</b></sub></td>
+    <td align="center" width="96"><img src="static/icons/postgresql.png" height="38" alt="PostgreSQL"><br><sub><b>PostgreSQL</b></sub></td>
+    <td align="center" width="96"><img src="static/icons/redis.svg" height="38" alt="Redis"><br><sub><b>Redis</b></sub></td>
+  </tr>
+  <tr>
+    <td align="center" width="96"><img src="static/icons/mq.png" height="38" alt="RabbitMQ"><br><sub><b>RabbitMQ</b></sub></td>
+    <td align="center" width="96"><img src="static/icons/aws.png" height="38" alt="AWS"><br><sub><b>AWS</b></sub></td>
+    <td align="center" width="96"><img src="static/icons/docker.png" height="38" alt="Docker"><br><sub><b>Docker</b></sub></td>
+    <td align="center" width="96"><img src="static/icons/k8s.svg" height="38" alt="Kubernetes"><br><sub><b>Kubernetes</b></sub></td>
+    <td align="center" width="96"><img src="static/icons/githubactions.svg" height="38" alt="GitHub Actions"><br><sub><b>GitHub Actions</b></sub></td>
+  </tr>
+</table>
 
-  <img src="https://img.shields.io/badge/Node.js-18-339933?logo=node.js" alt="Node.js">
-  <img src="https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript" alt="TypeScript">
-  <img src="https://img.shields.io/badge/Go-1.21-00ADD8?logo=go" alt="Go">
-  <img src="https://img.shields.io/badge/React-19-61DAFB?logo=react" alt="React">
-  <img src="https://img.shields.io/badge/Kubernetes-1.29-326CE5?logo=kubernetes" alt="K8s">
-  <img src="https://img.shields.io/badge/Elasticsearch-8.11-005571?logo=elasticsearch" alt="ES">
-</div>
+## Overview
 
----
+This repository implements an e-commerce platform as a collection of focused backend services and React micro-frontends. Each domain owns its API and persistence concerns, while RabbitMQ events keep dependent services synchronized without turning every operation into a chain of synchronous calls.
 
-## What is this?
-
-An **end-to-end e-commerce system** that runs as independent microservices on Kubernetes. Each service owns its data, communicates via RabbitMQ events, and can be deployed/scaled independently. The frontend is a micro-frontend (Module Federation) with separate apps for dashboard, user, and admin.
-
-**Key highlights:**
-
-- **Natural language search** — "Book under 500" parses into full-text search + price filter automatically
-- **Elasticsearch + MongoDB dual search** — ES for speed, MongoDB as automatic fallback
-- **Autocomplete suggestions** — Debounced edge-ngram suggestions as you type
-- **ETL pipeline** — Syncs data across services (MongoDB → PostgreSQL, MongoDB → Elasticsearch)
-- **CNPG read replicas** — PostgreSQL read/write splitting for cart service
-- **Event-driven** — Product changes propagate to cart, orders, and notifications via RabbitMQ
-
----
+The project covers the engineering concerns that appear once a system moves beyond a single application: service boundaries, authentication and authorization, event contracts, local data projections, search and caching, payment integration boundaries, containerization, and Kubernetes-based development.
 
 ## Architecture
 
-### System Overview
-
 ```mermaid
-graph TB
-    Client([🌐 Client])
+flowchart LR
+    Client[Browser] --> MFE[React micro-frontends]
+    MFE --> Ingress[NGINX Ingress]
 
-    subgraph K8s [☸ Kubernetes Cluster]
-        direction TB
-
-        Ingress[⚖️ NGINX Ingress<br/>LoadBalancer]
-
-        subgraph services [Microservices]
-            direction LR
-            Auth[🔐 Auth]
-            Product[📦 Product]
-            Cart[🛒 Cart]
-            Order[📋 Order]
-            Review[⭐ Review<br/>Go]
-            Notif[� Notification]
-            ETL[� ETL]
-        end
-
-        subgraph data [Data Layer]
-            direction LR
-            Mongo[(🍃 MongoDB)]
-            PG[(🐘 PostgreSQL<br/>CNPG)]
-            Redis[(⚡ Redis)]
-            ES[(🔍 Elasticsearch)]
-        end
-
-        MQ[🐇 RabbitMQ]
+    subgraph Services
+        Auth[Auth]
+        Product[Product]
+        Cart[Cart]
+        Order[Order]
+        Review[Review]
+        ETL[ETL]
+        Notification[Notification]
     end
 
-    Client -->|HTTPS| Ingress
-    Ingress --> Auth & Product & Cart & Order & Review
+    Ingress --> Auth
+    Ingress --> Product
+    Ingress --> Cart
+    Ingress --> Order
+    Ingress --> Review
+    Ingress --> ETL
 
-    Auth --> Mongo
-    Product --> Mongo & Redis & ES
-    Cart --> PG
-    Order --> Mongo
-    Review --> PG
+    Auth --> RabbitMQ[(RabbitMQ)]
+    Product <--> RabbitMQ
+    Cart <--> RabbitMQ
+    Order <--> RabbitMQ
+    RabbitMQ --> Notification
 
-    Product -.->|events| MQ
-    Cart -.->|events| MQ
-    MQ -.-> Order & Cart & Notif
-
-    ETL -.->|sync| Mongo & PG & ES
-
-    classDef svc fill:#3b82f6,stroke:#1e40af,color:#fff
-    classDef go fill:#00ADD8,stroke:#007d9c,color:#fff
-    classDef etl fill:#8b5cf6,stroke:#6d28d9,color:#fff
-    classDef db fill:#0f172a,stroke:#334155,color:#e2e8f0
-    classDef mq fill:#ff6600,stroke:#cc5200,color:#fff
-    classDef ing fill:#1e293b,stroke:#475569,color:#e2e8f0
-
-    class Auth,Product,Cart,Order,Notif svc
-    class Review go
-    class ETL etl
-    class Mongo,PG,Redis,ES db
-    class MQ mq
-    class Ingress ing
+    Auth --> MongoDB[(MongoDB)]
+    Product --> MongoDB
+    Review --> MongoDB
+    Cart --> PostgreSQL[(PostgreSQL)]
+    Order --> PostgreSQL
+    Product --> Redis[(Redis)]
+    Product --> Elasticsearch[(Elasticsearch)]
+    ETL --> MongoDB
+    ETL --> PostgreSQL
+    ETL --> Elasticsearch
 ```
 
-### Event Flow (RabbitMQ)
+HTTP is used at the system boundary; asynchronous events carry domain changes between services. Cart and Order maintain the product data they need locally, avoiding runtime coupling to the Product service for every request.
 
-```mermaid
-graph LR
-    P[📦 Product] -->|product.created<br/>product.updated<br/>product.deleted| MQ[🐇 RabbitMQ]
-    C[🛒 Cart] -->|cart.created<br/>cart.updated<br/>cart.deleted| MQ
-    MQ -->|product events| C
-    MQ -->|cart events| O[📋 Order]
-    MQ -->|auth emails| N[🔔 Notification]
+## Service map
 
-    classDef svc fill:#3b82f6,stroke:#1e40af,color:#fff
-    classDef mq fill:#ff6600,stroke:#cc5200,color:#fff
-    class P,C,O,N svc
-    class MQ mq
+| Component          | Responsibility                                                                             | Main technologies                                       |
+| ------------------ | ------------------------------------------------------------------------------------------ | ------------------------------------------------------- |
+| **Auth**           | Registration, login, JWT sessions, role-based access, password recovery                    | Node.js, TypeScript, Express, MongoDB                   |
+| **Product**        | Catalog management, filtering, full-text search, image upload, cache management            | Node.js, TypeScript, MongoDB, Redis, Elasticsearch, S3  |
+| **Cart**           | Per-user carts and a locally synchronized product projection                               | Node.js, TypeScript, PostgreSQL, TypeORM                |
+| **Order**          | Order lifecycle and product projection, with Stripe payment and webhook integration points | Node.js, TypeScript, PostgreSQL, Drizzle ORM, Stripe    |
+| **Notification**   | Event-driven email delivery                                                                | Node.js, TypeScript, RabbitMQ, Nodemailer               |
+| **ETL**            | Synchronization between operational stores and search-oriented data                        | Node.js, TypeScript, MongoDB, PostgreSQL, Elasticsearch |
+| **Review**         | Review and user-related HTTP APIs                                                          | Go, Gin, MongoDB                                        |
+| **MFE client**     | Host shell plus user, dashboard, admin, and shared frontend modules                        | React, TypeScript, Rspack Module Federation, Turborepo  |
+| **Common package** | Shared middleware, errors, message types, publishers, and listeners                        | TypeScript, Express, RabbitMQ                           |
+
+## What the implementation demonstrates
+
+- **Domain-oriented service boundaries** with separate deployable units and service-owned data.
+- **Event-driven workflows** for product, inventory, cart, order, and notification changes.
+- **Local read models** in Cart and Order, updated from product events to reduce synchronous service dependencies.
+- **Search and caching** through Elasticsearch-backed product search and Redis-backed product caching with invalidation on writes.
+- **Authentication and authorization** through JWT-based sessions, reusable middleware, and role-restricted routes.
+- **Payment integration boundaries** for Stripe payment intents, raw webhook payloads, and order payment state; provider calls and signature verification are currently scaffolded.
+- **Micro-frontend composition** with independently built React applications exposed through Module Federation.
+- **Platform tooling** with Docker images, Kubernetes manifests, NGINX ingress, centralized configuration, secrets, persistent volumes, and Skaffold profiles.
+- **Automated verification** with Jest, Supertest, frontend lint/type checks, and path-scoped GitHub Actions workflows.
+
+## Repository structure
+
+```text
+.
+├── auth/              # Identity and access service
+├── product/           # Catalog, search, cache, and inventory service
+├── cart/              # Shopping cart service
+├── order/             # Order service and payment integration points
+├── notification/      # Asynchronous email service
+├── etl-service/       # Cross-store synchronization
+├── review/            # Go review service
+├── common/            # Shared contracts and backend building blocks
+├── mfe-client/        # React micro-frontend workspace
+├── k8s/               # Kubernetes workloads and infrastructure
+├── skaffold/          # Focused Skaffold configurations
+├── scripts/           # Setup, development, and build utilities
+└── sandbox/           # Isolated technical experiments and examples
 ```
 
-| Service | Stack | Database | Messaging | Purpose |
-| --- | --- | --- | --- | --- |
-| **Auth** | Node.js / TS | MongoDB | — | JWT auth, RBAC, password reset |
-| **Product** | Node.js / TS | MongoDB + Redis + ES | RabbitMQ | Catalog, search, caching, autocomplete |
-| **Cart** | Node.js / TS | PostgreSQL (CNPG) | RabbitMQ | Cart management, inventory sync |
-| **Order** | Node.js / TS | MongoDB | RabbitMQ | Order processing, payment (Stripe) |
-| **Notification** | Node.js / TS | — | RabbitMQ | Email/SMS alerts |
-| **ETL** | Node.js / TS | All DBs | — | Cross-service data sync pipelines |
-| **Review** | Go / Gin | PostgreSQL | — | Product reviews (high-perf) |
-
----
-
-## Frontend (Micro-Frontend)
-
-Five apps composed via **Module Federation** at runtime:
-
-| App         | Role                                            |
-| ----------- | ----------------------------------------------- |
-| `host`      | Shell — composes all remotes                    |
-| `dashboard` | Product browsing, search, filters, autocomplete |
-| `user`      | Auth, cart, checkout, profile                   |
-| `admin`     | Seller dashboard, product management            |
-| `shared`    | Common components, hooks, utilities             |
-
-**Stack:** React 19, TypeScript, Rspack, MUI, Zustand, React Query, React Router, pnpm workspaces
-
----
-
-## Search & Autocomplete
-
-The search system supports **natural language queries** out of the box:
-
-```bash
-# Natural language queries — parsed automatically
-GET /api/product/search?q=Book under 500
-#  → searchText: "Book", priceMax: 500
-
-GET /api/product/search?q=laptop between 200 and 800
-#  → searchText: "laptop", priceMin: 200, priceMax: 800
-
-GET /api/product/search?q=cheap headphones rated above 4
-#  → searchText: "headphones", priceMax: 500, minRating: 4, sort: price asc
-
-# Autocomplete (debounced, fires per keystroke)
-GET /api/product/search/suggest?q=lap
-#  → [{ title: "Laptop Pro 15", price: 999, highlight: "<em>Lap</em>top Pro 15" }, ...]
-```
-
-**How it works:** Query → NL parser extracts filters → Elasticsearch `title.autocomplete` (edge-ngram) + `match_phrase_prefix` → Falls back to MongoDB if ES is down.
-
----
-
-## Project Structure
-
-```
-cloud-native-ecom-micro-service/
-├── auth/                  # Auth microservice
-├── product/               # Product microservice (+ ES search)
-├── cart/                  # Cart microservice (PostgreSQL)
-├── order/                 # Order microservice
-├── notification/          # Notification microservice
-├── etl-service/           # ETL pipelines (sync across services)
-├── review/                # Review microservice (Go)
-├── common/                # Shared npm package (@ecom-micro/common)
-├── mfe-client/            # Micro-frontend monorepo
-│   ├── host/              #   Shell app
-│   ├── dashboard/         #   Product browsing & search
-│   ├── user/              #   Auth & checkout flows
-│   ├── admin/             #   Seller dashboard
-│   └── shared/            #   Shared components
-├── k8s/                   # Kubernetes manifests
-│   ├── config/            #   ConfigMaps (ES index config, etc.)
-│   ├── volumes/           #   PV/PVC definitions
-│   └── cnpg/              #   CloudNativePG cluster
-├── scripts/               # Docker build, cleanup, CNPG setup
-├── skaffold.yaml          # Dev profiles (minimal/backend/full)
-└── docker-compose.dev.yml # Local development alternative
-```
-
----
-
-## Quick Start
+## Running the project
 
 ### Prerequisites
 
-- Docker Desktop with Kubernetes enabled
-- Node.js 18+, pnpm, Go 1.21+
-- `skaffold` CLI
+- Node.js 20+
+- pnpm
+- Go 1.22+
+- Docker
+- A local Kubernetes cluster
+- `kubectl`, Skaffold, and an NGINX ingress controller
 
-### Run locally with Skaffold
+### 1. Install dependencies
+
+Install every Node.js workspace and the Go service from the repository root:
 
 ```bash
-# Minimal profile (Auth + Product + Cart + ES + Redis + PG + RabbitMQ)
-skaffold dev -p minimal
+./scripts/install-all.sh
+```
 
-# Backend only (all services, no frontend)
+Use `./scripts/install-all.sh --help` to install only selected services or run a frozen-lockfile install.
+
+### 2. Configure Kubernetes secrets
+
+Copy the committed template and replace its placeholders:
+
+```bash
+cp k8s/secret/ecom-secret.example.yml k8s/secret/ecom-secret.yml
+kubectl apply -f k8s/secret/ecom-secret.yml
+```
+
+The generated secret file is ignored by Git. A root `.env` can also be converted into the same Kubernetes secret with:
+
+```bash
+./scripts/create-secret.sh ecom
+```
+
+See [k8s/README.md](k8s/README.md) for the configuration model and required keys.
+
+### 3. Start the backend
+
+```bash
+# Auth, Product, and Cart with their infrastructure
+skaffold dev
+
+# All TypeScript backend services
 skaffold dev -p backend
 
-# Full stack (all services + frontend)
+# Backend plus the complete infrastructure manifests
 skaffold dev -p full
 ```
 
-### Run frontend separately
+For focused Order service development:
+
+```bash
+skaffold dev -f skaffold/order.yaml
+```
+
+### 4. Start the frontend
+
+In a separate terminal:
 
 ```bash
 cd mfe-client
 pnpm install
-pnpm dev          # starts all MFE apps in parallel
+pnpm dev
 ```
 
-### Seed Elasticsearch index
+The host application runs on `http://localhost:3000`; its remote modules run independently on ports `3001` through `3004`.
+
+### Infrastructure-only development
+
+MongoDB, Redis, and RabbitMQ can be started without the application services:
 
 ```bash
-# After services are running, sync products to ES:
-curl -X POST -b <auth-cookie> http://localhost:4100/api/etl/sync/elasticsearch
+docker compose -f docker-compose.dev.yml up -d
 ```
 
----
+This mode is useful when running an individual service directly from its own directory.
 
-## Infrastructure
+## Development commands
 
-| Component        | Technology                  | Role                                    |
-| ---------------- | --------------------------- | --------------------------------------- |
-| Orchestration    | Kubernetes (Docker Desktop) | Service deployment & scaling            |
-| Ingress          | NGINX Ingress Controller    | API gateway, routing, SSL               |
-| Messaging        | RabbitMQ                    | Event-driven service communication      |
-| Caching          | Redis                       | Product listing cache (TTL-based)       |
-| Search           | Elasticsearch 8.11          | Full-text search, autocomplete          |
-| SQL DB           | PostgreSQL (CNPG)           | Cart & review data, read replicas       |
-| NoSQL DB         | MongoDB                     | Auth, product, order, notification data |
-| CI/CD            | GitHub Actions              | Build, test, deploy pipeline            |
-| Containerization | Docker                      | Service images                          |
-
----
-
-## Key Engineering Patterns
-
-- **Cursor-based pagination** — Consistent results for large datasets, no offset skew
-- **Multi-layer caching** — Redis with MD5 cache keys, TTL by query type
-- **Lazy ES reconnect** — Product service recovers if ES starts late
-- **ES → MongoDB fallback** — Search always works even if ES index is missing
-- **ETL batch sync** — Bulk indexing with progress tracking and error collection
-- **CNPG read/write split** — Writes go to primary, reads go to replicas
-
----
-
-## Security
-
-- JWT authentication with role-based access control (admin/seller/user)
-- Cookie-based sessions with `httpOnly` + `secure` flags
-- Input validation via `express-validator`
-- CORS whitelisting per service
-- TypeScript strict mode across all services
-
----
-
-## Testing
-
-- **Jest** + **Supertest** for backend integration tests
-- **React Testing Library** for frontend component tests
-- **mongodb-memory-server** for isolated DB tests
-- Run: `npm test` in any service directory
-
----
-
-## Scripts
+Each Node.js service owns its dependencies and scripts. Typical commands are:
 
 ```bash
-./scripts/docker-build-push.sh              # Build & push all service images
-./scripts/docker-build-push.sh product auth  # Build specific services
-./scripts/docker-cleanup.sh                  # Reclaim Docker disk space
-./scripts/setup-cnpg.sh                      # Install CNPG operator for PG replicas
+cd auth
+pnpm start       # development server
+pnpm test        # service tests
+pnpm build       # compile TypeScript
 ```
 
----
+The frontend workspace provides repository-wide commands:
 
-## Tech Stack
+```bash
+cd mfe-client
+pnpm lint
+pnpm type-check
+pnpm build
+```
 
-<div align="center" style="display:flex; flex-wrap:wrap; justify-content:center; gap:25px; max-width:70%; margin:auto;">
-  <img src="https://github.com/get-icon/geticon/raw/master/icons/react.svg" alt="React" width="35" height="35">
-  <img src="https://github.com/get-icon/geticon/raw/master/icons/typescript-icon.svg" alt="TypeScript" width="35" height="35">
-  <img src="https://github.com/get-icon/geticon/raw/master/icons/nodejs-icon.svg" alt="Node.js" width="35" height="35">
-  <img src="https://miro.medium.com/v2/resize:fit:600/1*i2skbfmDsHayHhqPfwt6pA.png" alt="Golang" width="35" height="35">
-  <img src="https://images.opencollective.com/rspack/7a6035e/logo/256.png" alt="RSPack" width="35" height="35">
-  <img src="https://i.pinimg.com/474x/19/2c/7e/192c7e8637656cab675eaf9c7f3a44ee.jpg" alt="MUI" width="35" height="35">
-  <img src="https://github.com/get-icon/geticon/raw/master/icons/mongodb-icon.svg" alt="MongoDB" width="35" height="35">
-  <img src="https://github.com/get-icon/geticon/raw/master/icons/postgresql.svg" alt="PostgreSQL" width="35" height="35">
-  <img src="https://cdn4.iconfinder.com/data/icons/redis-2/1451/Untitled-2-512.png" alt="Redis" width="35" height="35">
-  <img src="https://github.com/get-icon/geticon/raw/master/icons/elasticsearch.svg" alt="Elasticsearch" width="35" height="35">
-  <img src="https://github.com/get-icon/geticon/raw/master/icons/docker-icon.svg" alt="Docker" width="35" height="35">
-  <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/3/39/Kubernetes_logo_without_workmark.svg/500px-Kubernetes_logo_without_workmark.svg.png" alt="Kubernetes" width="35" height="35">
-  <img src="https://cdn.prod.website-files.com/65264f6bf54e751c3a776db1/66d86964333d11e0a1f1da9e_github_actions.png" alt="GitHub Actions" width="35" height="35">
-  <img src="https://cdn.creazilla.com/icons/3254262/rabbitmq-icon-icon-sm.png" alt="RabbitMQ" width="35" height="35">
-  <img src="https://github.com/get-icon/geticon/raw/master/icons/jest.svg" alt="Jest" width="35" height="35">
-  <img src="https://testing-library.com/img/octopus-64x64.png" alt="React Testing Library" width="35" height="35">
-</div>
+## Scope
 
----
+This is an actively developed distributed system. The repository presents implemented architecture and code—not unverified claims about traffic, latency, availability, or production scale. Performance and reliability figures belong here only when they are backed by reproducible tests and published results.
 
-## Contact
+## Author
 
-**Sourav Majumdar** — [LinkedIn](https://www.linkedin.com/in/majumdarsourav/) — souravmajumdar.dev@gmail.com
-
-[linkedin-shield]: https://img.shields.io/badge/-LinkedIn-black.svg?style=for-the-badge&logo=linkedin&colorB=555
-[linkedin-url]: https://www.linkedin.com/in/majumdarsourav/
+**Sourav Majumdar** · [LinkedIn](https://www.linkedin.com/in/majumdarsourav/) · [GitHub](https://github.com/souravdev-eng)
