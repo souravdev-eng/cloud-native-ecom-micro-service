@@ -6,6 +6,11 @@ import * as path from 'node:path';
 
 const isDev = process.env.NODE_ENV === 'development';
 
+// Ports and API endpoints come from mfe-client/dev.config.json — the single
+// source of truth shared with scripts/dev.mjs. Never hardcode them here.
+const devConfig = require('../config/dev-config.cjs');
+const serve = devConfig.serve('dashboard');
+
 // Import the appropriate module federation config
 const mfConfig = isDev
 	? require('./module-federation.config').mfConfig
@@ -24,13 +29,13 @@ export default defineConfig({
 	},
 
 	devServer: {
-		port: 3002,
+		port: serve.port,
 		historyApiFallback: true,
 		watchFiles: [path.resolve(__dirname, 'src')],
 	},
 	output: {
 		uniqueName: 'dashboard',
-		publicPath: 'http://localhost:3002/',
+		publicPath: serve.publicPath,
 	},
 
 	experiments: {
@@ -82,6 +87,7 @@ export default defineConfig({
 		new rspack.HtmlRspackPlugin({
 			template: './index.html',
 		}),
+		new rspack.DefinePlugin(devConfig.defineEntries()),
 		new ModuleFederationPlugin(mfConfig),
 		isDev ? new RefreshPlugin() : null,
 	].filter(Boolean),

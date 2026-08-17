@@ -1,21 +1,25 @@
-// API Configuration for Admin MFE Application
-import axios from "axios";
+// API clients for the admin MFE.
+//
+// Base URLs are injected at build time from mfe-client/dev.config.json — do not
+// hardcode ports here. In dev they point at the `kubectl port-forward` tunnels
+// opened by `pnpm dev`; in prod builds they all point at the ingress host.
+import axios from 'axios';
 
-// Backend via port-forward (run: ./scripts/start-backend.sh)
-const AUTH_API_URL = 'http://localhost:3100';
-const PRODUCT_API_URL = 'http://localhost:4100';
+declare const __API_ENDPOINTS__: Record<string, string>;
+
+const { AUTH, PRODUCT } = __API_ENDPOINTS__;
 
 export const baseUrl = axios.create({
-    baseURL: AUTH_API_URL,
-    withCredentials: true,
+	baseURL: AUTH,
+	withCredentials: true,
 });
 
 export const authServiceApi = axios.create({
-    baseURL: `${AUTH_API_URL}/api/users`,
-    withCredentials: true,
+	baseURL: `${AUTH}/api/users`,
+	withCredentials: true,
 });
 
 export const productServiceApi = axios.create({
-    baseURL: `${PRODUCT_API_URL}/api/product`,
-    withCredentials: true,
+	baseURL: `${PRODUCT}/api/product`,
+	withCredentials: true,
 });
