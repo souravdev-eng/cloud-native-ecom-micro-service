@@ -1,257 +1,229 @@
-<a name="readme-top"></a>
+<h1 align="center">Cloud-Native E-Commerce Platform</h1>
 
-[![LinkedIn][linkedin-shield]][linkedin-url]
+<p align="center"><strong>A distributed commerce system built with independently deployable services, asynchronous messaging, polyglot persistence, and a federated frontend.</strong></p>
 
-<!-- PROJECT LOGO -->
-<br />
-<div align="center">
-  <a href="https://github.com/souravdev-eng/E-com-micro-service">
-    <img src="https://img.freepik.com/premium-vector/ecommerce-logo-design_624194-152.jpg" alt="Logo" width="100" height="100">
-  </a>
-  <h2 align="center">Cloud-Native E-Commerce Microservices Platform
-</h2>
-  <p align="left">
-    A production-ready, cloud-native e-commerce platform built with a microservices architecture, supporting high-scale operations with modern engineering practices.
-  </p>
-</div>
+<table align="center">
+  <tr>
+    <td align="center" width="96"><img src="static/icons/typescript.png" height="38" alt="TypeScript"><br><sub><b>TypeScript</b></sub></td>
+    <td align="center" width="96"><img src="static/icons/nodejs.png" height="38" alt="Node.js"><br><sub><b>Node.js</b></sub></td>
+    <td align="center" width="96"><img src="static/icons/express.png" height="38" alt="Express"><br><sub><b>Express</b></sub></td>
+    <td align="center" width="96"><img src="static/icons/golang.png" height="38" alt="Go"><br><sub><b>Go</b></sub></td>
+    <td align="center" width="96"><img src="static/icons/react.svg" height="38" alt="React"><br><sub><b>React</b></sub></td>
+  </tr>
+  <tr>
+    <td align="center" width="96"><img src="static/icons/mui.png" height="38" alt="Material UI"><br><sub><b>Material UI</b></sub></td>
+    <td align="center" width="96"><img src="static/icons/redux.svg" height="38" alt="Redux"><br><sub><b>Redux</b></sub></td>
+    <td align="center" width="96"><img src="static/icons/mongodb.png" height="38" alt="MongoDB"><br><sub><b>MongoDB</b></sub></td>
+    <td align="center" width="96"><img src="static/icons/postgresql.png" height="38" alt="PostgreSQL"><br><sub><b>PostgreSQL</b></sub></td>
+    <td align="center" width="96"><img src="static/icons/redis.svg" height="38" alt="Redis"><br><sub><b>Redis</b></sub></td>
+  </tr>
+  <tr>
+    <td align="center" width="96"><img src="static/icons/mq.png" height="38" alt="RabbitMQ"><br><sub><b>RabbitMQ</b></sub></td>
+    <td align="center" width="96"><img src="static/icons/aws.png" height="38" alt="AWS"><br><sub><b>AWS</b></sub></td>
+    <td align="center" width="96"><img src="static/icons/docker.png" height="38" alt="Docker"><br><sub><b>Docker</b></sub></td>
+    <td align="center" width="96"><img src="static/icons/k8s.svg" height="38" alt="Kubernetes"><br><sub><b>Kubernetes</b></sub></td>
+    <td align="center" width="96"><img src="static/icons/githubactions.svg" height="38" alt="GitHub Actions"><br><sub><b>GitHub Actions</b></sub></td>
+  </tr>
+</table>
 
-<!-- ABOUT THE PROJECT -->
+## Overview
 
-### Overview
+This repository implements an e-commerce platform as a collection of focused backend services and React micro-frontends. Each domain owns its API and persistence concerns, while RabbitMQ events keep dependent services synchronized without turning every operation into a chain of synchronous calls.
 
-This full-stack e-commerce platform demonstrates enterprise-grade software engineering through microservices architecture, event-driven design, and cloud-native technologies. The system is designed to handle **millions** of concurrent users with sub-100ms response times and **99.9%** uptime.
-
-### Key Features
-
-- **Scalability**: Supports 10M+ concurrent users
-- **Performance**: Sub-100ms API response times with 90%+ cache hit ratio
-- **Reliability**: 99.9% uptime with zero-downtime deployments
-- **Architecture**: 6 microservices with event-driven communication _(future, it will be increased)_
-
-## Technology Stack
-
-### Backend Services
-
-| Service | Runtime | Database | Key Features |
-| --- | --- | --- | --- |
-| Auth Service | Node.js + TypeScript | MongoDB | JWT authentication, RBAC, password reset |
-| Product Service | Node.js + TypeScript | MongoDB + Redis | Advanced search, pagination, intelligent caching |
-| Cart Service | Node.js + TypeScript | PostgreSQL + TypeORM | Real-time updates, inventory sync |
-| Order Service | Node.js + TypeScript | PostgreSQL | Order processing, payment integration |
-| Review Service | Go + Gin | PostgreSQL | High-performance review engine |
-| Notification Service | Node.js + TypeScript | Event-driven | Email/SMS notifications, real-time alerts |
-
-### Frontend
-
-- **Micro Frontend** with Module Federation
-- **React + TypeScript** for type-safe development
-- **Rspack** for optimized builds
-- **pnpm** workspace management
-- **react quey** for calling api
-- **zustand** for global-level state management
-- **React Router Dom** for routing
-
-### Infrastructure
-
-- **Kubernetes** - Production orchestration
-- **Docker** - Containerized services
-- **NGINX Ingress** - API Gateway with SSL
-- **RabbitMQ** - Event messaging
-- **Redis Cluster** - Distributed caching
-- **MongoDB Atlas** - NoSQL Database
-- **AWS RDS** - SQL Database
-- **Elasticsearch + Kibana** - Logging & monitoring
-- **CloudFront & S3 Bucket** - For micro frontend app hosting salution
-- **AWS** - For cloud salution
-- **GitHub Action** - For CI/CD pipeline
-
-### Testing tools
-
-- **Jest**
-- **React Testing Library**
+The project covers the engineering concerns that appear once a system moves beyond a single application: service boundaries, authentication and authorization, event contracts, local data projections, search and caching, payment integration boundaries, containerization, and Kubernetes-based development.
 
 ## Architecture
 
-### Microservices Communication
+```mermaid
+flowchart LR
+    Client[Browser] --> MFE[React micro-frontends]
+    MFE --> Ingress[NGINX Ingress]
 
-```typescript
-// Event-driven architecture example
-interface ProductCreatedEvent {
-  id: string;
-  title: string;
-  price: number;
-  sellerId: string;
-  quantity: number;
-}
+    subgraph Services
+        Auth[Auth]
+        Product[Product]
+        Cart[Cart]
+        Order[Order]
+        Review[Review]
+        ETL[ETL]
+        Notification[Notification]
+    end
 
-// Service communication flow
-Product Created → Cart Service (inventory sync)
-Product Created → Notification Service (alerts)
-Product Updated → Order Service (price updates)
+    Ingress --> Auth
+    Ingress --> Product
+    Ingress --> Cart
+    Ingress --> Order
+    Ingress --> Review
+    Ingress --> ETL
+
+    Auth --> RabbitMQ[(RabbitMQ)]
+    Product <--> RabbitMQ
+    Cart <--> RabbitMQ
+    Order <--> RabbitMQ
+    RabbitMQ --> Notification
+
+    Auth --> MongoDB[(MongoDB)]
+    Product --> MongoDB
+    Review --> MongoDB
+    Cart --> PostgreSQL[(PostgreSQL)]
+    Order --> PostgreSQL
+    Product --> Redis[(Redis)]
+    Product --> Elasticsearch[(Elasticsearch)]
+    ETL --> MongoDB
+    ETL --> PostgreSQL
+    ETL --> Elasticsearch
 ```
 
-### Performance Features
+HTTP is used at the system boundary; asynchronous events carry domain changes between services. Cart and Order maintain the product data they need locally, avoiding runtime coupling to the Product service for every request.
 
-- **Advanced Caching**: Multi-layer caching with Redis
-- **Database Optimization**: Performance indexes and query optimization
-- **Pagination Strategies**: Both cursor-based and offset pagination
-- **Load Balancing**: Kubernetes-native scaling
+## Service map
 
-## Product Service Highlights
+| Component          | Responsibility                                                                             | Main technologies                                       |
+| ------------------ | ------------------------------------------------------------------------------------------ | ------------------------------------------------------- |
+| **Auth**           | Registration, login, JWT sessions, role-based access, password recovery                    | Node.js, TypeScript, Express, MongoDB                   |
+| **Product**        | Catalog management, filtering, full-text search, image upload, cache management            | Node.js, TypeScript, MongoDB, Redis, Elasticsearch, S3  |
+| **Cart**           | Per-user carts and a locally synchronized product projection                               | Node.js, TypeScript, PostgreSQL, TypeORM                |
+| **Order**          | Order lifecycle and product projection, with Stripe payment and webhook integration points | Node.js, TypeScript, PostgreSQL, Drizzle ORM, Stripe    |
+| **Notification**   | Event-driven email delivery                                                                | Node.js, TypeScript, RabbitMQ, Nodemailer               |
+| **ETL**            | Synchronization between operational stores and search-oriented data                        | Node.js, TypeScript, MongoDB, PostgreSQL, Elasticsearch |
+| **Review**         | Review and user-related HTTP APIs                                                          | Go, Gin, MongoDB                                        |
+| **MFE client**     | Host shell plus user, dashboard, admin, and shared frontend modules                        | React, TypeScript, Rspack Module Federation, Turborepo  |
+| **Common package** | Shared middleware, errors, message types, publishers, and listeners                        | TypeScript, Express, RabbitMQ                           |
 
-The Product Service demonstrates advanced engineering patterns:
+## What the implementation demonstrates
 
-```typescript
-// Key capabilities
-✅ Cursor-based pagination for consistent results
-✅ MongoDB text search with relevance scoring
-✅ Intelligent Redis caching (90% hit ratio)
-✅ Advanced filtering with multiple operators
-✅ Field projection for bandwidth optimization
-✅ Performance indexes for query acceleration
+- **Domain-oriented service boundaries** with separate deployable units and service-owned data.
+- **Event-driven workflows** for product, inventory, cart, order, and notification changes.
+- **Local read models** in Cart and Order, updated from product events to reduce synchronous service dependencies.
+- **Search and caching** through Elasticsearch-backed product search and Redis-backed product caching with invalidation on writes.
+- **Authentication and authorization** through JWT-based sessions, reusable middleware, and role-restricted routes.
+- **Payment integration boundaries** for Stripe payment intents, raw webhook payloads, and order payment state; provider calls and signature verification are currently scaffolded.
+- **Micro-frontend composition** with independently built React applications exposed through Module Federation.
+- **Platform tooling** with Docker images, Kubernetes manifests, NGINX ingress, centralized configuration, secrets, persistent volumes, and Skaffold profiles.
+- **Automated verification** with Jest, Supertest, frontend lint/type checks, and path-scoped GitHub Actions workflows.
+
+## Repository structure
+
+```text
+.
+├── auth/              # Identity and access service
+├── product/           # Catalog, search, cache, and inventory service
+├── cart/              # Shopping cart service
+├── order/             # Order service and payment integration points
+├── notification/      # Asynchronous email service
+├── etl-service/       # Cross-store synchronization
+├── review/            # Go review service
+├── common/            # Shared contracts and backend building blocks
+├── mfe-client/        # React micro-frontend workspace
+├── k8s/               # Kubernetes workloads and infrastructure
+├── skaffold/          # Focused Skaffold configurations
+├── scripts/           # Setup, development, and build utilities
+└── sandbox/           # Isolated technical experiments and examples
 ```
 
-### API Examples
+## Running the project
+
+### Prerequisites
+
+- Node.js 20+
+- pnpm
+- Go 1.22+
+- Docker
+- A local Kubernetes cluster
+- `kubectl`, Skaffold, and an NGINX ingress controller
+
+### 1. Install dependencies
+
+Install every Node.js workspace and the Go service from the repository root:
 
 ```bash
-# Advanced filtering
-GET /api/product?category=phone&price[gte]=100&price[lte]=1000
-
-# Text search with pagination
-GET /api/product?search=smartphone&page=2&limit=20
-
-# Cursor pagination
-GET /api/product?nextKey=eyJ2YWx1ZSI6IjIwMjQtMDE...
-
-# Field selection
-GET /api/product?fields=title,price,image&sort=price,-rating
+./scripts/install-all.sh
 ```
 
-## Performance Metrics
+Use `./scripts/install-all.sh --help` to install only selected services or run a frozen-lockfile install.
 
-| Configuration      | Concurrent Users | Requests/Min | Response Time | Cache Hit Rate |
-| ------------------ | ---------------- | ------------ | ------------- | -------------- |
-| Single Instance    | 5,000            | 15,000       | 200ms         | N/A            |
-| With Redis Cache   | 25,000           | 50,000       | 50ms          | 90%+           |
-| Kubernetes Cluster | 100,000+         | 200,000+     | 25ms          | 95%+           |
+### 2. Configure Kubernetes secrets
 
-## Database Optimization
+Copy the committed template and replace its placeholders:
 
-```typescript
-// MongoDB performance indexes
-productSchema.index({ title: "text", tags: "text" }, { weights: { title: 10, tags: 2 } });
-productSchema.index({ category: 1, price: -1 });
-productSchema.index({ sellerId: 1, category: 1 });
+```bash
+cp k8s/secret/ecom-secret.example.yml k8s/secret/ecom-secret.yml
+kubectl apply -f k8s/secret/ecom-secret.yml
 ```
 
-**Result:** 100-1000x query performance improvement
+The generated secret file is ignored by Git. A root `.env` can also be converted into the same Kubernetes secret with:
 
-## Security & Quality
-
-- JWT Authentication with role-based access control
-- Rate limiting and abuse prevention
-- Input validation with express-validator
-- TypeScript for type safety
-- Comprehensive Jest testing (90%+ coverage)
-- CORS protection and security headers
-
-## Monitoring & Observability (🚧 Work in progress)
-
-- Centralized logging with ELK stack
-- Metrics monitoring with Prometheus
-- Real-time performance dashboards
-- Distributed tracing
-- Health checks for all services
-- Error tracking and alerting
-
-## Kubernetes Configuration
-
-```yaml
-# Production-ready setup includes:
-- 15+ Kubernetes services
-- Auto-scaling based on CPU/memory (🚧 Work in progress)
-- Rolling updates with zero downtime (🚧 Work in progress)
-- Health checks and readiness probes
-- Persistent volumes for data storage
-- ConfigMaps for environment management
+```bash
+./scripts/create-secret.sh ecom
 ```
 
-## Caching Strategy
+See [k8s/README.md](k8s/README.md) for the configuration model and required keys.
 
-```typescript
-// Intelligent caching with TTL optimization
-function getCacheTTL(queryType: string): number {
-  switch (queryType) {
-    case "search":
-      return 3600; // 1 hour - stable, high-value
-    case "category":
-      return 600; // 10 minutes - moderate frequency
-    case "filtered":
-      return 300; // 5 minutes - dynamic content
-    default:
-      return 0; // No caching
-  }
-}
+### 3. Start the backend
+
+```bash
+# Auth, Product, and Cart with their infrastructure
+skaffold dev
+
+# All TypeScript backend services
+skaffold dev -p backend
+
+# Backend plus the complete infrastructure manifests
+skaffold dev -p full
 ```
 
-```typescript
-// Create the unique cache key using md5 hashing algorithm
-function generateSearchCacheKey(query: any): string {
-  const searchParams = {
-    search: query.search,
-    limit: query.limit || 20,
-    page: query.page || 1,
-    sort: query.sort,
-    fields: query.fields,
-    // Include filters that might be commonly used with search
-    category: query.category,
-    price: query.price,
-    brand: query.brand,
-  } as Record<string, string | number>;
+For focused Order service development:
 
-  // Remove undefined values
-  Object.keys(searchParams).forEach((key) => {
-    if (searchParams[key] === undefined) {
-      delete searchParams[key];
-    }
-  });
-
-  const keyString = JSON.stringify(searchParams);
-  const hash = crypto.createHash("md5").update(keyString).digest("hex");
-  return `product_search:${hash}`;
-}
+```bash
+skaffold dev -f skaffold/order.yaml
 ```
 
-## Created Using
+### 4. Start the frontend
 
-#### For this project, I have thoughtfully selected my tech stack.
+In a separate terminal:
 
-<div style="display:flex; flex-wrap:wrap; justify-content:center; align-items:center; gap:25px;     max-width:70%; margin:auto;">
-  <img src="https://github.com/get-icon/geticon/raw/master/icons/react.svg" alt="React" width="35" height="35">
-  <img src="https://github.com/get-icon/geticon/raw/master/icons/typescript-icon.svg" alt="TypeScript" width="35" height="35">
-  <img src="https://github.com/get-icon/geticon/raw/master/icons/nodejs-icon.svg" alt="Node.js" width="35" height="35">
-  <img src="https://miro.medium.com/v2/resize:fit:600/1*i2skbfmDsHayHhqPfwt6pA.png" alt="Golang" width="35" height="35">
-  <!-- <img src="https://adware-technologies.s3.amazonaws.com/uploads/technology/thumbnail/20/express-js.png" alt="Express.js" width="35" height="35"> -->
-  <img src="https://images.opencollective.com/rspack/7a6035e/logo/256.png" alt="RSPack" width="35" height="35">
-  <img src="https://i.pinimg.com/474x/19/2c/7e/192c7e8637656cab675eaf9c7f3a44ee.jpg" alt="MUI" width="35" height="35">
-  <img src="https://github.com/get-icon/geticon/raw/master/icons/redux.svg" alt="Redux" width="35" height="35">
-  <img src="https://github.com/get-icon/geticon/raw/master/icons/mongodb-icon.svg" alt="MongoDB" width="35" height="35">
-  <img src="https://github.com/get-icon/geticon/raw/master/icons/postgresql.svg" alt="PostgreSQL" width="35" height="35">
-  <img src="https://cdn4.iconfinder.com/data/icons/redis-2/1451/Untitled-2-512.png" alt="Redis" width="35" height="35">
-  <img src="https://github.com/get-icon/geticon/raw/master/icons/elasticsearch.svg" alt="Elasticsearch" width="35" height="35">
-  <img src="https://github.com/get-icon/geticon/raw/master/icons/docker-icon.svg" alt="Docker" width="35" height="35">
-  <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/3/39/Kubernetes_logo_without_workmark.svg/500px-Kubernetes_logo_without_workmark.svg.png" alt="Kubernetes" width="35" height="35">
-  <!-- <img src="https://logos-world.net/wp-content/uploads/2021/08/Amazon-Web-Services-AWS-Logo.png" alt="AWS" width="35" height="35"> -->
-  <img src="https://cdn.prod.website-files.com/65264f6bf54e751c3a776db1/66d86964333d11e0a1f1da9e_github_actions.png" alt="GitHub Actions" width="35" height="35">
-  <img src="https://cdn.creazilla.com/icons/3254262/rabbitmq-icon-icon-sm.png" alt="RabbitMQ" width="35" height="35">
-  <img src="https://github.com/get-icon/geticon/raw/master/icons/jest.svg" alt="Jest" width="35" height="35">
-  <img src="https://testing-library.com/img/octopus-64x64.png" alt="React Testing Library" width="35" height="35">
-  <img src="https://github.com/get-icon/geticon/raw/master/icons/npm.svg" alt="NPM" width="38" height="38">
-</div>
+```bash
+cd mfe-client
+pnpm install
+pnpm dev
+```
 
-## Contact
+The host application runs on `http://localhost:3000`; its remote modules run independently on ports `3001` through `3004`.
 
-souravmajumdar.dev@gamil.com
+### Infrastructure-only development
 
-[linkedin-shield]: https://img.shields.io/badge/-LinkedIn-black.svg?style=for-the-badge&logo=linkedin&colorB=555
-[linkedin-url]: https://www.linkedin.com/in/majumdarsourav/
+MongoDB, Redis, and RabbitMQ can be started without the application services:
+
+```bash
+docker compose -f docker-compose.dev.yml up -d
+```
+
+This mode is useful when running an individual service directly from its own directory.
+
+## Development commands
+
+Each Node.js service owns its dependencies and scripts. Typical commands are:
+
+```bash
+cd auth
+pnpm start       # development server
+pnpm test        # service tests
+pnpm build       # compile TypeScript
+```
+
+The frontend workspace provides repository-wide commands:
+
+```bash
+cd mfe-client
+pnpm lint
+pnpm type-check
+pnpm build
+```
+
+## Scope
+
+This is an actively developed distributed system. The repository presents implemented architecture and code—not unverified claims about traffic, latency, availability, or production scale. Performance and reliability figures belong here only when they are backed by reproducible tests and published results.
+
+## Author
+
+**Sourav Majumdar** · [LinkedIn](https://www.linkedin.com/in/majumdarsourav/) · [GitHub](https://github.com/souravdev-eng)
