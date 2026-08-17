@@ -4,6 +4,7 @@ import { ProductDeleteListener } from "./queues/listener/productDeleteListener";
 import { ProductCreatedListener } from "./queues/listener/productCreatedListener";
 import { ProductUpdatedListener } from "./queues/listener/productUpdatedListener";
 import { ProductQuantityUpdateListener } from "./queues/listener/productQuantityUpdate";
+import { OrderCreatedListener } from "./queues/listener/orderCreatedListener";
 import { initializeDatabase } from "./dbConfig";
 
 const start = async () => {
@@ -18,6 +19,7 @@ const start = async () => {
   await new ProductCreatedListener(rabbitMQWrapper.channel).listen();
   await new ProductUpdatedListener(rabbitMQWrapper.channel).listen();
   await new ProductQuantityUpdateListener(rabbitMQWrapper.channel).listen();
+  await new OrderCreatedListener(rabbitMQWrapper.channel).listen();
 
   const PORT = parseInt(process.env.PORT ?? "4000", 10);
   const server = app.listen(PORT, () =>
