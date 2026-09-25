@@ -1,0 +1,10 @@
+{
+    "userId": "123",
+    "orderItems": [
+        {
+            "product_id": "1344",
+            "price": 200,
+            "qty": 3
+        }
+    ]
+}

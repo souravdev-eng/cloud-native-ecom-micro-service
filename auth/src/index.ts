@@ -35,10 +35,10 @@ const connectDB = async () => {
       pass: config.MONGO_PASSWORD!,
     })
     .then(() => {
-      logger.info('Auth Service MongoDB connected successfully 🚀🚀');
+      logger.info('Mongo connected successfully');
     })
     .catch((error) => {
-      logger.error('💥 DB Error: ', { error: error.message });
+      logger.error('DB Error: ', { error: error.message });
     });
 };
 

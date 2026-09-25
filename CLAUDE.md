@@ -143,3 +143,17 @@ Every product route is behind `requireAuth`, so the storefront shows nothing to 
 - `pnpm lint` fails in every workspace: ESLint 9 is installed but the repo still has `.eslintrc.*`, and v9 only reads `eslint.config.js`. Needs a flat-config migration.
 - Building the `user` and `dashboard` remotes prints `Unable to compile federated types #TYPE-001`. The bundle itself compiles fine; only the `@mf-types` declaration emit fails, on TS2883 from MUI `styled()` components under pnpm's nested `node_modules`. Pre-existing.
 - `mfe-client/shared/module-federation.config.ts` has `name: 'sheared'` (typo). Harmless today since `shared` is consumed as a library, but don't rely on that name.
+
+## Agent skills
+
+### Issue tracker
+
+Issues are local markdown files under `.scratch/<feature>/` (committed, not GitHub Issues). See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+The five default role strings (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`), recorded as a `Status:` line in each issue file. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Multi-context: the root `CONTEXT-MAP.md` points to one `CONTEXT.md` per service. System-wide ADRs go in `doc/adr/` and service-specific ADRs in `<svc>/doc/adr/`. See `docs/agents/domain.md`.
