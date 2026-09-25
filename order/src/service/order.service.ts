@@ -10,10 +10,21 @@ import { BadRequestError, NotFoundError } from "@ecom-micro/common";
 
 import { db } from "../db";
 import { config } from "../config";
-import { NewOrderItem, Order, OrderItem, orderItems, orders } from "../models";
+import {
+  NewOrderItem,
+  Order,
+  OrderAddress,
+  OrderItem,
+  orderAddresses,
+  orderItems,
+  orders,
+} from "../models";
 import { CreateOrderInput } from "../types/order.types";
 
-export type OrderWithItems = Order & { items: OrderItem[] };
+export type OrderWithItems = Order & {
+  items: OrderItem[];
+  shippingAddress?: OrderAddress;
+};
 
 /* ----------------------------------------------------------------------------
  * createOrder — the whole checkout write path, in 4 phases:
@@ -168,9 +179,23 @@ export const createOrder = async (
       .values(lines.map((line) => ({ ...line, orderId: order.id })))
       .returning();
 
-    // `{ ...order, items }` = the order's own columns plus the items array,
-    // which is exactly the OrderWithItems shape the route sends to the client.
-    return { ...order, items };
+    const [shippingAddress] = await tx
+      .insert(orderAddresses)
+      .values({
+        orderId: order.id,
+        fullName: input.shippingAddress.fullName,
+        phone: input.shippingAddress.phone,
+        addressLine1: input.shippingAddress.addressLine1,
+        addressLine2: input.shippingAddress.addressLine2,
+        city: input.shippingAddress.city,
+        state: input.shippingAddress.state,
+        postalCode: input.shippingAddress.postalCode,
+        country: input.shippingAddress.country,
+      })
+      .returning();
+
+    // `{ ...order, items, shippingAddress }` = the order's own columns plus items and shippingAddress
+    return { ...order, items, shippingAddress };
   });
 };
 
