@@ -11,6 +11,7 @@ kind: Config
 #
 # Usage:
 #   skaffold dev              # minimal - core services (default)
+#   skaffold dev -p observability  # minimal + Alloy, Loki, Grafana
 #   skaffold dev -p backend   # all backend services
 #   skaffold dev -p full      # everything including ELK
 # ============================================================
@@ -41,6 +42,68 @@ profiles:
         - ./k8s/product-depl.yml
         - ./k8s/cart-depl.yml
         - ./k8s/ingress-depl.yml
+    deploy:
+      kubectl: {}
+    build:
+      artifacts:
+        - image: souravdeveloper/ecom-auth
+          context: auth
+          sync:
+            manual:
+              - src: src/**/*.ts
+                dest: .
+          docker:
+            dockerfile: Dockerfile
+        - image: souravdeveloper/ecom-product
+          context: product
+          sync:
+            manual:
+              - src: src/**/*.ts
+                dest: .
+          docker:
+            dockerfile: Dockerfile
+        - image: souravdeveloper/ecom-cart
+          context: cart
+          sync:
+            manual:
+              - src: src/**/*.ts
+                dest: .
+          docker:
+            dockerfile: Dockerfile
+      local:
+        push: true
+
+  # ----------------------------------------------------------
+  # OBSERVABILITY - minimal + logs pillar (ADR 0001)
+  # Adds: Alloy (log collector), Loki (log store), Grafana
+  # Grafana: kubectl port-forward svc/grafana-srv 3300:3000
+  #
+  # Skaffold applies activated profiles in declaration order, and
+  # `minimal` auto-activates on `dev`, so this profile must come after
+  # it and repeat its full manifest list (a later rawYaml replaces an
+  # earlier one). Keep the first block in sync with `minimal`.
+  # ----------------------------------------------------------
+  - name: observability
+    manifests:
+      rawYaml:
+        - ./k8s/config/*
+        - ./k8s/volumes/postgres-pv.yml
+        - ./k8s/volumes/postgres-pvc.yml
+        - ./k8s/volumes/redis-pv.yml
+        - ./k8s/volumes/redis-pvc.yml
+        - ./k8s/volumes/elasticsearch-pv.yml
+        - ./k8s/volumes/elasticsearch-pvc.yml
+        - ./k8s/postgres-depl.yml
+        - ./k8s/rabbitmq-depl.yml
+        - ./k8s/product-redis-depl.yml
+        - ./k8s/elasticsearch-depl.yml
+        - ./k8s/elasticsearch-index-config.yml
+        - ./k8s/auth-depl.yml
+        - ./k8s/product-depl.yml
+        - ./k8s/cart-depl.yml
+        - ./k8s/ingress-depl.yml
+        # Observability stack
+        - ./k8s/observability/*.yml
     deploy:
       kubectl: {}
     build:

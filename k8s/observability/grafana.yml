@@ -1,0 +1,117 @@
+# ============================================================
+# GRAFANA — dashboards and Explore, provisioned entirely from files
+# ============================================================
+# Datasources come from the ConfigMap below; nothing is clicked
+# together by hand, so the pod can be deleted and rebuilt at any time
+# (its own storage is an emptyDir on purpose).
+#
+# Admin credentials come from ecom-secret (GRAFANA_ADMIN_USER /
+# GRAFANA_ADMIN_PASSWORD). Those keys are required: the pod won't
+# start without them, rather than silently falling back to admin/admin.
+#
+# Access (3000 locally is taken by the MFE host):
+#   kubectl port-forward svc/grafana-srv 3300:3000
+#   open http://localhost:3300
+# ============================================================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-datasources
+  labels:
+    app: grafana
+data:
+  datasources.yaml: |
+    apiVersion: 1
+    datasources:
+      - name: Loki
+        # A fixed uid lets provisioned dashboards (later tickets) refer to
+        # this datasource reliably.
+        uid: loki
+        type: loki
+        access: proxy
+        url: http://loki-srv:3100
+        isDefault: true
+        editable: false
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grafana-deployment
+  labels:
+    app: grafana
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: grafana
+  template:
+    metadata:
+      labels:
+        app: grafana
+    spec:
+      containers:
+        - name: grafana
+          image: grafana/grafana:12.0.0
+          ports:
+            - name: http
+              containerPort: 3000
+          env:
+            - name: GF_SECURITY_ADMIN_USER
+              valueFrom:
+                secretKeyRef:
+                  name: ecom-secret
+                  key: GRAFANA_ADMIN_USER
+            - name: GF_SECURITY_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: ecom-secret
+                  key: GRAFANA_ADMIN_PASSWORD
+            # Everyone must log in: no anonymous viewer, no self sign-up.
+            - name: GF_AUTH_ANONYMOUS_ENABLED
+              value: 'false'
+            - name: GF_USERS_ALLOW_SIGN_UP
+              value: 'false'
+            - name: GF_ANALYTICS_REPORTING_ENABLED
+              value: 'false'
+            - name: GF_ANALYTICS_CHECK_FOR_UPDATES
+              value: 'false'
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          volumeMounts:
+            - name: datasources
+              mountPath: /etc/grafana/provisioning/datasources
+            - name: storage
+              mountPath: /var/lib/grafana
+      volumes:
+        - name: datasources
+          configMap:
+            name: grafana-datasources
+        - name: storage
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana-srv
+  labels:
+    app: grafana
+spec:
+  selector:
+    app: grafana
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 3000
+      targetPort: http
+      protocol: TCP

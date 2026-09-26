@@ -49,6 +49,9 @@ registry() {
       echo "EMAIL_APP_PASSWORD:EMAIL_APP_PASSWORD"
       # Payments (order)
       echo "STRIPE_SECRET_KEY:STRIPE_SECRET_KEY"
+      # Observability (grafana)
+      echo "GRAFANA_ADMIN_USER:GRAFANA_ADMIN_USER"
+      echo "GRAFANA_ADMIN_PASSWORD:GRAFANA_ADMIN_PASSWORD"
       ;;
     *)
       return 0

@@ -5,6 +5,7 @@
 **What to build:** A developer triggers an `auth` login in the local cluster, opens Grafana, and finds a structured JSON log line for it in Loki, filterable by `service` and `level`. This is the first end-to-end slice and it proves the logging path from app stdout → Alloy → Loki → Grafana.
 
 Common gains the **logger factory**:
+
 - JSON to stdout with the fixed schema (timestamp, level, service, version, environment, message, error name/message/stack, arbitrary structured fields);
 - pretty output when `NODE_ENV=development`;
 - level from `LOG_LEVEL`;
@@ -13,6 +14,7 @@ Common gains the **logger factory**:
 The existing `winstonLogger(elasticSearchNode, name, level)` becomes a deprecated wrapper over the factory. It ignores the Elasticsearch argument and no longer ships logs to Elasticsearch. Common is published as 2.1.0 and `auth` bumps to it.
 
 On the platform side, add the observability manifest group with:
+
 - Alloy tailing pod stdout and parsing JSON, with only `level` and `service` as Loki labels;
 - Loki in single-binary mode on a PV;
 - Grafana with Loki provisioned as a datasource, admin credentials from the k8s secrets, anonymous access disabled;
@@ -24,9 +26,9 @@ This ticket implements ADR 0001 (Observability via OpenTelemetry + Grafana LGTM;
 
 **Status:** ready-for-agent
 
-- [ ] Common tests: a log call produces exactly one JSON line with every schema field; `LOG_LEVEL` filters lower levels; development mode produces non-JSON pretty output
-- [ ] Common tests: fields named password/token/authorization/cookie and email addresses never appear unmasked in output
-- [ ] Common tests: the deprecated `winstonLogger` wrapper returns a working logger writing the new schema and makes no Elasticsearch calls
+- [x] Common tests: a log call produces exactly one JSON line with every schema field; `LOG_LEVEL` filters lower levels; development mode produces non-JSON pretty output
+- [x] Common tests: fields named password/token/authorization/cookie and email addresses never appear unmasked in output
+- [x] Common tests: the deprecated `winstonLogger` wrapper returns a working logger writing the new schema and makes no Elasticsearch calls
 - [ ] Common published as 2.1.0; `auth` depends on `^2.1.0` and its existing test suite passes
 - [ ] `skaffold dev -p observability` brings up Alloy, Loki and Grafana with requests/limits set; `minimal` is unchanged
 - [ ] Grafana is reachable via port-forward, requires login, and has the Loki datasource provisioned from files (no manual setup)

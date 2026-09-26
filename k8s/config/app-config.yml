@@ -29,5 +29,12 @@ data:
   # Caching (product service)
   PRODUCT_REDIS_URL: 'redis://product-redis-service:6379'
 
-  # Search + logging sink
+  # Product search (product, etl-service). Not a logging sink (ADR 0001).
   ELASTICSEARCH_URL: 'http://elasticsearch-srv:9200'
+
+  # Logging — read by createLogger in @ecom-micro/common (ADR 0001)
+  # LOG_FORMAT=json overrides the pretty output NODE_ENV=development would
+  # give, because Alloy can only extract level/service labels from JSON.
+  LOG_FORMAT: 'json'
+  LOG_LEVEL: 'info'
+  DEPLOYMENT_ENVIRONMENT: 'local'

@@ -23,6 +23,7 @@ export * from './types/product.types';
 export * from './types/cart.types';
 
 // Logger
+export * from './observability/logger';
 export * from './logger/logger';
 
 // Events

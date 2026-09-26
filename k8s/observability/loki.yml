@@ -1,0 +1,191 @@
+# ============================================================
+# LOKI — log storage (single-binary mode, filesystem on a PV)
+# ============================================================
+# Receives log lines pushed by Alloy and serves LogQL queries to
+# Grafana. Single-binary runs every Loki component in one process,
+# which is the recommended mode for a laptop cluster. Retention is
+# 7 days, enforced by the compactor.
+#
+# Scale-out path (not built here): object storage (S3/GCS) and the
+# simple-scalable or microservices deployment mode.
+# ============================================================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: loki-config
+  labels:
+    app: loki
+data:
+  loki.yaml: |
+    # No multi-tenancy locally: every push and query uses the
+    # built-in "fake" tenant, so no X-Scope-OrgID header is needed.
+    auth_enabled: false
+
+    server:
+      http_listen_port: 3100
+      grpc_listen_port: 9096
+      log_level: warn
+
+    common:
+      instance_addr: 127.0.0.1
+      path_prefix: /loki
+      storage:
+        filesystem:
+          chunks_directory: /loki/chunks
+          rules_directory: /loki/rules
+      replication_factor: 1
+      ring:
+        kvstore:
+          store: inmemory
+
+    # tsdb + schema v13 is required for structured metadata, which
+    # holds high-cardinality fields (pod, and later trace_id) without
+    # turning them into labels.
+    schema_config:
+      configs:
+        - from: 2024-01-01
+          store: tsdb
+          object_store: filesystem
+          schema: v13
+          index:
+            prefix: index_
+            period: 24h
+
+    limits_config:
+      retention_period: 168h
+      allow_structured_metadata: true
+      volume_enabled: true
+
+    compactor:
+      working_directory: /loki/compactor
+      retention_enabled: true
+      delete_request_store: filesystem
+
+    analytics:
+      reporting_enabled: false
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: loki-pv
+spec:
+  # An empty class plus the matching empty class on the PVC binds the
+  # claim to this hostPath volume instead of a dynamically provisioned one.
+  storageClassName: ''
+  capacity:
+    storage: 2Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: /mnt/data/loki
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: loki-pvc
+spec:
+  storageClassName: ''
+  volumeName: loki-pv
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: loki-deployment
+  labels:
+    app: loki
+spec:
+  replicas: 1
+  # Recreate, not RollingUpdate: a ReadWriteOnce volume can't be mounted
+  # by the old and new pod at the same time.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: loki
+  template:
+    metadata:
+      labels:
+        app: loki
+    spec:
+      # Loki runs as uid 10001, but hostPath volumes are created root-owned
+      # and ignore fsGroup, so an init container hands the directory over.
+      initContainers:
+        - name: fix-permissions
+          image: busybox:1.36
+          command: ['sh', '-c', 'chown -R 10001:10001 /loki']
+          # The pod-level securityContext below would make this run as 10001
+          # too, and a non-root user can't chown a root-owned directory.
+          securityContext:
+            runAsUser: 0
+            runAsGroup: 0
+          volumeMounts:
+            - name: storage
+              mountPath: /loki
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+      securityContext:
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+      containers:
+        - name: loki
+          image: grafana/loki:3.5.0
+          args:
+            - -config.file=/etc/loki/loki.yaml
+            - -target=all
+          ports:
+            - name: http
+              containerPort: 3100
+            - name: grpc
+              containerPort: 9096
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: '1'
+              memory: 1Gi
+          volumeMounts:
+            - name: config
+              mountPath: /etc/loki
+            - name: storage
+              mountPath: /loki
+      volumes:
+        - name: config
+          configMap:
+            name: loki-config
+        - name: storage
+          persistentVolumeClaim:
+            claimName: loki-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: loki-srv
+  labels:
+    app: loki
+spec:
+  selector:
+    app: loki
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 3100
+      targetPort: http
+      protocol: TCP

@@ -1,0 +1,198 @@
+# ============================================================
+# GRAFANA ALLOY — the single telemetry collector
+# ============================================================
+# Today it only does logs: it tails every container's stdout through
+# the Kubernetes API, parses the JSON lines written by the
+# @ecom-micro/common logger, and pushes them to Loki. Later tickets
+# add the OTLP receiver (traces/metrics), Prometheus scraping and the
+# second redaction layer to this same config.
+#
+# A DaemonSet runs one Alloy per node, and each instance only tails
+# pods scheduled on its own node, so a log line is never shipped twice.
+# ============================================================
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: alloy
+  labels:
+    app: alloy
+---
+# Read-only access: discover pods and stream their logs from the API.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: alloy
+  labels:
+    app: alloy
+rules:
+  - apiGroups: ['']
+    resources: ['pods', 'pods/log', 'namespaces', 'nodes']
+    verbs: ['get', 'list', 'watch']
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: alloy
+  labels:
+    app: alloy
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: alloy
+subjects:
+  - kind: ServiceAccount
+    name: alloy
+    namespace: default
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: alloy-config
+  labels:
+    app: alloy
+data:
+  config.alloy: |
+    // Alloy's own config language only supports // comments.
+
+    // Find every pod on this node. NODE_NAME comes from the downward API.
+    discovery.kubernetes "pods" {
+      role = "pod"
+      selectors {
+        role  = "pod"
+        field = "spec.nodeName=" + sys.env("NODE_NAME")
+      }
+    }
+
+    // Loki rejects streams with no labels, and pods that don't use the
+    // shared logger (rabbitmq, postgres...) have no JSON "service" field.
+    // So "service" starts as the container name, is replaced by the pod's
+    // app label when it has one, and the JSON value overrides both below.
+    // pod/namespace are set here only so they can be moved into structured
+    // metadata later.
+    discovery.relabel "pods" {
+      targets = discovery.kubernetes.pods.targets
+
+      rule {
+        source_labels = ["__meta_kubernetes_pod_container_name"]
+        target_label  = "service"
+      }
+      // regex "(.+)" only matches a non-empty value, so pods without an app
+      // label (e.g. coredns in kube-system) keep the container-name fallback.
+      rule {
+        source_labels = ["__meta_kubernetes_pod_label_app"]
+        regex         = "(.+)"
+        target_label  = "service"
+      }
+      rule {
+        source_labels = ["__meta_kubernetes_pod_name"]
+        target_label  = "pod"
+      }
+      rule {
+        source_labels = ["__meta_kubernetes_namespace"]
+        target_label  = "namespace"
+      }
+    }
+
+    loki.source.kubernetes "pods" {
+      targets    = discovery.relabel.pods.output
+      forward_to = [loki.process.json.receiver]
+    }
+
+    loki.process "json" {
+      forward_to = [loki.write.loki.receiver]
+
+      // Non-JSON lines pass through untouched; only their fallback
+      // "service" label is kept.
+      stage.json {
+        expressions = {
+          level   = "level",
+          service = "service",
+        }
+      }
+
+      // Only level and service become labels. Every label value creates a
+      // separate Loki stream, so anything high-cardinality stays out.
+      stage.labels {
+        values = {
+          level   = "",
+          service = "",
+        }
+      }
+
+      // Structured metadata is stored per line and filterable in LogQL,
+      // but doesn't create streams.
+      stage.structured_metadata {
+        values = {
+          pod       = "",
+          namespace = "",
+        }
+      }
+      stage.label_drop {
+        values = ["pod", "namespace"]
+      }
+    }
+
+    loki.write "loki" {
+      endpoint {
+        url = "http://loki-srv:3100/loki/api/v1/push"
+      }
+    }
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: alloy
+  labels:
+    app: alloy
+spec:
+  selector:
+    matchLabels:
+      app: alloy
+  template:
+    metadata:
+      labels:
+        app: alloy
+    spec:
+      serviceAccountName: alloy
+      containers:
+        - name: alloy
+          image: grafana/alloy:v1.10.0
+          args:
+            - run
+            - /etc/alloy/config.alloy
+            - --storage.path=/var/lib/alloy/data
+            - --server.http.listen-addr=0.0.0.0:12345
+          env:
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+          ports:
+            - name: http
+              containerPort: 12345
+          readinessProbe:
+            httpGet:
+              path: /-/ready
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          volumeMounts:
+            - name: config
+              mountPath: /etc/alloy
+            # Tail positions. An emptyDir is fine locally: after a restart
+            # Alloy may re-send a few recent lines.
+            - name: data
+              mountPath: /var/lib/alloy/data
+      volumes:
+        - name: config
+          configMap:
+            name: alloy-config
+        - name: data
+          emptyDir: {}

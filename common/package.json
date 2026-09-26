@@ -1,6 +1,6 @@
 {
   "name": "@ecom-micro/common",
-  "version": "2.0.51",
+  "version": "2.1.1",
   "description": "",
   "main": "./build/index.js",
   "types": "./build/index.d.ts",
@@ -10,6 +10,7 @@
   "scripts": {
     "clean": "npx rimraf ./build",
     "build": "npm run clean && tsc",
+    "prepublishOnly": "npm run build",
     "test": "jest",
     "typecheck": "tsc -p tsconfig.test.json",
     "pub": "git add . && git commit -m \"Updates\" && npm version patch && npm run build && npm publish"

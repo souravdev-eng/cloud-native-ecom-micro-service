@@ -80,6 +80,10 @@ These are not duplicates of the two shared files:
 
 - `k8s/elasticsearch-index-config.yml` — a JSON index-settings document, not
   env vars.
+- `k8s/observability/*.yml` — `loki-config`, `alloy-config` and
+  `grafana-datasources` are config files mounted into the observability
+  stack, not env vars. Grafana's admin login still comes from `ecom-secret`
+  (`GRAFANA_ADMIN_USER` / `GRAFANA_ADMIN_PASSWORD`).
 
 ## Applying everything
 

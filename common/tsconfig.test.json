@@ -2,7 +2,7 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "noEmit": true,
-    "types": ["jest", "node"]
+    "types": ["jest", "node", "cookie-session"]
   },
   "exclude": []
 }
