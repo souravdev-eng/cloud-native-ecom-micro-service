@@ -1,3 +1,5 @@
+/** Must stay the first import; see tracing.ts. */
+import './tracing';
 import { Channel } from 'amqplib';
 import mongoose from 'mongoose';
 

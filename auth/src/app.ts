@@ -2,7 +2,7 @@ import 'express-async-errors';
 import express, { NextFunction, Request, Response } from 'express';
 import cookieSession from 'cookie-session';
 import mongoSanitize from 'express-mongo-sanitize';
-import { NotFoundError, errorHandler, currentUser } from '@ecom-micro/common';
+import { NotFoundError, errorHandler, currentUser, traceIdHeader } from '@ecom-micro/common';
 import cors from 'cors';
 
 import { currentUserRoute } from './controllers/currentUser';
@@ -18,6 +18,8 @@ const app = express();
 
 // middleware
 app.set('trust proxy', 1); //? because we transfer our request via ingress proxy
+/** First, so every response, errors included, carries its trace ID for lookup in Tempo. */
+app.use(traceIdHeader);
 app.use(express.json());
 
 //🔐 Security checks

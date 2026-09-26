@@ -351,4 +351,35 @@ describe('createLogger redaction', () => {
     const [line] = await stdout.json();
     expect(line.cvv2).toBe('[REDACTED]');
   });
+
+  it('masks secret query parameters in logged URLs and bare query strings', async () => {
+    const logger = createLogger({ service: 'auth-service' });
+
+    /** The auth service emails exactly this kind of link for a password reset. */
+    logger.info('reset link opened', {
+      url: '/auth/reset-password?token=reset-abc123&email=jane.doe%40example.com',
+      query: 'access_token=bare-query-token&page=2',
+    });
+    logger.info('redirect to /login?next=/cart&password=in-message-pw');
+
+    const output = await rawOutput();
+    for (const secret of ['reset-abc123', 'bare-query-token', 'in-message-pw', 'jane.doe%40example.com']) {
+      expect(output).not.toContain(secret);
+    }
+    const [line, message] = await stdout.json();
+    /** Harmless parameters stay readable, and the encoded email is decoded before it's masked. */
+    expect(line.url).toBe('/auth/reset-password?token=[REDACTED]&email=j***@example.com');
+    expect(line.query).toBe('access_token=[REDACTED]&page=2');
+    expect(message.message).toBe('redirect to /login?next=/cart&password=[REDACTED]');
+  });
+
+  it('leaves ordinary key=value text alone', async () => {
+    const logger = createLogger({ service: 'product-service' });
+
+    logger.info('cache stats hits=42&misses=3', { filter: 'price[gte]=10&category=shoes' });
+
+    const [line] = await stdout.json();
+    expect(line.message).toBe('cache stats hits=42&misses=3');
+    expect(line.filter).toBe('price[gte]=10&category=shoes');
+  });
 });

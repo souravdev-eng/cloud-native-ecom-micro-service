@@ -20,6 +20,24 @@ spec:
                 name: ecom-config
             - secretRef:
                 name: ecom-secret
+          env:
+            # Standard OTel variable, kept equal to the name in
+            # src/tracing.ts. startTelemetry's explicit serviceName wins over
+            # it, so this is informational (e.g. for `kubectl describe`);
+            # change both together. Shared OTEL/LOG settings are in ecom-config.
+            - name: OTEL_SERVICE_NAME
+              value: auth-service
+            # The downward API exposes the pod's own name and namespace;
+            # startTelemetry puts them on every span as k8s.pod.name and
+            # k8s.namespace.name.
+            - name: K8S_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: K8S_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
 ---
 apiVersion: v1
 kind: Service

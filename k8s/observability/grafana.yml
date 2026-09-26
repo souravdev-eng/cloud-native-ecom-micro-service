@@ -1,9 +1,10 @@
 # ============================================================
 # GRAFANA — dashboards and Explore, provisioned entirely from files
 # ============================================================
-# Datasources come from the ConfigMap below; nothing is clicked
-# together by hand, so the pod can be deleted and rebuilt at any time
-# (its own storage is an emptyDir on purpose).
+# Datasources (Loki, Tempo and the links between them) come from the
+# ConfigMap below; nothing is clicked together by hand, so the pod can
+# be deleted and rebuilt at any time (its own storage is an emptyDir
+# on purpose).
 #
 # Admin credentials come from ecom-secret (GRAFANA_ADMIN_USER /
 # GRAFANA_ADMIN_PASSWORD). Those keys are required: the pod won't
@@ -23,15 +24,55 @@ data:
   datasources.yaml: |
     apiVersion: 1
     datasources:
+      # Grafana expands $VAR and ${VAR} in provisioning files as environment
+      # variables, so its own link variables below are written with $$ to
+      # reach Grafana literally, e.g. $${__value.raw} becomes ${__value.raw}.
       - name: Loki
-        # A fixed uid lets provisioned dashboards (later tickets) refer to
-        # this datasource reliably.
+        # A fixed uid lets provisioned dashboards (later tickets) and the
+        # cross-links below refer to this datasource reliably.
         uid: loki
         type: loki
         access: proxy
         url: http://loki-srv:3100
         isDefault: true
         editable: false
+        jsonData:
+          # Log -> trace: a "View trace" link on every line that carries a
+          # trace_id. The regex reads it from the JSON line itself, which
+          # works whether or not Alloy has also copied it into structured
+          # metadata.
+          derivedFields:
+            - name: trace_id
+              matcherType: regex
+              matcherRegex: '"trace_id":"([0-9a-f]{32})"'
+              datasourceUid: tempo
+              url: '$${__value.raw}'
+              urlDisplayLabel: View trace
+      - name: Tempo
+        uid: tempo
+        type: tempo
+        access: proxy
+        url: http://tempo-srv:3200
+        editable: false
+        jsonData:
+          # Trace -> logs: a "Logs for this span" link that opens Loki at
+          # the span's service, filtered to its trace_id. `tags` maps the
+          # span's service.name onto the Loki `service` label, so ${__tags}
+          # expands to service="auth-service". The time window is widened
+          # because a log line and its span rarely share exact timestamps.
+          tracesToLogsV2:
+            datasourceUid: loki
+            spanStartTimeShift: '-5m'
+            spanEndTimeShift: '5m'
+            tags:
+              - key: service.name
+                value: service
+            filterByTraceID: false
+            filterBySpanID: false
+            customQuery: true
+            query: '{$${__tags}} | trace_id="$${__trace.traceId}"'
+          nodeGraph:
+            enabled: true
 ---
 apiVersion: apps/v1
 kind: Deployment

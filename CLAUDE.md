@@ -78,7 +78,7 @@ Host consumes remotes `user`, `dashboard`, and `admin`; its `module-federation.c
 ### Skaffold (local k8s dev)
 ```bash
 skaffold dev              # profile: minimal (default, auto-activated on `dev`)
-skaffold dev -p observability  # minimal + Alloy, Loki, Grafana (k8s/observability/)
+skaffold dev -p observability  # minimal + Alloy, Loki, Tempo, Grafana (k8s/observability/)
 skaffold dev -p backend   # adds notification, order, etl
 skaffold dev -p full      # everything including ELK stack
 ```
@@ -138,6 +138,8 @@ Every product route is behind `requireAuth`, so the storefront shows nothing to 
 - `common` consumer versions drift — several services pin `^2.0.48` while `common/package.json` is at `2.0.51`. Check the declared version before relying on a newly-added export.
 - Secrets in `k8s/secret/` are not gitignored templates; real values must be present locally for `skaffold dev` to succeed. `config.MD` shows sample `AUTH_DB_URL` / `PRODUCT_URL` format.
 - `order/` has no jest config or tests — do not assume test scaffolding exists there.
+- Tracing: `startTelemetry` comes from the `@ecom-micro/common/telemetry` subpath (never the main entry, which loads Express) and must be the first import in a service's entry file (`auth/src/tracing.ts`); modules loaded before it aren't instrumented.
+- `common`'s `npm test` runs Jest under `node --experimental-vm-modules` (the OTLP exporter uses dynamic `import()`), and telemetry tests `jest.mock('module', …)` back to the real built-in so `http` gets patched. Only `http` spans are observable under Jest; Express/Mongoose load through Jest's registry and escape the hooks.
 - Services use Node's npm/ts-node-dev; the MFE monorepo uses pnpm. Don't cross-run.
 - `turbo --filter` matches **package** names (`@mfe/host`), not directory names — `--filter=host` silently matches nothing. `config/dev-config.cjs#packageName()` reads the real name from each app's `package.json`.
 - `mfe-client/scripts/start-dev.sh` is a deprecated shim that execs `scripts/dev.mjs`; use `pnpm dev`.

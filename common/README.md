@@ -59,4 +59,49 @@ Every log line is redacted before it's written, so a forgotten field can't leak 
 
 To protect a new kind of field, add a word to `sensitiveKeys.ts` and a case to `src/observability/__test__/redaction.test.ts`. The collector will add a second redaction layer (ticket 15), but don't rely on it.
 
+**Inside every string**, query parameters with secret names are masked too, so `/reset-password?token=abc` is logged as `?token=[REDACTED]`, and a `%40`-encoded email is decoded and then masked.
+
 **Not covered:** secrets written into the message text itself (e.g. `logger.info('pwd is ' + pwd)`). Always pass sensitive values as named fields.
+
+#### Tracing
+
+Start the SDK in a file of its own, and import that file **first** in the service's entry file. Auto-instrumentation only patches modules loaded after the SDK starts, so anything imported earlier (Express, Mongoose, amqplib…) is never traced.
+
+```TypeScript
+// src/tracing.ts
+import { startTelemetry } from '@ecom-micro/common/telemetry';
+export const telemetry = startTelemetry({ serviceName: 'auth-service' });
+
+// src/index.ts
+import './tracing';
+import app from './app';
+```
+
+Import the bootstrap from the `@ecom-micro/common/telemetry` subpath, never from the main entry: the main entry loads Express.
+
+Mount `traceIdHeader` before your routes so every response carries `x-trace-id`:
+
+```TypeScript
+import { traceIdHeader } from '@ecom-micro/common';
+app.use(traceIdHeader);
+```
+
+What you get with no manual spans:
+
+- HTTP, Express, MongoDB/Mongoose, pg, ioredis/redis and amqplib are traced.
+- An incoming W3C `traceparent` is continued.
+- Log lines written during a request carry `trace_id` and `span_id`.
+- Span attributes go through the same redaction policy as logs.
+
+| Env var | Effect |
+| --- | --- |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | OTLP/HTTP collector, e.g. `http://alloy-srv:4318`. Unset means nothing is exported |
+| `NODE_ENV=test` | Nothing is exported, even with an endpoint set |
+| `OTEL_TRACES_SAMPLER_ARG` | Share of new traces kept, `0`–`1` (default `1`); a child always follows its parent |
+| `SERVICE_VERSION`, `DEPLOYMENT_ENVIRONMENT` | `service.version` / `deployment.environment` |
+| `K8S_POD_NAME`, `K8S_NAMESPACE` | `k8s.pod.name` / `k8s.namespace.name` (set via the downward API) |
+| `OTEL_LOG_LEVEL` | Prints the SDK's own diagnostics, e.g. `debug` when spans don't arrive |
+
+When there's no endpoint, spans are still created locally, so logs keep their `trace_id`. If the collector is down, spans are dropped and requests are unaffected.
+
+Tests inject an in-memory exporter with `startTelemetry({ serviceName, testSpanExporter })`. Under Jest, two extra steps are needed. Run Jest with `node --experimental-vm-modules`, because the OTLP exporter uses a dynamic `import()`. And map Jest's mocked `module` built-in back to the real one, so `http` gets patched (see `src/observability/__test__/telemetry.test.ts`).

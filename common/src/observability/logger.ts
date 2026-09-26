@@ -1,5 +1,7 @@
 import winston, { Logger } from 'winston';
 import { redact } from './redact';
+import { defaultEnvironment, defaultVersion } from './serviceInfo';
+import { activeTraceIds } from './traceContext';
 
 const { format } = winston;
 
@@ -21,8 +23,11 @@ export interface LoggerOptions {
 const LEVELS = Object.keys(winston.config.npm.levels);
 const DEFAULT_LEVEL = 'info';
 
-/** Fields every JSON line carries, in the order they are written. */
-const SCHEMA_FIELDS = ['timestamp', 'level', 'service', 'version', 'environment', 'message'];
+/**
+ * Fields the logger itself writes, in the order they appear. `trace_id` and
+ * `span_id` are only present when the entry is logged inside a span.
+ */
+const SCHEMA_FIELDS = ['timestamp', 'level', 'service', 'version', 'environment', 'trace_id', 'span_id', 'message'];
 
 /**
  * An `Error`'s `name`, `message` and `stack` are non-enumerable, so
@@ -70,6 +75,17 @@ const redactSecrets = format((info) => {
 });
 
 /**
+ * Returns the active span's IDs as log fields, or nothing outside a span.
+ * Formats run synchronously inside the `logger.info(...)` call, so the span
+ * that is active here is the caller's. Grafana uses `trace_id` to link the
+ * line to its trace in Tempo.
+ */
+const traceFields = (): { trace_id: string; span_id: string } | Record<string, never> => {
+  const ids = activeTraceIds();
+  return ids ? { trace_id: ids.traceId, span_id: ids.spanId } : {};
+};
+
+/**
  * Stamps the fixed schema fields and orders them first, so every line starts
  * with the same keys. They are applied last so a caller's own `service` or
  * `timestamp` field can't overwrite the real one.
@@ -80,8 +96,9 @@ const applySchema = (fixed: { service: string; version: string; environment: str
      * Assigning onto an object that already has the keys keeps their original
      * position, so the schema fields stay first even after `info` is merged in.
      */
-    const stamped = { timestamp: new Date().toISOString(), ...fixed };
-    const ordered = { timestamp: '', level: '', ...fixed, message: '' };
+    const trace = traceFields();
+    const stamped = { timestamp: new Date().toISOString(), ...fixed, ...trace };
+    const ordered = { timestamp: '', level: '', ...fixed, ...trace, message: '' };
     return Object.assign(ordered, info, stamped) as winston.Logform.TransformableInfo;
   })();
 
@@ -121,8 +138,8 @@ export const createLogger = (options: LoggerOptions): Logger => {
 
   const fixed = {
     service: options.service,
-    version: options.version || process.env.SERVICE_VERSION || process.env.npm_package_version || 'unknown',
-    environment: options.environment || process.env.DEPLOYMENT_ENVIRONMENT || process.env.NODE_ENV || 'development',
+    version: options.version || defaultVersion(),
+    environment: options.environment || defaultEnvironment(),
   };
 
   /**

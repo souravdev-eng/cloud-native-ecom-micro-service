@@ -1,11 +1,14 @@
 # ============================================================
 # GRAFANA ALLOY — the single telemetry collector
 # ============================================================
-# Today it only does logs: it tails every container's stdout through
-# the Kubernetes API, parses the JSON lines written by the
-# @ecom-micro/common logger, and pushes them to Loki. Later tickets
-# add the OTLP receiver (traces/metrics), Prometheus scraping and the
-# second redaction layer to this same config.
+# Two pipelines today:
+# - Logs: it tails every container's stdout through the Kubernetes
+#   API, parses the JSON lines written by the @ecom-micro/common
+#   logger, and pushes them to Loki.
+# - Traces: it receives OTLP from the services (gRPC 4317, HTTP 4318,
+#   via alloy-srv), batches the spans and forwards them to Tempo.
+# Later tickets add metrics, tail sampling and the second redaction
+# layer to this same config.
 #
 # A DaemonSet runs one Alloy per node, and each instance only tails
 # pods scheduled on its own node, so a log line is never shipped twice.
@@ -105,8 +108,9 @@ data:
       // "service" label is kept.
       stage.json {
         expressions = {
-          level   = "level",
-          service = "service",
+          level    = "level",
+          service  = "service",
+          trace_id = "trace_id",
         }
       }
 
@@ -119,12 +123,15 @@ data:
         }
       }
 
-      // Structured metadata is stored per line and filterable in LogQL,
-      // but doesn't create streams.
+      // Structured metadata is stored per line and filterable in LogQL
+      // (e.g. {service="auth-service"} | trace_id="4bf9..."), but doesn't
+      // create streams. Grafana's trace-to-logs link filters on trace_id.
+      // Lines logged outside a request have no trace_id and skip it.
       stage.structured_metadata {
         values = {
           pod       = "",
           namespace = "",
+          trace_id  = "",
         }
       }
       stage.label_drop {
@@ -135,6 +142,42 @@ data:
     loki.write "loki" {
       endpoint {
         url = "http://loki-srv:3100/loki/api/v1/push"
+      }
+    }
+
+    // ---------------- Traces ----------------
+
+    // Services export here (OTEL_EXPORTER_OTLP_ENDPOINT in ecom-config).
+    // Node services use OTLP/HTTP on 4318; gRPC on 4317 is for the Go
+    // review service and anything else that prefers it.
+    otelcol.receiver.otlp "default" {
+      grpc {
+        endpoint = "0.0.0.0:4317"
+      }
+      http {
+        endpoint = "0.0.0.0:4318"
+      }
+      output {
+        traces = [otelcol.processor.batch.default.input]
+      }
+    }
+
+    // Groups spans into fewer, larger requests to Tempo. If Tempo is
+    // down, the exporter's queue fills and then drops spans; services
+    // are never slowed down, because they only talk to Alloy.
+    otelcol.processor.batch "default" {
+      output {
+        traces = [otelcol.exporter.otlp.tempo.input]
+      }
+    }
+
+    otelcol.exporter.otlp "tempo" {
+      client {
+        endpoint = "tempo-srv:4317"
+        // In-cluster traffic only, so plain gRPC without TLS.
+        tls {
+          insecure = true
+        }
       }
     }
 ---
@@ -170,6 +213,10 @@ spec:
           ports:
             - name: http
               containerPort: 12345
+            - name: otlp-grpc
+              containerPort: 4317
+            - name: otlp-http
+              containerPort: 4318
           readinessProbe:
             httpGet:
               path: /-/ready
@@ -196,3 +243,30 @@ spec:
             name: alloy-config
         - name: data
           emptyDir: {}
+---
+# Where services send OTLP. It fronts the DaemonSet's pods;
+# internalTrafficPolicy: Local sends each pod's spans to the Alloy on
+# its own node, which also skips a cross-node hop once there are several.
+# Trade-off: while a node's Alloy isn't ready, spans from that node are
+# dropped (requests are unaffected). Check `kubectl get ds alloy` if a
+# service's traces go missing.
+apiVersion: v1
+kind: Service
+metadata:
+  name: alloy-srv
+  labels:
+    app: alloy
+spec:
+  selector:
+    app: alloy
+  type: ClusterIP
+  internalTrafficPolicy: Local
+  ports:
+    - name: otlp-grpc
+      port: 4317
+      targetPort: otlp-grpc
+      protocol: TCP
+    - name: otlp-http
+      port: 4318
+      targetPort: otlp-http
+      protocol: TCP

@@ -11,7 +11,7 @@ kind: Config
 #
 # Usage:
 #   skaffold dev              # minimal - core services (default)
-#   skaffold dev -p observability  # minimal + Alloy, Loki, Grafana
+#   skaffold dev -p observability  # minimal + Alloy, Loki, Tempo, Grafana
 #   skaffold dev -p backend   # all backend services
 #   skaffold dev -p full      # everything including ELK
 # ============================================================
@@ -74,8 +74,9 @@ profiles:
         push: true
 
   # ----------------------------------------------------------
-  # OBSERVABILITY - minimal + logs pillar (ADR 0001)
-  # Adds: Alloy (log collector), Loki (log store), Grafana
+  # OBSERVABILITY - minimal + logs and traces pillars (ADR 0001)
+  # Adds: Alloy (log tailer + OTLP collector), Loki (log store),
+  # Tempo (trace store), Grafana
   # Grafana: kubectl port-forward svc/grafana-srv 3300:3000
   #
   # Skaffold applies activated profiles in declaration order, and

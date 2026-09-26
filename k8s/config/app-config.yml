@@ -38,3 +38,9 @@ data:
   LOG_FORMAT: 'json'
   LOG_LEVEL: 'info'
   DEPLOYMENT_ENVIRONMENT: 'local'
+
+  # Tracing — read by startTelemetry in @ecom-micro/common/telemetry.
+  # Spans go over OTLP/HTTP to Alloy, which forwards them to Tempo. If
+  # Alloy isn't running (e.g. without the observability profile), spans
+  # are dropped and requests are unaffected.
+  OTEL_EXPORTER_OTLP_ENDPOINT: 'http://alloy-srv:4318'
