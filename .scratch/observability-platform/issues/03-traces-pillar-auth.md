@@ -5,6 +5,7 @@
 **What to build:** A developer makes a request to `auth`, reads the `x-trace-id` response header, and opens that trace in Grafana (Tempo). The trace shows the HTTP server span and the MongoDB spans. From the trace they jump to the matching logs in Loki, and from any log line they jump back to the trace.
 
 Common gains the **telemetry bootstrap**. It's one call that takes the service name, with version and environment defaulting from env. It configures the OTel NodeSDK with:
+
 - resource attributes (`service.name`, `service.version`, `deployment.environment`, k8s pod/namespace);
 - auto-instrumentation for http/express, mongodb/mongoose, pg, ioredis/redis and amqplib;
 - the OTLP exporter from env;
@@ -15,6 +16,7 @@ It exports nothing when `NODE_ENV=test` or no exporter endpoint is set. It accep
 `auth` calls the bootstrap before any other import. This matters: auto-instrumentation only patches modules loaded after the SDK starts.
 
 On the platform side:
+
 - Tempo runs in single-binary mode;
 - Alloy receives OTLP over gRPC and HTTP and forwards traces to Tempo;
 - Grafana provisions the Tempo datasource with a Loki derived field (`trace_id` → Tempo) and Tempo traces-to-logs (by `service.name` + trace_id → Loki);
