@@ -3,6 +3,7 @@
 **Parent spec:** `../spec.md`
 
 **What to build:** `@ecom-micro/common` has no tests. This prefactor gives it a Jest + supertest setup and an in-memory fake RabbitMQ channel. The fake records `assertExchange` / `publish` calls and lets a test deliver a message to a registered consumer callback. With those in place, add characterisation tests that pin down how `BasePublisher` and `BaseListener` behave today, using subclasses defined inside the tests:
+
 - the publisher asserts a durable direct exchange and publishes a persistent JSON buffer to the routing key;
 - the listener asserts and binds a durable queue with prefetch 1 and parses the JSON before calling `onMessage`.
 
