@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Logs Pipeline Cheatsheet</title>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<main>
+
+<p class="eyebrow">Reference · Logs pillar (ticket 02)</p>
+<h1>Logs pipeline cheat sheet</h1>
+
+<h2>The path</h2>
+<pre>auth: logger.warn(...)          common/src/observability/logger.ts
+  → process.stdout (1 JSON line)
+  → Kubernetes container log
+  → Alloy DaemonSet             k8s/observability/alloy.yml
+      stage.json                reads level, service, trace_id
+      stage.labels              labels: level, service  (only these)
+      stage.structured_metadata trace_id, pod, namespace
+  → Loki  (single binary, PV, 168h retention)   k8s/observability/loki.yml
+  → Grafana Explore             k8s/observability/grafana.yml</pre>
+
+<h2>Log line schema</h2>
+<dl class="fields">
+  <dt>timestamp, level, service, version, environment</dt><dd>Always present, stamped by the logger, and can't be overwritten by callers.</dd>
+  <dt>trace_id, span_id</dt><dd>Present only when the line is logged inside a span (ticket 03).</dd>
+  <dt>message</dt><dd>The human sentence.</dd>
+  <dt>error</dt><dd><code>{ name, message, stack }</code> when an Error is logged.</dd>
+  <dt>anything else</dt><dd>Your structured fields, redacted.</dd>
+</dl>
+
+<h2>Rule of thumb: label or not?</h2>
+<div class="callout">
+<p>Make it a label only if it has a small, fixed set of values <em>and</em> identifies the log's source. Everything else goes in the line body (filter with <code>| json</code>) or in structured metadata.</p>
+</div>
+
+<h2>LogQL</h2>
+<pre>{service="auth-service"}                          # select a stream
+{service="auth-service", level="warn"}            # narrow by label
+{service="auth-service"} |= "Login failed"        # substring line filter
+{service="auth-service"} | json | reason="wrong_password"
+{service=~"auth-service|cart"} | json | level="error"</pre>
+
+<h2>Knobs</h2>
+<dl class="fields">
+  <dt>LOG_LEVEL</dt><dd>Minimum level (error, warn, info, http, verbose, debug, silly). Set in <code>k8s/config/app-config.yml</code>.</dd>
+  <dt>LOG_FORMAT</dt><dd><code>json</code> or <code>pretty</code>. The cluster forces <code>json</code> because it runs <code>NODE_ENV=development</code>.</dd>
+</dl>
+
+<h2>Open Grafana</h2>
+<pre>kubectl port-forward svc/grafana-srv 3300:3000
+kubectl get secret ecom-secret -o jsonpath='{.data.GRAFANA_ADMIN_USER}' | base64 -d</pre>
+
+<h2>Known gap</h2>
+<p><code>common/src/middleware/errorHandler.ts</code> uses <code>console.log(err)</code>. Its stack traces arrive as unstructured lines under <code>{service="auth"}</code>, with no redaction and no trace_id.</p>
+
+<nav class="course"><a href="../lessons/0001-a-log-lines-journey.html">← Lesson 1</a></nav>
+</main>
+<script src="../assets/course-map.js"></script>
+<script src="../assets/nav.js"></script>
+</body>
+</html>

@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reading Platform Config</title>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<main>
+
+<p class="eyebrow">Lesson 2 · Skill lesson · ~10 min</p>
+<h1>How to read the platform config</h1>
+<p class="lede">By the end, you'll be able to open any file in <code>k8s/observability/</code> and know what each part does, which parts to read, and which to skip.</p>
+
+<h2>The trick: two languages in one file</h2>
+<p>Much of the confusion in <code>alloy.yml</code> comes from this: it holds <strong>two different languages</strong>.</p>
+<dl class="fields">
+  <dt>Kubernetes YAML (the outside)</dt><dd>Tells Kubernetes <em>what to run</em>: which container, how many copies, which ports.</dd>
+  <dt>Alloy config (the inside)</dt><dd>Tells Alloy <em>what to do</em> once it's running: which logs to read and where to send them. It lives inside the YAML as one big block of text.</dd>
+</dl>
+<p>Once you know which language you're reading, each one is small.</p>
+
+<h2>1 · YAML in five rules</h2>
+<pre>metadata:            # 1. key: value
+  name: alloy        # 2. indentation = "belongs to the line above"
+  labels:
+    app: alloy
+ports:
+  - name: otlp-grpc  # 3. "-" starts one item in a list
+    port: 4317
+config.alloy: |      # 4. "|" = the indented lines below are one text value
+  loki.write "loki" { ... }
+---                  # 5. "---" separates two objects in one file</pre>
+<p>That's all the YAML you need here. <code>#</code> starts a comment.</p>
+
+<h2>2 · Every Kubernetes object has the same shape</h2>
+<p>Every object in a manifest has four top-level keys (<a href="https://kubernetes.io/docs/concepts/overview/working-with-objects/">Kubernetes: Objects</a>):</p>
+<dl class="fields">
+  <dt>apiVersion</dt><dd>Version of the API. Skip it.</dd>
+  <dt>kind</dt><dd><strong>What sort of thing</strong> this is. Read this first.</dd>
+  <dt>metadata</dt><dd>Its name and labels.</dd>
+  <dt>spec</dt><dd>The <strong>state you want</strong>. Kubernetes keeps working until reality matches it.</dd>
+</dl>
+<p>Here's a real, complete object from <a href="../../../../k8s/observability/alloy.yml">alloy.yml:253</a>, with each line explained:</p>
+<pre>kind: Service                  # a stable network address
+metadata:
+  name: alloy-srv              # services call it by this name
+spec:
+  selector:
+    app: alloy                 # send traffic to pods labelled app=alloy
+  ports:
+    - name: otlp-http
+      port: 4318               # port callers use
+      targetPort: otlp-http    # the pod's port with this name</pre>
+<p>In plain words: <em>"Make an address called <code>alloy-srv</code>. Traffic to port 4318 goes to any pod labelled <code>app: alloy</code>."</em> That's why <code>auth</code> can send traces to <code>http://alloy-srv:4318</code> without knowing where Alloy is running.</p>
+
+<div class="callout">
+<p><strong>Labels are the glue.</strong> The DaemonSet stamps <code>app: alloy</code> on every pod it creates, and the Service's <code>selector</code> looks for that label. Objects find each other by label, not by name.</p>
+<p><strong>Watch out:</strong> a <em>Kubernetes label</em> (<code>app: alloy</code>) and a <em>Loki label</em> (<code>level</code>, <code>service</code>) are different things with the same name. In this course, "label" alone means a Loki label; for the other we say "k8s label".</p>
+</div>
+
+<h2>3 · What's in alloy.yml, and what to skip</h2>
+<p>The file holds six objects, separated by <code>---</code>. You only need to read two of them properly:</p>
+<dl class="fields">
+  <dt>ServiceAccount · ClusterRole · ClusterRoleBinding (skip)</dt><dd>Permissions: "Alloy may read pods and their logs." Boilerplate.</dd>
+  <dt>ConfigMap (read)</dt><dd>Holds Alloy's config, the inner language. This is where the logic lives.</dd>
+  <dt>DaemonSet (skim)</dt><dd>Runs one Alloy on each node. Look at <code>image</code>, <code>ports</code> and <code>resources</code>; skip the rest.</dd>
+  <dt>Service (read)</dt><dd>The <code>alloy-srv</code> address you just read.</dd>
+</dl>
+<p><code>grafana.yml</code>, <code>loki.yml</code> and <code>tempo.yml</code> follow the same pattern: a ConfigMap (the logic), a Deployment (runs it) and a Service (its address).</p>
+
+<h2>4 · The Alloy language: blocks wired together</h2>
+<p>Alloy config is a set of <strong>components</strong>. Each component has a type and a name you choose (<a href="https://grafana.com/docs/alloy/latest/get-started/configuration-syntax/">Alloy docs</a>):</p>
+<pre>loki.source.kubernetes "pods" {        # type "your-name" {
+  targets    = discovery.relabel.pods.output
+  forward_to = [loki.process.json.receiver]   # send lines here
+}
+
+loki.process "json" {
+  forward_to = [loki.write.loki.receiver]
+  stage.json { ... }                   # steps applied to each line
+}
+
+loki.write "loki" {
+  endpoint { url = "http://loki-srv:3100/loki/api/v1/push" }
+}</pre>
+<p>Read <code>forward_to</code> as an arrow. <code>loki.process.json.receiver</code> means "the input of the <code>loki.process</code> component I named <code>json</code>." So the three blocks form a chain:</p>
+<pre>loki.source.kubernetes "pods" → loki.process "json" → loki.write "loki" → Loki</pre>
+<p>That chain is the Alloy → Loki part of the pipeline from Lesson 1. To follow any Alloy config, find the first component and keep following <code>forward_to</code> (or <code>output</code>, for traces).</p>
+
+<h2>5 · Lab: check it against the live cluster</h2>
+<ol class="steps">
+  <li>
+    <p><strong>The DaemonSet made one pod per node:</strong></p>
+<pre>kubectl get daemonset alloy</pre>
+    <p>You should see <code>DESIRED 1</code>, since Docker Desktop has one node.</p>
+  </li>
+  <li>
+    <p><strong>The Service's selector found that pod:</strong></p>
+<pre>kubectl get endpoints alloy-srv</pre>
+    <details><summary>What does the IP in the output mean?</summary>
+    <p>It's the Alloy pod's IP. Kubernetes matched <code>selector: app: alloy</code> to the pod's k8s label. If that list were empty, the labels wouldn't match, and traces would have nowhere to go.</p></details>
+  </li>
+  <li>
+    <p><strong>Your built-in dictionary.</strong> Stuck on any field? Ask the cluster:</p>
+<pre>kubectl explain service.spec.selector
+kubectl explain daemonset.spec.template</pre>
+  </li>
+  <li>
+    <p><strong>Trace the traces chain yourself.</strong> Open <a href="../../../../k8s/observability/alloy.yml">alloy.yml</a> and find <code>otelcol.receiver.otlp "default"</code>. Follow its <code>output</code> to the end.</p>
+    <details><summary>Check your chain</summary>
+    <p><code>otelcol.receiver.otlp "default"</code> → <code>otelcol.processor.batch "default"</code> → <code>otelcol.exporter.otlp "tempo"</code> → <code>tempo-srv:4317</code>. You've just read the traces pipeline from ticket 03 on your own.</p></details>
+  </li>
+</ol>
+
+<h2>6 · Check yourself</h2>
+<p class="score"></p>
+
+<div class="quiz" data-answer="0">
+  <p class="q">In a Kubernetes object, what does <code>spec</code> describe?</p>
+  <div class="options">
+    <button>The state you want</button>
+    <button>The current live state</button>
+    <button>The container's log format</button>
+    <button>The node it's on</button>
+  </div>
+  <p class="why">The desired state. Kubernetes reports the actual state separately, in <code>status</code>.</p>
+</div>
+
+<div class="quiz" data-answer="2">
+  <p class="q">How does <code>alloy-srv</code> know which pods to send traffic to?</p>
+  <div class="options">
+    <button>Matching the pod name</button>
+    <button>Reading the ConfigMap data</button>
+    <button>Matching the app label</button>
+    <button>Listing every DaemonSet pod</button>
+  </div>
+  <p class="why">Its <code>selector: app: alloy</code> matches the k8s label the DaemonSet puts on each pod.</p>
+</div>
+
+<div class="quiz" data-answer="1">
+  <p class="q">In <code>forward_to = [loki.write.loki.receiver]</code>, what is the second <code>loki</code>?</p>
+  <div class="options">
+    <button>The Loki server's hostname</button>
+    <button>The component's own name</button>
+    <button>A Kubernetes namespace name</button>
+    <button>The Loki stream label</button>
+  </div>
+  <p class="why">It's the name chosen in <code>loki.write "loki" { … }</code>. The server address is the <code>url</code> inside that block.</p>
+</div>
+
+<div class="quiz" data-answer="3">
+  <p class="q">What does <code>config.alloy: |</code> tell YAML?</p>
+  <div class="options">
+    <button>A YAML list follows</button>
+    <button>Output piped into Alloy</button>
+    <button>Merge the previous document</button>
+    <button>Multi-line text block follows</button>
+  </div>
+  <p class="why">Everything indented below it is one text value: Alloy's own config, in its own language.</p>
+</div>
+
+<div class="recap">
+  <h2>In short: remember these 3</h2>
+  <ol>
+    <li><strong>Two languages:</strong> the Kubernetes YAML says <em>what to run</em>; the Alloy config inside the ConfigMap says <em>what Alloy does</em>.</li>
+    <li><strong>Every k8s object:</strong> read <code>kind</code> first, then <code>spec</code> (the state you want). Objects find each other by <strong>k8s labels</strong>.</li>
+    <li><strong>Alloy is a chain.</strong> Start at the source and follow <code>forward_to</code> / <code>output</code> like arrows.</li>
+  </ol>
+  <p><strong>If you forget everything:</strong> read <code>kind</code>, and follow the arrows.</p>
+  <p><strong>You don't need to memorise</strong> RBAC objects, <code>apiVersion</code>, probe settings or volume mounts. When you meet an unfamiliar field, run <code>kubectl explain &lt;kind&gt;.&lt;field&gt;</code>.</p>
+</div>
+
+<div class="callout">
+<p class="label">Read next (10 min)</p>
+<p><a href="https://kubernetes.io/docs/concepts/overview/working-with-objects/">Kubernetes: Objects In Kubernetes</a> covers the four fields and desired state, from the source. Then reread Lesson 1's "Where the line goes" section: the Alloy stages should read differently now.</p>
+</div>
+
+<div class="callout">
+<p class="label">Stuck or curious?</p>
+<p>Paste any chunk of YAML you don't follow and ask "what does this do?". I'll explain it line by line.</p>
+</div>
+
+<nav class="course">
+  <a href="0001-a-log-lines-journey.html">← Lesson 1: A log line's journey</a>
+  <span class="meta">Next: LogQL and redaction (coming)</span>
+</nav>
+
+</main>
+<script src="../assets/quiz.js"></script>
+<script src="../assets/course-map.js"></script>
+<script src="../assets/nav.js"></script>
+</body>
+</html>

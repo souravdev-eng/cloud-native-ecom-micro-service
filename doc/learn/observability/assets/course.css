@@ -1,0 +1,297 @@
+/*
+ * Shared stylesheet for every lesson and reference sheet in this workspace.
+ * Brand tokens: navy #051367, accents #2B5FE3 / #1E47B8, Lexend headings,
+ * Inter body, IBM Plex Mono labels and code.
+ */
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600&family=Lexend:wght@500;600&display=swap');
+
+:root {
+  --navy: #051367;
+  --accent: #2B5FE3;
+  --accent-deep: #1E47B8;
+  --text: #0B1324;
+  --body: #334155;
+  --muted: #64748B;
+  --bg: #FFFFFF;
+  --tint: #EEF3FF;
+  --border: #CBD5E1;
+  --code-bg: #F4F6FB;
+  --good: #147A4B;
+  --good-bg: #E6F4EC;
+  --bad: #B42318;
+  --bad-bg: #FDECEA;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --navy: #AFC2FF;
+    --accent: #7C9BFF;
+    --accent-deep: #9DB3FF;
+    --text: #E8ECF6;
+    --body: #C3CAD9;
+    --muted: #8A94A8;
+    --bg: #0B1020;
+    --tint: #141B33;
+    --border: #2A3450;
+    --code-bg: #121831;
+    --good: #5BD19A;
+    --good-bg: #0F2A1E;
+    --bad: #FF8A80;
+    --bad-bg: #2E1414;
+  }
+}
+:root[data-theme="dark"] {
+  --navy: #AFC2FF; --accent: #7C9BFF; --accent-deep: #9DB3FF;
+  --text: #E8ECF6; --body: #C3CAD9; --muted: #8A94A8;
+  --bg: #0B1020; --tint: #141B33; --border: #2A3450; --code-bg: #121831;
+  --good: #5BD19A; --good-bg: #0F2A1E; --bad: #FF8A80; --bad-bg: #2E1414;
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--body);
+  font: 17px/1.65 Inter, system-ui, sans-serif;
+}
+main { max-width: 42rem; margin: 0 auto; padding: 2.5rem 16px 4rem; }
+
+h1, h2, h3 { font-family: Lexend, Inter, sans-serif; color: var(--text); line-height: 1.25; }
+h1 { font-size: 2rem; margin: 0.25rem 0 0.75rem; color: var(--navy); }
+h2 { font-size: 1.35rem; margin: 2.75rem 0 0.75rem; }
+h3 { font-size: 1.05rem; margin: 1.75rem 0 0.5rem; }
+p, li { max-width: 38rem; }
+a { color: var(--accent); text-underline-offset: 2px; }
+a:hover { color: var(--accent-deep); }
+strong { color: var(--text); }
+
+.eyebrow, .label {
+  font: 500 0.75rem/1.4 'IBM Plex Mono', monospace;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.lede { font-size: 1.1rem; color: var(--text); }
+.meta { color: var(--muted); font-size: 0.9rem; }
+
+code, pre, kbd { font-family: 'IBM Plex Mono', monospace; font-size: 0.86em; }
+:not(pre) > code { background: var(--code-bg); padding: 0.1em 0.35em; border-radius: 4px; color: var(--text); }
+pre {
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.9rem 1rem;
+  overflow-x: auto;
+  line-height: 1.5;
+  color: var(--text);
+}
+
+/* A highlighted aside: key idea, warning, or the primary source to read. */
+.callout {
+  background: var(--tint);
+  border-left: 3px solid var(--accent);
+  border-radius: 0 8px 8px 0;
+  padding: 0.85rem 1.1rem;
+  margin: 1.5rem 0;
+}
+.callout > :first-child { margin-top: 0; }
+.callout > :last-child { margin-bottom: 0; }
+
+/* The short "In short" note that ends every lesson: the few ideas worth remembering. */
+.recap {
+  border: 2px solid var(--navy);
+  border-radius: 10px;
+  padding: 1rem 1.2rem;
+  margin: 2.5rem 0 1.5rem;
+}
+.recap h2 { margin: 0 0 0.6rem; font-size: 1.15rem; color: var(--navy); }
+.recap ol { margin: 0 0 0.75rem; padding-left: 1.3rem; }
+.recap li { margin: 0.35rem 0; }
+.recap p { margin: 0.5rem 0 0; font-size: 0.95rem; }
+
+/* A numbered hands-on step. */
+ol.steps { counter-reset: step; list-style: none; padding: 0; }
+ol.steps > li { counter-increment: step; position: relative; padding-left: 2.4rem; margin: 1.25rem 0; }
+ol.steps > li::before {
+  content: counter(step);
+  position: absolute; left: 0; top: 0.1rem;
+  width: 1.6rem; height: 1.6rem; border-radius: 50%;
+  background: var(--navy); color: var(--bg);
+  font: 600 0.8rem/1.6rem Lexend, sans-serif; text-align: center;
+}
+
+details {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.6rem 0.9rem;
+  margin: 0.75rem 0;
+}
+details summary { cursor: pointer; font-weight: 600; color: var(--text); }
+details[open] summary { margin-bottom: 0.5rem; }
+
+/* Definition list used for "field → meaning" breakdowns instead of wide tables. */
+dl.fields { margin: 1rem 0; }
+dl.fields dt { font: 500 0.88rem 'IBM Plex Mono', monospace; color: var(--text); margin-top: 0.8rem; }
+dl.fields dd { margin: 0.15rem 0 0 0; }
+
+figure { margin: 1.75rem 0; }
+figure svg { width: 100%; height: auto; display: block; }
+figcaption { color: var(--muted); font-size: 0.88rem; margin-top: 0.5rem; }
+
+nav.course { display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; border-top: 1px solid var(--border); margin-top: 3rem; padding-top: 1rem; font-size: 0.95rem; }
+
+/* Quiz component, driven by assets/quiz.js. */
+.quiz { border: 1px solid var(--border); border-radius: 10px; padding: 1rem 1.1rem; margin: 1.25rem 0; }
+.quiz .q { font-weight: 600; color: var(--text); margin: 0 0 0.75rem; }
+.quiz .options { display: grid; gap: 0.5rem; }
+.quiz button {
+  font: inherit; text-align: left; cursor: pointer;
+  background: var(--bg); color: var(--body);
+  border: 1px solid var(--border); border-radius: 8px;
+  padding: 0.6rem 0.8rem;
+}
+.quiz button:hover:not(:disabled) { border-color: var(--accent); }
+.quiz button.correct { background: var(--good-bg); border-color: var(--good); color: var(--text); }
+.quiz button.wrong { background: var(--bad-bg); border-color: var(--bad); color: var(--text); }
+.quiz button:disabled { cursor: default; }
+.quiz .why { display: none; margin: 0.75rem 0 0; font-size: 0.95rem; }
+.quiz.answered .why { display: block; }
+.quiz .retry { margin-top: 0.6rem; font-size: 0.85rem; padding: 0.3rem 0.7rem; }
+.score { font: 500 0.9rem 'IBM Plex Mono', monospace; color: var(--muted); }
+
+@media print {
+  body { font-size: 11pt; background: #fff; color: #000; }
+  main { max-width: none; padding: 0; }
+  nav.course, .quiz button.retry { display: none; }
+  .quiz .why { display: block; }
+  a { color: inherit; }
+}
+
+/* ------------------------------------------------------------------
+ * Page chrome from assets/nav.js: course sidebar (left), reading progress + "On this page" (right),
+ * and on narrow screens a top bar with a drawer.
+ *   < 960px   top bar + drawer, no right panel
+ *   ≥ 960px   left sidebar
+ *   ≥ 1320px  left sidebar + right "On this page" panel
+ * ------------------------------------------------------------------ */
+:root { --side-w: 264px; --otp-w: 260px; --bar-h: 48px; }
+html { scroll-padding-top: 1.5rem; }
+
+.side {
+  position: fixed; top: 0; left: 0; bottom: 0; z-index: 30;
+  width: var(--side-w);
+  overflow-y: auto;
+  background: var(--tint);
+  border-right: 1px solid var(--border);
+  padding: 1.25rem 1rem 2rem;
+  font-size: 0.92rem;
+}
+.side .label { margin: 1.4rem 0 0.4rem; }
+.side-title { display: flex; flex-direction: column; gap: 0.15rem; text-decoration: none; }
+.side-title span:first-child { font: 600 1.05rem Lexend, sans-serif; color: var(--navy); }
+.side-title .label { margin: 0; }
+.side ol, .side ul { list-style: none; margin: 0; padding: 0; }
+.side-lessons > li > a, .side-lessons > li > span, .side-refs > li > a {
+  display: flex; gap: 0.6rem; align-items: baseline;
+  padding: 0.4rem 0.5rem; border-radius: 6px;
+  color: var(--body); text-decoration: none; line-height: 1.35;
+}
+.side-lessons > li > a:hover, .side-refs > li > a:hover { background: var(--bg); color: var(--text); }
+.side-num {
+  flex: none; width: 1.35rem; height: 1.35rem; border-radius: 50%;
+  border: 1px solid var(--border); background: var(--bg);
+  font: 600 0.72rem/1.25rem Lexend, sans-serif; text-align: center; color: var(--muted);
+}
+.side li.current > a { background: var(--bg); color: var(--text); font-weight: 600; }
+.side li.current .side-num { background: var(--navy); border-color: var(--navy); color: var(--bg); }
+.side li.upcoming > span { color: var(--muted); opacity: 0.75; cursor: default; }
+.side li.upcoming .side-name::after {
+  content: 'coming'; margin-left: 0.4rem;
+  font: 500 0.62rem 'IBM Plex Mono', monospace; letter-spacing: 0.05em; text-transform: uppercase;
+}
+.side-toc { margin: 0.2rem 0 0.5rem 1.2rem !important; border-left: 1px solid var(--border); }
+.side-toc a {
+  display: block; padding: 0.25rem 0.6rem; margin-left: -1px;
+  border-left: 2px solid transparent;
+  color: var(--muted); text-decoration: none; font-size: 0.86rem; line-height: 1.35;
+}
+.side-toc a:hover { color: var(--text); }
+.side-toc a.active { color: var(--accent); border-left-color: var(--accent); font-weight: 500; }
+
+.otp {
+  display: none;
+  position: fixed; top: 0; right: 0; bottom: 0; z-index: 20;
+  width: var(--otp-w);
+  overflow-y: auto;
+  padding: 2.5rem 1.25rem 2rem 1.25rem;
+  border-left: 1px solid var(--border);
+  background: var(--bg);
+  scrollbar-width: thin;
+}
+.otp-progress-head {
+  display: flex; justify-content: space-between; align-items: baseline;
+  font-size: 0.78rem; color: var(--muted);
+}
+.otp-progress-value { font: 500 0.72rem 'IBM Plex Mono', monospace; }
+.otp-progress {
+  height: 4px; margin: 0.45rem 0 0; border-radius: 2px;
+  background: var(--tint); overflow: hidden;
+}
+.otp-progress-fill { height: 100%; width: 0; background: var(--accent); border-radius: 2px; transition: width 0.1s linear; }
+.otp-title { margin: 1.75rem 0 0.9rem; font: 600 1.05rem Lexend, sans-serif; color: var(--text); }
+.otp-list, .otp-list ol { list-style: none; margin: 0; padding: 0; }
+.otp-list > li { margin: 0 0 0.85rem; }
+.otp-list > li > a {
+  display: block; color: var(--text); text-decoration: none;
+  font-size: 0.92rem; line-height: 1.35;
+}
+.otp-list ol { margin: 0.4rem 0 0 1rem; }
+.otp-list ol li { margin: 0.28rem 0; }
+.otp-list ol a {
+  display: block; color: var(--muted); text-decoration: none;
+  font-size: 0.8rem; line-height: 1.35;
+}
+.otp-list a:hover { color: var(--accent); }
+.otp-list > li.open > a { color: var(--accent); font-weight: 500; }
+.otp-list a.active { color: var(--accent); font-weight: 600; }
+.otp-list ol a.active { font-weight: 500; }
+
+.topbar {
+  display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+  position: fixed; top: 0; left: 0; right: 0; z-index: 25;
+  height: var(--bar-h); padding: 0 16px;
+  background: var(--bg); border-bottom: 1px solid var(--border);
+}
+.topbar-title { font: 600 0.95rem Lexend, sans-serif; color: var(--navy); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.topbar-toggle {
+  flex: none; font: 500 0.85rem Inter, sans-serif; color: var(--text);
+  background: var(--tint); border: 1px solid var(--border); border-radius: 6px;
+  padding: 0.35rem 0.75rem; cursor: pointer;
+}
+.topbar-progress { position: absolute; left: 0; bottom: -1px; height: 2px; width: 0; background: var(--accent); }
+.scrim { display: none; position: fixed; inset: 0; z-index: 29; background: rgba(5, 19, 103, 0.35); }
+
+/* Narrow: the sidebar becomes a drawer opened from the top bar. */
+body.has-chrome { padding-top: var(--bar-h); }
+body.has-chrome .side { transform: translateX(-100%); transition: transform 0.2s ease; box-shadow: none; }
+body.nav-open .side { transform: none; box-shadow: 0 0 40px rgba(0, 0, 0, 0.25); }
+body.nav-open .scrim { display: block; }
+
+@media (min-width: 960px) {
+  body.has-chrome { padding-top: 0; padding-left: var(--side-w); }
+  body.has-chrome .side { transform: none; box-shadow: none; }
+  .topbar, .scrim, body.nav-open .scrim { display: none; }
+}
+@media (min-width: 1320px) {
+  body.has-chrome { padding-right: var(--otp-w); }
+  .otp { display: block; }
+  /* The right panel now outlines the page, so the sidebar doesn't repeat it. */
+  .side-toc { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  body.has-chrome .side { transition: none; }
+}
+@media print {
+  .side, .otp, .topbar, .scrim { display: none !important; }
+  body.has-chrome { padding: 0; }
+}

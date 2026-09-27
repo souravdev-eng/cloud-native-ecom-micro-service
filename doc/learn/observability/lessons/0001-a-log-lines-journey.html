@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A Log Line's Journey</title>
+<link rel="stylesheet" href="../assets/course.css">
+<style>
+  .pipe .box { fill: var(--tint); stroke: var(--border); }
+  .pipe .box.app { stroke: var(--accent); }
+  .pipe .t { fill: var(--text); font: 600 15px Lexend, sans-serif; }
+  .pipe .s { fill: var(--muted); font: 12.5px 'IBM Plex Mono', monospace; }
+  .pipe .n { fill: var(--body); font: 13px Inter, sans-serif; }
+  .pipe .arrow { stroke: var(--accent); stroke-width: 2; fill: none; }
+  .pipe .head { fill: var(--accent); }
+</style>
+</head>
+<body>
+<main>
+
+<p class="eyebrow">Lesson 1 · Ticket 02 · ~20 min</p>
+<h1>A log line's journey</h1>
+<p class="lede">By the end you'll have found your own failed login in Grafana and be able to name every hop it took to get there, along with the file that controls each hop.</p>
+
+<h2>Why this exists</h2>
+<p>Before ticket 02, <code>auth</code> sent its logs straight to the Elasticsearch cluster that also powers product search. That meant a network call on every log line, and a burst of logs could slow down customers searching the catalogue. Most other services just wrote unstructured <code>console.log</code> text, so you couldn't filter anything. (<a href="../../../../.scratch/observability-platform/spec.md">spec, Problem Statement</a>)</p>
+<p><strong>Observability</strong> means you can work out why the system is misbehaving from the outside, using data it gives off, without adding new code first. That data is called <strong>telemetry</strong>, and it comes in three kinds: logs, traces and metrics (<a href="https://opentelemetry.io/docs/concepts/observability-primer/">OpenTelemetry primer</a>). This lesson covers only the first one.</p>
+
+<h2>1 · A structured log line</h2>
+<p>This is a real line from your cluster, written when someone tried to log in with an unknown email:</p>
+<pre>{"timestamp":"2026-09-27T04:59:32.457Z","level":"warn",
+ "service":"auth-service","version":"1.0.0","environment":"local",
+ "trace_id":"f88743982cd192ec906042c8d4491502","span_id":"83844f5519732271",
+ "message":"Login failed","reason":"unknown_email","email":"n***@example.com"}</pre>
+<p>It's <strong>structured</strong>: one JSON object per line, with the same keys in the same order every time. A machine can filter on <code>level</code> or <code>reason</code> without guessing at free text. The code that produced it is a single line in <a href="../../../../auth/src/controllers/loginUser.ts">auth/src/controllers/loginUser.ts</a>:</p>
+<pre>logger.warn('Login failed', { reason: 'unknown_email', email });</pre>
+<p>The logger from <code>createLogger</code> (<a href="../../../../common/src/observability/logger.ts">common/src/observability/logger.ts:135</a>) did three things to that call:</p>
+<dl class="fields">
+  <dt>masked the email</dt><dd>the redaction step turned <code>nobody@example.com</code> into <code>n***@example.com</code>. Lesson 2 covers redaction.</dd>
+  <dt>stamped the fixed fields</dt><dd><code>timestamp</code>, <code>service</code>, <code>version</code> and <code>environment</code> are always present, and a caller can't overwrite them.</dd>
+  <dt>added trace_id / span_id</dt><dd>these link the line to a trace. Ignore them until Lesson 3.</dd>
+</dl>
+
+<h2>2 · Where the line goes</h2>
+<p>Here's the key design choice: <strong>the app never sends its logs anywhere.</strong> It prints them to stdout and stops there (<a href="../../../../common/src/observability/logger.ts">logger.ts:168</a>). This follows the Twelve-Factor rule that an app "never concerns itself with routing or storage of its output stream" (<a href="https://12factor.net/logs">12factor.net/logs</a>). Because the app never waits on a network call, a down log backend can't slow a request (<a href="../../../../doc/adr/0001-observability-via-otel-and-grafana-lgtm.md">ADR 0001</a>).</p>
+
+<figure>
+<svg class="pipe" viewBox="0 0 560 520" role="img" aria-label="Pipeline: auth pod stdout, Kubernetes, Alloy, Loki, Grafana">
+  <defs><marker id="ah" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="head" d="M0,0 L10,5 L0,10 z"/></marker></defs>
+
+  <rect class="box app" x="10" y="10" width="250" height="70" rx="8"/>
+  <text class="t" x="26" y="40">auth pod</text>
+  <text class="s" x="26" y="62">process.stdout</text>
+  <text class="n" x="285" y="36">Writes one JSON line.</text>
+  <text class="n" x="285" y="56">Doesn't know Loki exists.</text>
+
+  <rect class="box" x="10" y="115" width="250" height="70" rx="8"/>
+  <text class="t" x="26" y="145">Kubernetes</text>
+  <text class="s" x="26" y="167">container log</text>
+  <text class="n" x="285" y="141">The container runtime captures</text>
+  <text class="n" x="285" y="161">stdout; the API serves it.</text>
+
+  <rect class="box" x="10" y="220" width="250" height="70" rx="8"/>
+  <text class="t" x="26" y="250">Alloy</text>
+  <text class="s" x="26" y="272">k8s/observability/alloy.yml</text>
+  <text class="n" x="285" y="246">Tails each pod, parses JSON,</text>
+  <text class="n" x="285" y="266">picks labels. One per node.</text>
+
+  <rect class="box" x="10" y="325" width="250" height="70" rx="8"/>
+  <text class="t" x="26" y="355">Loki</text>
+  <text class="s" x="26" y="377">k8s/observability/loki.yml</text>
+  <text class="n" x="285" y="351">Stores lines in streams,</text>
+  <text class="n" x="285" y="371">indexed by labels only. 7 days.</text>
+
+  <rect class="box" x="10" y="430" width="250" height="70" rx="8"/>
+  <text class="t" x="26" y="460">Grafana</text>
+  <text class="s" x="26" y="482">k8s/observability/grafana.yml</text>
+  <text class="n" x="285" y="456">You query Loki here with</text>
+  <text class="n" x="285" y="476">LogQL in Explore.</text>
+
+  <path class="arrow" d="M135 80 V113" marker-end="url(#ah)"/>
+  <path class="arrow" d="M135 185 V218" marker-end="url(#ah)"/>
+  <path class="arrow" d="M135 290 V323" marker-end="url(#ah)"/>
+  <path class="arrow" d="M135 395 V428" marker-end="url(#ah)"/>
+</svg>
+<figcaption>Only the top box is our app code. Everything below it is platform config in <code>k8s/observability/</code>.</figcaption>
+</figure>
+
+<p>The step to understand best is <strong>Alloy</strong>, the collector. It runs as a DaemonSet (<a href="../../../../k8s/observability/alloy.yml">alloy.yml:185</a>), meaning one copy on every node, and each copy tails only the pods on its own node, so no line gets shipped twice. For each line, it runs:</p>
+<ol>
+  <li><code>stage.json</code> (<a href="../../../../k8s/observability/alloy.yml">line 109</a>): reads <code>level</code>, <code>service</code> and <code>trace_id</code> out of the JSON.</li>
+  <li><code>stage.labels</code> (line 119): makes <strong>only</strong> <code>level</code> and <code>service</code> into labels.</li>
+  <li><code>stage.structured_metadata</code> (line 130): attaches <code>trace_id</code>, <code>pod</code> and <code>namespace</code> to the line <em>without</em> making them labels.</li>
+  <li><code>loki.write</code> (line 142): pushes the result to Loki.</li>
+</ol>
+
+<h2>3 · Labels vs everything else</h2>
+<p>This is the one idea from this lesson you need to remember:</p>
+<div class="callout">
+<p>Loki groups lines into <strong>streams</strong>, and each unique combination of label values is its own stream. Loki indexes <em>only</em> the labels, not the text of the line. Labels must therefore have <strong>few possible values</strong> (low cardinality). In the Loki docs' words, high cardinality "causes Loki to build a huge index and to flush thousands of tiny chunks" (<a href="https://grafana.com/docs/loki/latest/get-started/labels/">Understand labels</a>).</p>
+</div>
+<p>So <code>level</code> (about 7 values) and <code>service</code> (about 10) are good labels. A <code>userId</code> or <code>trace_id</code> label would create a new stream for every user or every request. Those stay in the line body, where <code>| json</code> can still filter on them, or in structured metadata. Expect this question in every PR for tickets 04 and 15.</p>
+
+<h2>4 · Lab: find your own login</h2>
+<ol class="steps">
+  <li>
+    <p><strong>Make a log line.</strong> Try to log in with an email that doesn't exist:</p>
+<pre>curl -sk -X POST https://ecom.dev/api/users/login \
+  -H 'content-type: application/json' \
+  -d '{"email":"lesson1@example.com","password":"x"}'</pre>
+    <p>You should get a 400 back. That's expected, and it produces the <code>warn</code> line.</p>
+  </li>
+  <li>
+    <p><strong>Open Grafana.</strong> In another terminal:</p>
+<pre>kubectl port-forward svc/grafana-srv 3300:3000</pre>
+    <p>Go to <a href="http://localhost:3300">localhost:3300</a>. The login credentials come from the k8s secret (Grafana requires a login and anonymous access is off):</p>
+<pre>kubectl get secret ecom-secret -o jsonpath='{.data.GRAFANA_ADMIN_USER}' | base64 -d; echo
+kubectl get secret ecom-secret -o jsonpath='{.data.GRAFANA_ADMIN_PASSWORD}' | base64 -d; echo</pre>
+  </li>
+  <li>
+    <p><strong>Select a stream.</strong> Open <em>Explore</em>, pick the <em>Loki</em> datasource and switch the query editor to <em>Code</em>. Run:</p>
+<pre>{service="auth-service"}</pre>
+  </li>
+  <li>
+    <p><strong>Narrow it by label.</strong> Now only warnings:</p>
+<pre>{service="auth-service", level="warn"}</pre>
+  </li>
+  <li>
+    <p><strong>Filter on a field that isn't a label.</strong> <code>reason</code> isn't a label, so parse the JSON first (<a href="https://grafana.com/docs/loki/latest/query/log_queries/">LogQL docs</a>):</p>
+<pre>{service="auth-service"} | json | reason="unknown_email"</pre>
+    <details><summary>Checkpoint: what does the <code>email</code> field show, and why?</summary>
+    <p><code>l***@example.com</code>. The logger masked the email before the line ever left the process. Loki never saw the real address.</p></details>
+  </li>
+  <li>
+    <p><strong>Puzzle.</strong> Run this and look at what comes back:</p>
+<pre>{service="auth"}</pre>
+    <details><summary>Why are there lines labelled <code>auth</code>, not <code>auth-service</code>?</summary>
+    <p>They're lines of a <strong>stack trace</strong>, printed as plain text, one line at a time. <code>common/src/middleware/errorHandler.ts:6</code> does <code>console.log(err)</code> on every error, bypassing the logger. With no JSON, <code>stage.json</code> finds no <code>service</code> field, so Alloy falls back to the pod's <code>app</code> label, which is <code>auth</code>. You've just found a real gap: that output isn't structured, isn't redacted and has no <code>trace_id</code>. It's a good one to raise in a later ticket.</p></details>
+  </li>
+</ol>
+
+<h2>5 · Check yourself</h2>
+<p>Answer from memory first, then click. A wrong pick can be retried.</p>
+<p class="score"></p>
+
+<div class="quiz" data-answer="0">
+  <p class="q">Where does the auth service send its log lines?</p>
+  <div class="options">
+    <button>It writes to stdout</button>
+    <button>It pushes to Loki</button>
+    <button>It posts to Alloy</button>
+    <button>It ships to Elasticsearch</button>
+  </div>
+  <p class="why">Only stdout. Alloy reads it from the Kubernetes API, so the app has no network dependency for logging.</p>
+</div>
+
+<div class="quiz" data-answer="2">
+  <p class="q">Which component decides that <code>level</code> becomes a Loki label?</p>
+  <div class="options">
+    <button>Winston, while formatting lines</button>
+    <button>Loki, while storing lines</button>
+    <button>Alloy, while processing lines</button>
+    <button>Grafana, while querying lines</button>
+  </div>
+  <p class="why"><code>stage.labels</code> in <code>alloy.yml</code>. The logger only writes JSON fields; it has no idea what a label is.</p>
+</div>
+
+<div class="quiz" data-answer="1">
+  <p class="q">A PR adds <code>userId</code> to Alloy's <code>stage.labels</code>. What's the main problem?</p>
+  <div class="options">
+    <button>It contains secret data</button>
+    <button>Too many unique values</button>
+    <button>Alloy cannot parse it</button>
+    <button>Grafana hides numeric labels</button>
+  </div>
+  <p class="why">Cardinality: one stream per user makes the index huge. Keep it in the line and filter with <code>| json | userId="…"</code>.</p>
+</div>
+
+<div class="quiz" data-answer="3">
+  <p class="q">Loki is down for ten minutes. What happens to login requests?</p>
+  <div class="options">
+    <button>They fail with 500s</button>
+    <button>They wait on retries</button>
+    <button>They queue in memory</button>
+    <button>They carry on normally</button>
+  </div>
+  <p class="why">The request path only writes to stdout. The delay and buffering happen in Alloy, off the request path. That's the point of ADR 0001.</p>
+</div>
+
+<div class="quiz" data-answer="0">
+  <p class="q">With <code>LOG_LEVEL=warn</code>, does "User logged in" (an info line) reach Loki?</p>
+  <div class="options">
+    <button>No, info is dropped</button>
+    <button>Yes, all levels ship</button>
+    <button>Only in Grafana Explore</button>
+    <button>Only as structured metadata</button>
+  </div>
+  <p class="why">The logger drops entries below its level before they're written. It's set in <code>k8s/config/app-config.yml</code>, so you can change it without touching code.</p>
+</div>
+
+<div class="callout">
+<p class="label">Read next (15 min)</p>
+<p><a href="https://grafana.com/docs/loki/latest/get-started/labels/">Grafana Loki: Understand labels</a> is the primary source for this lesson's one big idea. Then skim <a href="../../../../doc/adr/0001-observability-via-otel-and-grafana-lgtm.md">ADR 0001</a>: you should now follow every sentence of its first paragraph.</p>
+</div>
+
+<div class="callout">
+<p class="label">Stuck or curious?</p>
+<p>Ask me anything: "why a DaemonSet?", "what's in loki.yml?", "show me the redaction code". Followup questions are the fastest way through this. When you're ready, say so and I'll check what stuck before Lesson 2.</p>
+</div>
+
+<div class="recap">
+  <h2>In short: remember these 3</h2>
+  <ol>
+    <li><strong>The app only writes to stdout.</strong> Alloy collects the lines and sends them to Loki. A broken log backend can never slow down a request.</li>
+    <li><strong>Labels must have few possible values.</strong> Only <code>level</code> and <code>service</code> are labels. Things like <code>userId</code> stay in the line.</li>
+    <li><strong><code>trace_id</code> links a log line to its trace.</strong> (Lessons 3–5.)</li>
+  </ol>
+  <p><strong>If you forget everything:</strong> app → stdout → Alloy → Loki. The other two follow from it.</p>
+  <p><strong>You don't need to memorise</strong> the YAML files, the Alloy stage names or the LogQL syntax. Look them up in the <a href="../reference/0001-logs-pipeline.html">cheat sheet</a>. The k8s config will feel dense on a first read; it gets clearer on the second and third.</p>
+</div>
+
+<nav class="course">
+  <span class="meta">Start of course</span>
+  <a href="0002-reading-k8s-and-alloy-config.html">Next: How to read the platform config →</a>
+</nav>
+
+</main>
+<script src="../assets/quiz.js"></script>
+<script src="../assets/course-map.js"></script>
+<script src="../assets/nav.js"></script>
+</body>
+</html>
