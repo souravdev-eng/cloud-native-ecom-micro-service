@@ -24,7 +24,7 @@ This ticket implements ADR 0001 (Observability via OpenTelemetry + Grafana LGTM;
 
 **Blocked by:** 01 (common test harness)
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [x] Common tests: a log call produces exactly one JSON line with every schema field; `LOG_LEVEL` filters lower levels; development mode produces non-JSON pretty output
 - [x] Common tests: fields named password/token/authorization/cookie and email addresses never appear unmasked in output
@@ -33,3 +33,7 @@ This ticket implements ADR 0001 (Observability via OpenTelemetry + Grafana LGTM;
 - [ ] `skaffold dev -p observability` brings up Alloy, Loki and Grafana with requests/limits set; `minimal` is unchanged
 - [ ] Grafana is reachable via port-forward, requires login, and has the Loki datasource provisioned from files (no manual setup)
 - [ ] An `auth` login is findable in Grafana Explore by `{service="auth-service"}` and `level`
+
+## Comments
+
+- 2026-09-27: Completed in `51f2262`.

@@ -11,7 +11,7 @@ These are the safety net for the tracing changes in ticket 06. They're also wher
 
 **Blocked by:** None (can start immediately).
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [x] Common has a test script that runs Jest once (no watch mode), and a test build that doesn't leak into the published `build/` output
 - [x] A reusable fake AMQP channel test helper exists and is usable from any common test
@@ -19,3 +19,7 @@ These are the safety net for the tracing changes in ticket 06. They're also wher
 - [x] Characterisation tests cover listener queue assertion/binding, prefetch, JSON parsing and delivery to `onMessage`
 - [x] Tests assert only on observable calls to the channel and data handed to `onMessage`, not on private fields
 - [x] No behaviour change to the published package
+
+## Comments
+
+- 2026-09-27: Completed in `e271cdb`.

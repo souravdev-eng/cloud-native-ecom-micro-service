@@ -24,7 +24,7 @@ On the platform side:
 
 **Blocked by:** 02 (logs pillar)
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [ ] Common tests (throwaway Express app + in-memory exporter): a request's log line `trace_id` equals the exported server span's trace ID and the `x-trace-id` header
 - [ ] Common tests: a request carrying `traceparent` produces a span in that same trace
@@ -33,3 +33,7 @@ On the platform side:
 - [ ] New common version published; `auth` bumped; `auth` tests pass
 - [ ] `auth` keeps serving requests with the collector scaled to zero
 - [ ] In Grafana, an `auth` login trace shows HTTP + MongoDB spans; log→trace and trace→logs links both work
+
+## Comments
+
+- 2026-09-27: Completed in `f95306c` (common published as 2.3.0 and consumed by auth in `39634c9`).
