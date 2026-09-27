@@ -36,9 +36,9 @@
 <pre>logger.warn('Login failed', { reason: 'unknown_email', email });</pre>
 <p>The logger from <code>createLogger</code> (<a href="../../../../common/src/observability/logger.ts">common/src/observability/logger.ts:135</a>) did three things to that call:</p>
 <dl class="fields">
-  <dt>masked the email</dt><dd>the redaction step turned <code>nobody@example.com</code> into <code>n***@example.com</code>. Lesson 2 covers redaction.</dd>
+  <dt>masked the email</dt><dd>the redaction step turned <code>nobody@example.com</code> into <code>n***@example.com</code>. <a href="0003-logql-and-redaction.html">Lesson 3</a> covers redaction.</dd>
   <dt>stamped the fixed fields</dt><dd><code>timestamp</code>, <code>service</code>, <code>version</code> and <code>environment</code> are always present, and a caller can't overwrite them.</dd>
-  <dt>added trace_id / span_id</dt><dd>these link the line to a trace. Ignore them until Lesson 3.</dd>
+  <dt>added trace_id / span_id</dt><dd>these link the line to a trace. Ignore them until <a href="0004-traces-and-spans.html">Lesson 4</a>.</dd>
 </dl>
 
 <h2>2 · Where the line goes</h2>
@@ -213,10 +213,10 @@ kubectl get secret ecom-secret -o jsonpath='{.data.GRAFANA_ADMIN_PASSWORD}' | ba
   <ol>
     <li><strong>The app only writes to stdout.</strong> Alloy collects the lines and sends them to Loki. A broken log backend can never slow down a request.</li>
     <li><strong>Labels must have few possible values.</strong> Only <code>level</code> and <code>service</code> are labels. Things like <code>userId</code> stay in the line.</li>
-    <li><strong><code>trace_id</code> links a log line to its trace.</strong> (Lessons 3–5.)</li>
+    <li><strong><code>trace_id</code> links a log line to its trace.</strong> (Lessons 4–6.)</li>
   </ol>
   <p><strong>If you forget everything:</strong> app → stdout → Alloy → Loki. The other two follow from it.</p>
-  <p><strong>You don't need to memorise</strong> the YAML files, the Alloy stage names or the LogQL syntax. Look them up in the <a href="../reference/0001-logs-pipeline.html">cheat sheet</a>. The k8s config will feel dense on a first read; it gets clearer on the second and third.</p>
+  <p><strong>You don't need to memorise</strong> the YAML files, the Alloy stage names or the LogQL syntax. Look them up in the <a href="../reference/0001-logs-pipeline.html">cheat sheet</a> and the <a href="../reference/0004-glossary.html">glossary</a>. The k8s config will feel dense on a first read; it gets clearer on the second and third.</p>
 </div>
 
 <nav class="course">

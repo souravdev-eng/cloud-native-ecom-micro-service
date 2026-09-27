@@ -295,3 +295,66 @@ body.nav-open .scrim { display: block; }
   .side, .otp, .topbar, .scrim { display: none !important; }
   body.has-chrome { padding: 0; }
 }
+
+/* ------------------------------------------------------------------
+ * Sorter exercise, driven by assets/sorter.js.
+ * ------------------------------------------------------------------ */
+.sorter { border: 1px solid var(--border); border-radius: 10px; padding: 1rem 1.1rem; margin: 1.25rem 0; }
+.sorter .q { font-weight: 600; color: var(--text); margin: 0 0 0.75rem; }
+.sorter .items { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.6rem; }
+.sorter .items > li {
+  border: 1px solid var(--border); border-radius: 8px; padding: 0.6rem 0.8rem;
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem;
+}
+.sorter .items > li > pre { flex: 1 1 100%; margin: 0; }
+.sorter-choices { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+.sorter button {
+  font: 500 0.85rem Inter, sans-serif; cursor: pointer;
+  background: var(--bg); color: var(--body);
+  border: 1px solid var(--border); border-radius: 6px; padding: 0.3rem 0.7rem;
+}
+.sorter button:hover { border-color: var(--accent); }
+.sorter button.picked { background: var(--navy); border-color: var(--navy); color: var(--bg); }
+.sorter .why { display: none; flex: 1 1 100%; margin: 0.2rem 0 0; font-size: 0.92rem; }
+.sorter.checked .why { display: block; }
+.sorter .items > li.right { border-color: var(--good); background: var(--good-bg); }
+.sorter .items > li.miss { border-color: var(--bad); background: var(--bad-bg); }
+.sorter-actions { display: flex; gap: 0.5rem; margin-top: 0.9rem; }
+.sorter-result { font: 500 0.9rem 'IBM Plex Mono', monospace; color: var(--muted); margin: 0.6rem 0 0; }
+
+/* ------------------------------------------------------------------
+ * Span waterfall: a trace drawn the way Tempo shows it. Each row sets
+ *   --depth  nesting level (0 = root span)
+ *   --start  where the bar starts, as % of the trace
+ *   --len    bar length, as % of the trace
+ * The name sits above its bar, so it works at phone width.
+ * ------------------------------------------------------------------ */
+.waterfall { border: 1px solid var(--border); border-radius: 10px; padding: 0.8rem 1rem; margin: 1.5rem 0 0.5rem; }
+.waterfall .row { padding: 0.3rem 0 0.3rem calc(var(--depth, 0) * 1rem); }
+.waterfall .name { display: flex; justify-content: space-between; gap: 0.75rem; font: 0.8rem 'IBM Plex Mono', monospace; color: var(--text); }
+.waterfall .name .kind { color: var(--muted); }
+.waterfall .track { position: relative; height: 8px; margin-top: 0.25rem; background: var(--tint); border-radius: 4px; }
+.waterfall .bar {
+  position: absolute; top: 0; bottom: 0; border-radius: 4px; background: var(--accent);
+  left: calc(var(--start, 0) * 1%); width: max(3px, calc(var(--len, 100) * 1%));
+}
+.waterfall .row.db .bar { background: var(--accent-deep); }
+.waterfall .row.err .bar { background: var(--bad); }
+
+/* ------------------------------------------------------------------
+ * Diff block for review exercises: <pre class="diff"> with one
+ * <span class="add|del|ctx"> per line.
+ * ------------------------------------------------------------------ */
+pre.diff span { display: block; }
+pre.diff .add { background: var(--good-bg); color: var(--text); }
+pre.diff .del { background: var(--bad-bg); color: var(--text); }
+pre.diff .ctx { color: var(--muted); }
+pre.diff .file { color: var(--navy); font-weight: 500; }
+
+/* A small tag marking a retrieval question from an earlier lesson. */
+.from { font: 500 0.7rem 'IBM Plex Mono', monospace; letter-spacing: 0.05em; text-transform: uppercase; color: var(--accent); margin: 0 0 0.3rem; }
+
+@media print {
+  .sorter-choices, .sorter-actions { display: none; }
+  .sorter .why { display: block; }
+}

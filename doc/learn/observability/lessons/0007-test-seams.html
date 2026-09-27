@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Test Seams</title>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<main>
+
+<p class="eyebrow">Lesson 7 · Tickets 01 + 03 · ~20 min · no cluster needed</p>
+<h1>Test seams</h1>
+<p class="lede">By the end you'll have deliberately broken the span redactor, watched exactly one test catch it, and put it back. You'll also be able to explain why our telemetry tests check <em>what leaves the process</em> and never <em>how the code works inside</em>.</p>
+
+<h2>Why this exists</h2>
+<p>Ticket 01 came before any observability work, and it didn't add a single feature. It added a way to <strong>prove that nothing changed</strong>. Tickets 06 onward will rewrite the RabbitMQ publisher and listener to carry <code>traceparent</code>, so the current behaviour had to be pinned down first. Tests that do that are called <strong>characterisation tests</strong>: "they pin down what BasePublisher does <em>today</em>" (<a href="../../../../common/src/queues/__test__/basePublisher.test.ts">basePublisher.test.ts</a>).</p>
+<p>When you review a PR for tickets 04–18, the tests are where you'll check that it does what it says. So you need to be able to read them.</p>
+
+<h2>1 · Seams and test doubles</h2>
+<p>A <strong>seam</strong> is a place where a test can swap in different behaviour without editing the code under test. What goes into the seam is a <strong>test double</strong>. Two kinds matter here (<a href="https://martinfowler.com/bliki/TestDouble.html">Martin Fowler: Test Double</a>):</p>
+<dl class="fields">
+  <dt>fake</dt><dd>Has "working implementations, but usually take[s] some shortcut which makes them not suitable for production".</dd>
+  <dt>spy</dt><dd>A stub that also records "some information based on how [it was] called".</dd>
+</dl>
+
+<h2>2 · Our three seams</h2>
+<p>The spec allowed <em>one</em> test seam in production code. Everything else plugs in from outside.</p>
+
+<h3>FakeChannel: a fake RabbitMQ (ticket 01)</h3>
+<p><a href="../../../../common/src/test/fakeChannel.ts">common/src/test/fakeChannel.ts</a> stands in for an amqplib <code>Channel</code>. It's both a fake and a spy: it records every call, and <code>deliver()</code> pushes a message into a listener's callback.</p>
+<pre>const fake = new FakeChannel();
+await new ProductCreatedPublisher(fake.asChannel()).publish(data);
+
+expect(fake.assertedExchanges).toEqual([
+  { exchange: 'product-service', type: 'direct', options: { durable: true } },
+]);</pre>
+<p>There's no broker, no network and no Docker, so the tests run in milliseconds. Note <code>options?: Options.Publish</code> on each recorded publish: "later AMQP headers such as traceparent" will show up there in ticket 06.</p>
+
+<h3>testSpanExporter: the only hook in production code (ticket 03)</h3>
+<p><code>startTelemetry</code> accepts one test-only option. Instead of shipping spans over OTLP, it sends them to an exporter the test holds, usually the SDK's own <code>InMemorySpanExporter</code>:</p>
+<pre>if (options.testSpanExporter)
+  return new SimpleSpanProcessor(new RedactingSpanExporter(options.testSpanExporter));</pre>
+<p>Look at the wrapping: the test exporter still goes <em>through the redactor</em>, "so the tests see exactly what production would send" (<a href="../../../../common/src/observability/telemetry.ts">telemetry.ts</a>). A seam that skipped the redactor would let the redaction tests pass against code that leaks.</p>
+
+<h3>captureStdout: reading back the logs</h3>
+<p>The logger's only output is stdout, so <a href="../../../../common/src/test/captureStdout.ts">captureStdout.ts</a> spies on <code>process.stdout.write</code> and parses the lines: "the only honest way to assert on log output".</p>
+
+<div class="callout">
+<p><strong>The rule behind all three:</strong> tests assert on <em>what leaves the process</em>: channel calls, exported spans, stdout lines, response headers. They never assert on private fields. Ticket 01's own acceptance criterion says: "assert only on observable calls to the channel and data handed to <code>onMessage</code>, not on private fields". That's what lets ticket 06 rewrite the internals and keep the same tests green.</p>
+</div>
+
+<h2>3 · Drill: robust or brittle?</h2>
+<div class="sorter" data-bins="Robust|Brittle">
+  <p class="q">Which assertions would survive a refactor that keeps behaviour identical?</p>
+  <ol class="items">
+    <li data-bin="0"><code>expect(fake.published[0].routingKey).toBe('product-created')</code><p class="why">That's what the code asked RabbitMQ to do, which is observable behaviour.</p></li>
+    <li data-bin="1"><code>expect((publisher as any).channel).toBe(fake)</code><p class="why">A private field. Rename it and the test breaks, though nothing a user sees changed.</p></li>
+    <li data-bin="0"><code>expect(line.trace_id).toBe(span.spanContext().traceId)</code><p class="why">It compares two outputs: the stdout line and the exported span.</p></li>
+    <li data-bin="1"><code>expect(redactSpy).toHaveBeenCalledTimes(3)</code><p class="why">It pins <em>how</em> redaction is done (how many calls), not <em>whether</em> the secret is gone. Check the exported attributes instead.</p></li>
+    <li data-bin="0"><code>expect(JSON.stringify(attrs)).not.toContain(SECRETS.password)</code><p class="why">It checks the real risk directly, wherever the secret might land.</p></li>
+  </ol>
+</div>
+
+<h2>4 · The tricks in telemetry.test.ts</h2>
+<p>These look strange at first. Each one exists because of something from Lessons 4–6:</p>
+<dl class="fields">
+  <dt><code>jest.mock('module', …)</code> at the top</dt><dd>Jest hands tests a mock of Node's <code>module</code> built-in, and the SDK's require-hooks would patch that instead of the real one. This puts the real one back so <code>http</code> gets instrumented. (Still, "only <code>http</code> spans are observable under Jest", as CLAUDE.md notes.)</dd>
+  <dt><code>require('express')</code> inside <code>beforeAll</code></dt><dd>The import-order rule from Lesson 5: load Express only after <code>startTelemetry</code>.</dd>
+  <dt>requests via <code>fetch</code></dt><dd><code>fetch</code> (undici) isn't instrumented. With <code>http.request</code>, the client would add its <em>own</em> <code>traceparent</code> and overwrite the one the test set.</dd>
+  <dt><code>waitForServerSpan</code> polling</dt><dd>The server span ends on the response's <code>finish</code> event, which can fire just after the client has read the response. Polling avoids a flaky race without a fixed sleep.</dd>
+  <dt>a "positive control" test</dt><dd><code>'exports spans over OTLP/HTTP to the configured endpoint'</code>. Without it, the two "sends nothing" tests would <em>also</em> pass if exporting were simply broken.</dd>
+</dl>
+
+<h2>5 · Lab: break it on purpose</h2>
+<p>No cluster needed. Run this from the repo root. It edits real files, so restore them at the end.</p>
+<ol class="steps">
+  <li>
+    <p><strong>Run the suites green first.</strong></p>
+<pre>cd common
+npm test -- src/observability/__test__/telemetry.test.ts src/queues</pre>
+    <p>Expect 3 suites and 15 tests passing (checked on 2026-09-27).</p>
+  </li>
+  <li>
+    <p><strong>Mutation 1: skip the redactor in the test seam.</strong> In <code>src/observability/telemetry.ts</code>, inside <code>spanProcessorFor</code>, change</p>
+<pre>return new SimpleSpanProcessor(new RedactingSpanExporter(options.testSpanExporter));</pre>
+    <p>to</p>
+<pre>return new SimpleSpanProcessor(options.testSpanExporter);</pre>
+    <p>Before running: <em>which test will fail?</em> Then run the telemetry test again.</p>
+    <details><summary>Result</summary>
+    <p>Exactly one: <code>✕ keeps passwords, tokens, auth headers and the ?token= query out of span attributes</code>. The other three stay green. That's what a well-aimed test looks like: one behaviour, one test. It also shows why the seam wraps the test exporter. Without the wrapper, this test would be testing nothing.</p></details>
+  </li>
+  <li>
+    <p><strong>Put it back.</strong> First confirm that your change is the only one in the file, then restore it:</p>
+<pre>git diff src/observability/telemetry.ts     # only your one line?
+git restore src/observability/telemetry.ts</pre>
+  </li>
+  <li>
+    <p><strong>Mutation 2: predict it without running.</strong> In <code>src/middleware/traceIdHeader.ts</code>, suppose someone writes <code>ids.spanId</code> instead of <code>ids.traceId</code>. Which tests go red? Write your answer down, then check by running it (and restore it the same way).</p>
+    <details><summary>Answer</summary>
+    <p>Two: <code>links the log line, the exported server span and the x-trace-id header…</code> and <code>continues an incoming W3C traceparent…</code>. Both compare the header to the trace ID. A span ID is 16 hex characters, not 32, so neither can pass by accident.</p></details>
+  </li>
+</ol>
+
+<h2>6 · Check yourself</h2>
+<p class="score"></p>
+
+<div class="quiz" data-answer="1">
+  <p class="q">What is a characterisation test for?</p>
+  <div class="options">
+    <button>Specifying a brand new feature</button>
+    <button>Pinning today's behaviour before changes</button>
+    <button>Measuring the speed of code</button>
+    <button>Checking the type definitions compile</button>
+  </div>
+  <p class="why">It records what the code does now, right or wrong, so a later refactor (ticket 06) can't change it by accident.</p>
+</div>
+
+<div class="quiz" data-answer="3">
+  <p class="q">Why does <code>testSpanExporter</code> still go through <code>RedactingSpanExporter</code>?</p>
+  <div class="options">
+    <button>The SDK requires a wrapper there</button>
+    <button>It makes the tests run faster</button>
+    <button>Tempo expects the redacted test spans</button>
+    <button>Tests must see what production sends</button>
+  </div>
+  <p class="why">If the seam skipped redaction, the redaction tests would pass even with leaky code. You proved this in mutation 1.</p>
+</div>
+
+<div class="quiz" data-answer="0">
+  <p class="q">Why does the test require Express inside <code>beforeAll</code>?</p>
+  <div class="options">
+    <button>It must load after startTelemetry</button>
+    <button>Jest cannot import Express otherwise</button>
+    <button>It keeps each test independent</button>
+    <button>It avoids a circular dependency</button>
+  </div>
+  <p class="why">Auto-instrumentation patches at load time (Lesson 5). A top-of-file import would load Express too early.</p>
+</div>
+
+<div class="quiz" data-answer="2">
+  <p class="from">From Lesson 6</p>
+  <p class="q">Which test proves a dead collector doesn't break requests?</p>
+  <div class="options">
+    <button>Continues an incoming W3C traceparent header</button>
+    <button>Sends nothing at all under NODE_ENV=test</button>
+    <button>Keeps serving requests when collector's down</button>
+    <button>Exports spans to the configured endpoint</button>
+  </div>
+  <p class="why">It points the exporter at a closed port, sends several requests, checks each returns 200, and checks that <code>shutdown()</code> settles quietly.</p>
+</div>
+
+<div class="quiz" data-answer="1">
+  <p class="from">From Lesson 2</p>
+  <p class="q">In a Kubernetes object, which field holds the state you want?</p>
+  <div class="options">
+    <button>metadata</button>
+    <button>spec</button>
+    <button>kind</button>
+    <button>status</button>
+  </div>
+  <p class="why"><code>spec</code> is desired state; <code>status</code> is what Kubernetes reports back.</p>
+</div>
+
+<div class="recap">
+  <h2>In short: remember these 3</h2>
+  <ol>
+    <li><strong>Three seams:</strong> <code>FakeChannel</code> (RabbitMQ), <code>testSpanExporter</code> (spans, the one production hook) and <code>captureStdout</code> (logs).</li>
+    <li><strong>Assert on what leaves the process,</strong> never on private fields. That's what keeps the tests valid through ticket 06's rewrite.</li>
+    <li><strong>A seam must not skip the thing under test.</strong> The test exporter still goes through the redactor.</li>
+  </ol>
+  <p><strong>If you forget everything:</strong> "test the outputs; break it once to prove the test works".</p>
+  <p><strong>You don't need to memorise</strong> the Jest tricks in section 4. Reread them when you open <code>telemetry.test.ts</code>.</p>
+</div>
+
+<div class="callout">
+<p class="label">Read next (5 min)</p>
+<p><a href="https://martinfowler.com/bliki/TestDouble.html">Martin Fowler: Test Double</a> is short and is the primary source for the vocabulary. Then read <a href="../../../../common/src/test/fakeChannel.ts">fakeChannel.ts</a> top to bottom: its comments teach AMQP along the way.</p>
+</div>
+
+<div class="callout">
+<p class="label">Stuck or curious?</p>
+<p>Ask me to explain any test line by line, or to suggest another mutation to try. "How would I test ticket 06's header injection with the fake?" is a great next question.</p>
+</div>
+
+<nav class="course">
+  <a href="0006-linking-logs-and-traces.html">← Lesson 6: Linking logs and traces</a>
+  <a href="0008-capstone-explain-and-review.html">Next: Capstone →</a>
+</nav>
+
+</main>
+<script src="../assets/quiz.js"></script>
+<script src="../assets/sorter.js"></script>
+<script src="../assets/course-map.js"></script>
+<script src="../assets/nav.js"></script>
+</body>
+</html>

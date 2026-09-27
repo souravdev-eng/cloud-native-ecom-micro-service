@@ -57,6 +57,8 @@ kubectl get secret ecom-secret -o jsonpath='{.data.GRAFANA_ADMIN_USER}' | base64
 <h2>Known gap</h2>
 <p><code>common/src/middleware/errorHandler.ts</code> uses <code>console.log(err)</code>. Its stack traces arrive as unstructured lines under <code>{service="auth"}</code>, with no redaction and no trace_id.</p>
 
+<p>More queries and the redaction rules: <a href="0002-logql-and-redaction.html">LogQL and redaction sheet</a>.</p>
+
 <nav class="course"><a href="../lessons/0001-a-log-lines-journey.html">← Lesson 1</a></nav>
 </main>
 <script src="../assets/course-map.js"></script>
