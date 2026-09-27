@@ -104,4 +104,20 @@ What you get with no manual spans:
 
 When there's no endpoint, spans are still created locally, so logs keep their `trace_id`. If the collector is down, spans are dropped and requests are unaffected.
 
+#### Metrics and custom spans
+
+Mount `mountObservability(app, { service: 'auth-service' })` before service routes. It installs `x-trace-id`, one redacted access log per request, the route-template HTTP duration histogram and `/metrics` on the app's existing port. Prometheus scrapes `/metrics`; the latency histogram includes sampled trace exemplars for Grafana's Tempo link. The bundle also exposes event-loop lag, heap use and GC pause duration.
+
+Use `getServiceMeter('auth-service')` to create service-owned counters or histograms, and `getServiceTracer('auth-service')` to create custom spans. Keep metric attributes bounded (result or route template, never IDs or user input):
+
+```TypeScript
+const logins = getServiceMeter('auth-service').createCounter('auth.logins');
+logins.add(1, { result: 'success' });
+
+const tracer = getServiceTracer('auth-service');
+await tracer.startActiveSpan('send-reset-email', async (span) => {
+  try { await sendResetEmail(); } finally { span.end(); }
+});
+```
+
 Tests inject an in-memory exporter with `startTelemetry({ serviceName, testSpanExporter })`. Under Jest, two extra steps are needed. Run Jest with `node --experimental-vm-modules`, because the OTLP exporter uses a dynamic `import()`. And map Jest's mocked `module` built-in back to the real one, so `http` gets patched (see `src/observability/__test__/telemetry.test.ts`).

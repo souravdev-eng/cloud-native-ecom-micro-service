@@ -1,0 +1,22 @@
+name: observability-config-ci
+on:
+  pull_request:
+    paths:
+      - 'k8s/observability/**'
+      - 'scripts/validate-observability.py'
+      - '.github/workflows/observability-config-ci.yml'
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install PyYAML==6.0.3
+      - name: Install promtool
+        run: |
+          curl -fsSL https://github.com/prometheus/prometheus/releases/download/v3.5.0/prometheus-3.5.0.linux-amd64.tar.gz -o /tmp/prometheus.tar.gz
+          tar -xzf /tmp/prometheus.tar.gz -C /tmp
+          echo /tmp/prometheus-3.5.0.linux-amd64 >> "$GITHUB_PATH"
+      - run: python3 scripts/validate-observability.py

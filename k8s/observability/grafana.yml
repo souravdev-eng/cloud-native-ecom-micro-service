@@ -1,7 +1,7 @@
 # ============================================================
 # GRAFANA — dashboards and Explore, provisioned entirely from files
 # ============================================================
-# Datasources (Loki, Tempo and the links between them) come from the
+# Datasources (Prometheus, Loki, Tempo and their links) come from the
 # ConfigMap below; nothing is clicked together by hand, so the pod can
 # be deleted and rebuilt at any time (its own storage is an emptyDir
 # on purpose).
@@ -24,11 +24,21 @@ data:
   datasources.yaml: |
     apiVersion: 1
     datasources:
+      - name: Prometheus
+        uid: prometheus
+        type: prometheus
+        access: proxy
+        url: http://prometheus-srv:9090
+        editable: false
+        jsonData:
+          exemplarTraceIdDestinations:
+            - name: trace_id
+              datasourceUid: tempo
       # Grafana expands $VAR and ${VAR} in provisioning files as environment
       # variables, so its own link variables below are written with $$ to
       # reach Grafana literally, e.g. $${__value.raw} becomes ${__value.raw}.
       - name: Loki
-        # A fixed uid lets provisioned dashboards (later tickets) and the
+        # A fixed uid lets provisioned dashboards and the
         # cross-links below refer to this datasource reliably.
         uid: loki
         type: loki
@@ -73,6 +83,32 @@ data:
             query: '{$${__tags}} | trace_id="$${__trace.traceId}"'
           nodeGraph:
             enabled: true
+          tracesToMetrics:
+            datasourceUid: prometheus
+            spanStartTimeShift: '-5m'
+            spanEndTimeShift: '5m'
+            tags:
+              - key: service.name
+                value: service
+            queries:
+              - name: Request rate
+                query: 'sum(rate(http_server_request_duration_count{$${__tags}}[5m]))'
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-provider
+data:
+  dashboards.yaml: |
+    apiVersion: 1
+    providers:
+      - name: Services
+        orgId: 1
+        folder: Services
+        type: file
+        disableDeletion: true
+        options:
+          path: /etc/grafana/dashboards
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -132,12 +168,22 @@ spec:
           volumeMounts:
             - name: datasources
               mountPath: /etc/grafana/provisioning/datasources
+            - name: dashboard-provider
+              mountPath: /etc/grafana/provisioning/dashboards
+            - name: dashboard
+              mountPath: /etc/grafana/dashboards
             - name: storage
               mountPath: /var/lib/grafana
       volumes:
         - name: datasources
           configMap:
             name: grafana-datasources
+        - name: dashboard-provider
+          configMap:
+            name: grafana-dashboard-provider
+        - name: dashboard
+          configMap:
+            name: grafana-service-detail
         - name: storage
           emptyDir: {}
 ---

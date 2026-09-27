@@ -1,13 +1,13 @@
 # ============================================================
 # GRAFANA ALLOY — the single telemetry collector
 # ============================================================
-# Two pipelines today:
+# Three pipelines:
 # - Logs: it tails every container's stdout through the Kubernetes
 #   API, parses the JSON lines written by the @ecom-micro/common
 #   logger, and pushes them to Loki.
 # - Traces: it receives OTLP from the services (gRPC 4317, HTTP 4318,
 #   via alloy-srv), batches the spans and forwards them to Tempo.
-# Later tickets add metrics, tail sampling and the second redaction
+# Later tickets add tail sampling and the second redaction
 # layer to this same config.
 #
 # A DaemonSet runs one Alloy per node, and each instance only tails
@@ -142,6 +142,46 @@ data:
     loki.write "loki" {
       endpoint {
         url = "http://loki-srv:3100/loki/api/v1/push"
+      }
+    }
+
+    // ---------------- Metrics ----------------
+    // Only pods that opt in with prometheus.io/scrape=true are scraped.
+    discovery.relabel "metrics" {
+      targets = discovery.kubernetes.pods.targets
+      rule {
+        source_labels = ["__meta_kubernetes_pod_annotation_prometheus_io_scrape"]
+        regex = "true"
+        action = "keep"
+      }
+      rule {
+        source_labels = ["__meta_kubernetes_pod_annotation_prometheus_io_path"]
+        target_label = "__metrics_path__"
+      }
+      rule {
+        source_labels = ["__address__", "__meta_kubernetes_pod_annotation_prometheus_io_port"]
+        separator = ";"
+        regex = "([^:]+)(?::[0-9]+)?;([0-9]+)"
+        replacement = "$1:$2"
+        target_label = "__address__"
+      }
+      rule {
+        source_labels = ["__meta_kubernetes_namespace"]
+        target_label = "namespace"
+      }
+    }
+
+    prometheus.scrape "services" {
+      targets = discovery.relabel.metrics.output
+      forward_to = [prometheus.remote_write.local.receiver]
+      scrape_interval = "15s"
+      scrape_protocols = ["OpenMetricsText1.0.0", "PrometheusText0.0.4"]
+    }
+
+    prometheus.remote_write "local" {
+      endpoint {
+        url = "http://prometheus-srv:9090/api/v1/write"
+        send_exemplars = true
       }
     }
 

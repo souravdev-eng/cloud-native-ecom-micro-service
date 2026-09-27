@@ -169,6 +169,26 @@ describe('startTelemetry with an in-memory exporter', () => {
     expect(response.headers.get(TRACE_ID_HEADER)).toBe(UPSTREAM_TRACE_ID);
   });
 
+  it('exposes a sampled request as a trace exemplar on its route histogram', async () => {
+    const express = require('express') as () => Express;
+    const { mountObservability } = require('../http') as typeof import('../http');
+    const app = express();
+    mountObservability(app, { service: 'test-service' });
+    app.get('/product/:id', (_req, res) => res.sendStatus(200));
+    const metricsServer = app.listen(0, '127.0.0.1');
+    await new Promise<void>((resolve) => metricsServer.once('listening', resolve));
+    const url = `http://127.0.0.1:${(metricsServer.address() as AddressInfo).port}`;
+    try {
+      await fetch(`${url}/product/123?token=secret`, { headers: { traceparent: UPSTREAM_TRACEPARENT } });
+      const metrics = await (await fetch(`${url}/metrics`)).text();
+      expect(metrics).toContain('route="/product/:id"');
+      expect(metrics).toContain(`# {trace_id="${UPSTREAM_TRACE_ID}"}`);
+      expect(metrics).not.toContain('/product/123');
+    } finally {
+      await new Promise<void>((resolve) => metricsServer.close(() => resolve()));
+    }
+  });
+
   it('keeps passwords, tokens, auth headers and the ?token= query out of span attributes', async () => {
     await request(`/reset-password?token=${SECRETS.resetToken}&email=jane.doe@example.com`, {
       method: 'POST',
