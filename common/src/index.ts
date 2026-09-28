@@ -14,6 +14,7 @@ export * from './middleware/requireAuth';
 export * from './middleware/currentUser';
 export * from './middleware/traceIdHeader';
 export * from './observability/http';
+export * from './observability/health';
 export { getServiceMeter, getServiceTracer } from './observability/metrics';
 
 // RabbitMQ Service

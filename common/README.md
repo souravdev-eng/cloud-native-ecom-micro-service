@@ -121,3 +121,18 @@ await tracer.startActiveSpan('send-reset-email', async (span) => {
 ```
 
 Tests inject an in-memory exporter with `startTelemetry({ serviceName, testSpanExporter })`. Under Jest, two extra steps are needed. Run Jest with `node --experimental-vm-modules`, because the OTLP exporter uses a dynamic `import()`. And map Jest's mocked `module` built-in back to the real one, so `http` gets patched (see `src/observability/__test__/telemetry.test.ts`).
+
+#### Health endpoints
+
+Mount `createHealthRoutes(checks, { timeoutMs: 1000 })` before authentication and application routes:
+
+```TypeScript
+import { createHealthRoutes } from '@ecom-micro/common';
+app.use(createHealthRoutes({
+  mongodb: async () => { await db.command({ ping: 1 }); },
+}));
+```
+
+Checks return normally when healthy and throw or reject when unavailable. `/healthz` always returns HTTP 200 with `{ "status": "ok" }` without invoking checks. `/readyz` runs all named checks concurrently with an independent deadline (default 1000 ms). It returns HTTP 200 when every check passes, otherwise HTTP 503, for example `{ "status": "error", "checks": { "mongodb": "timeout", "rabbitmq": "ok" } }`. Each check is `ok`, `error` or `timeout`; exception messages are never exposed.
+
+The deadline bounds the HTTP response; it cannot cancel the underlying dependency operation. Set driver timeouts as well. Configure Kubernetes liveness on `/healthz` and readiness on `/readyz`, with probe timeouts longer than the check deadline. A dependency outage should remove a pod from service without restarting its live process.

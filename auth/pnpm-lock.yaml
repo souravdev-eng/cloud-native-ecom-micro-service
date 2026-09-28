@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@ecom-micro/common':
-        specifier: ^2.4.1
-        version: 2.4.1
+        specifier: ^2.4.3
+        version: 2.4.3
       '@types/amqplib':
         specifier: ^0.10.5
         version: 0.10.8
@@ -285,8 +285,8 @@ packages:
   '@dabh/diagnostics@2.0.9':
     resolution: {integrity: sha512-R6siwR65Hm+3yfgP7o8DKhNvputQAwfoz9zTc3kyDudnomj2/BcLmD+uGQQPICjuFUp8ounPBU+jmKsocwVVAg==}
 
-  '@ecom-micro/common@2.4.1':
-    resolution: {integrity: sha512-Tmrkos8wzbVRizYjR+rOHY5q2NVv6xcXKAZ7tdD4xF/E6zaIoV+P7I4jjCwQLkE0Vc3iup3rsXSCFOYDs9V/DA==}
+  '@ecom-micro/common@2.4.3':
+    resolution: {integrity: sha512-X849gzSyLvs/BinFVb3MUGmhTEVGazX8lOSHqhUfEIj4sjxJDND2lwjmFosiC5Wh94WTiuCPt6FKvLAETJ1/UA==}
 
   '@elastic/ecs-helpers@2.1.1':
     resolution: {integrity: sha512-ItoNazMnYdlUCmkBYTXc3SG6PF7UlVTbvMdHPvXkfTMPdwGv2G1Xtp5CjDHaGHGOZSwaDrW4RSCXvA/lMSU+rg==}
@@ -3095,7 +3095,7 @@ snapshots:
       enabled: 2.0.0
       kuler: 2.0.0
 
-  '@ecom-micro/common@2.4.1':
+  '@ecom-micro/common@2.4.3':
     dependencies:
       '@opentelemetry/api': 1.9.1
       '@opentelemetry/exporter-prometheus': 0.222.0(@opentelemetry/api@1.9.1)

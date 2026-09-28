@@ -19,6 +19,21 @@ spec:
       containers:
         - name: auth
           image: souravdeveloper/ecom-auth
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 3000
+            periodSeconds: 5
+            timeoutSeconds: 2
+            failureThreshold: 1
           envFrom:
             - configMapRef:
                 name: ecom-config
