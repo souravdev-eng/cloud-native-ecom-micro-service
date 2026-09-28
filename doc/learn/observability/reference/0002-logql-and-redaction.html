@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LogQL and Redaction</title>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<main>
+
+<p class="eyebrow">Reference · Ticket 02</p>
+<h1>LogQL and redaction sheet</h1>
+
+<h2>Query shape</h2>
+<pre>{labels}  |= "text"  | json  | field="x"
+selector  line filter parser label filter      ← cheapest to most expensive</pre>
+
+<h2>Recipes</h2>
+<pre># all auth warnings
+{service="auth-service", level="warn"}
+
+# text, then parse, then field
+{service="auth-service"} |= "Login failed" | json | reason="wrong_password"
+
+# numeric / regex field filters
+| json | status >= 400
+| json | route=~"/api/users/.*"
+
+# structured metadata (no parse needed)
+{service="auth-service"} | trace_id="&lt;32 hex&gt;"
+
+# exclude noise
+{service="auth-service"} != "HTTP request"
+
+# nested JSON: error.name → error_name
+{service="auth-service"} | json | error_name="MongoServerError"
+
+# count by field over a window (metric query)
+sum by (reason) (count_over_time({service="auth-service"} |= "Login failed" | json [1h]))
+
+# every auth stream, including the unstructured {service="auth"}
+{service=~"auth.*"}</pre>
+
+<h2>Operators</h2>
+<dl class="fields">
+  <dt>line filters</dt><dd><code>|=</code> contains · <code>!=</code> doesn't contain · <code>|~</code> regex · <code>!~</code> not regex</dd>
+  <dt>label/field filters</dt><dd><code>=</code> <code>!=</code> <code>=~</code> <code>!~</code>, and for numbers or durations <code>&gt; &gt;= &lt; &lt;=</code>. Combine with <code>and</code>/<code>or</code>.</dd>
+</dl>
+
+<h2>Redaction: where</h2>
+<pre>createLogger pipeline:  normaliseErrors → redactSecrets → applySchema → JSON → stdout
+spans:                  RedactingSpanExporter (same rules) → OTLP</pre>
+<p>Nothing downstream (Alloy, Loki, Grafana, Tempo) redacts anything. <strong>Only output through the logger is protected.</strong></p>
+
+<h2>Rule A · Secret key names → <code>[REDACTED]</code></h2>
+<p>The name is lowercased, with non-alphanumerics stripped (<code>x-api-key</code> → <code>xapikey</code>). <a href="../../../../common/src/observability/sensitiveKeys.ts">sensitiveKeys.ts</a>:</p>
+<dl class="fields">
+  <dt>contains</dt><dd>password passwd passcode secret credential authorization bearer cookie session signature jwt apikey privatekey</dd>
+  <dt>ends with</dt><dd>token tokens pwd sid</dd>
+  <dt>exactly</dt><dd>card cardnumber cvc cvc2 cvv cvv2 pan otp</dd>
+</dl>
+
+<h2>Rule B · Secret-looking text, in any string</h2>
+<dl class="fields">
+  <dt>email</dt><dd><code>jane@example.com</code> → <code>j***@example.com</code> (the domain is kept)</dd>
+  <dt>Stripe keys</dt><dd><code>sk_/rk_ live|test</code>, <code>whsec_</code> → <code>[REDACTED]</code></dd>
+  <dt>query params</dt><dd><code>?token=…</code> (a secret name) → <code>token=[REDACTED]</code>; <code>%40</code> emails are decoded, then masked</dd>
+</dl>
+
+<h2>Placeholders</h2>
+<dl class="fields">
+  <dt>[REDACTED]</dt><dd>A secret field or key</dd>
+  <dt>[Circular]</dt><dd>An object that contains itself</dd>
+  <dt>[Truncated]</dt><dd>Deeper than 10 levels, or more than 2,000 objects</dd>
+  <dt>[Unreadable]</dt><dd>A getter or <code>toJSON</code> threw</dd>
+</dl>
+
+<h2>Protect a new field</h2>
+<p>Add the word to one list in <code>sensitiveKeys.ts</code> and a case to <code>common/src/observability/__test__/redaction.test.ts</code>, then publish common and bump its consumers.</p>
+
+<nav class="course"><a href="../lessons/0003-logql-and-redaction.html">← Lesson 3</a></nav>
+</main>
+<script src="../assets/course-map.js"></script>
+<script src="../assets/nav.js"></script>
+</body>
+</html>

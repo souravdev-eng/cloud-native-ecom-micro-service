@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Observability Glossary</title>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<main>
+
+<p class="eyebrow">Reference · All lessons</p>
+<h1>Glossary</h1>
+<p class="meta">Every lesson uses these words with exactly these meanings. "Label" on its own always means a <em>Loki</em> label.</p>
+
+<h2>Signals</h2>
+<dl class="fields">
+  <dt>telemetry</dt><dd>Data a system gives off about itself: logs, traces, metrics.</dd>
+  <dt>observability</dt><dd>Being able to explain misbehaviour from telemetry, without adding code first.</dd>
+  <dt>structured log</dt><dd>One JSON object per line, with a fixed set of keys.</dd>
+  <dt>span</dt><dd>One timed unit of work: name, start/end, attributes, status, kind, parent.</dd>
+  <dt>trace</dt><dd>All spans sharing one trace ID; a tree from the root span.</dd>
+  <dt>root span</dt><dd>The span with no parent; where the trace started.</dd>
+  <dt>span kind</dt><dd>SERVER (incoming), CLIENT (outgoing, including DB), INTERNAL (in-process), PRODUCER/CONSUMER (messages).</dd>
+  <dt>span status</dt><dd>Unset (default, fine) · Error · Ok.</dd>
+  <dt>attribute</dt><dd>A key-value pair on a span (<code>span.</code>) or on the whole process (<code>resource.</code>).</dd>
+  <dt>resource</dt><dd>Attributes describing the process: <code>service.name</code>, <code>service.version</code>, <code>deployment.environment</code>, k8s pod/namespace.</dd>
+</dl>
+
+<h2>Context</h2>
+<dl class="fields">
+  <dt>context</dt><dd>What travels with a request so that signals can be correlated: essentially the trace ID and current span ID.</dd>
+  <dt>active span</dt><dd>The span the current async call chain belongs to (AsyncLocalStorage).</dd>
+  <dt>propagation</dt><dd>Moving context between processes, for example in a header.</dd>
+  <dt>traceparent</dt><dd>The W3C header <code>version-traceId-parentId-flags</code>.</dd>
+  <dt>x-trace-id</dt><dd>Our response header carrying the trace ID, for lookup in Tempo.</dd>
+  <dt>head sampling</dt><dd>Keep or drop decided at the start of a trace (our ParentBased ratio sampler).</dd>
+  <dt>tail sampling</dt><dd>Decided after seeing the whole trace (Alloy, a later ticket).</dd>
+</dl>
+
+<h2>Pipeline</h2>
+<dl class="fields">
+  <dt>OpenTelemetry (OTel)</dt><dd>The vendor-neutral API/SDK we instrument with.</dd>
+  <dt>OTLP</dt><dd>OTel's wire protocol (gRPC 4317, HTTP 4318).</dd>
+  <dt>auto-instrumentation</dt><dd>Plugins that patch libraries at load time to create spans.</dd>
+  <dt>telemetry bootstrap</dt><dd><code>startTelemetry</code>: one call that configures the SDK.</dd>
+  <dt>collector</dt><dd>The process that receives or tails telemetry and forwards it: Alloy.</dd>
+  <dt>Alloy</dt><dd>Grafana's collector; a DaemonSet here, one per node.</dd>
+  <dt>Loki</dt><dd>Log store; indexes labels only.</dd>
+  <dt>Tempo</dt><dd>Trace store; queried with TraceQL.</dd>
+  <dt>LGTM</dt><dd>Loki, Grafana, Tempo, Mimir/Prometheus: the Grafana stack.</dd>
+</dl>
+
+<h2>Loki</h2>
+<dl class="fields">
+  <dt>label</dt><dd>An indexed key on a stream. Ours are only <code>level</code> and <code>service</code>.</dd>
+  <dt>k8s label</dt><dd>A Kubernetes object label (<code>app: alloy</code>). A different thing.</dd>
+  <dt>stream</dt><dd>All lines with the same label values.</dd>
+  <dt>cardinality</dt><dd>How many distinct values a label has. Keep it low.</dd>
+  <dt>structured metadata</dt><dd>Per-line key-values that aren't indexed and don't create streams (<code>trace_id</code>, pod, namespace).</dd>
+  <dt>derived field</dt><dd>A Grafana setting that turns a regex match in a line into a link (log → trace).</dd>
+</dl>
+
+<h2>Metrics</h2>
+<p>Metric labels belong to Prometheus time series. They are distinct from Loki labels and k8s labels. <a href="https://prometheus.io/docs/concepts/metric_types/">Metric types</a>.</p>
+<dl class="fields">
+<dt>metric</dt><dd>A numerical measurement observed over time.</dd>
+<dt>metric label</dt><dd>A dimension such as route or method. Each distinct combination identifies a time series.</dd>
+<dt>counter</dt><dd>An accumulated count that increases and can reset on restart.</dd>
+<dt>gauge</dt><dd>A current measurement that can rise or fall, such as heap usage.</dd>
+<dt>histogram</dt><dd>Counts observations into buckets and tracks their sum and count.</dd>
+<dt>le</dt><dd>A classic histogram bucket’s inclusive upper bound; buckets are cumulative.</dd>
+<dt>RED</dt><dd>Rate, Errors, Duration: three questions about request traffic.</dd>
+<dt>p95</dt><dd>The 95th percentile: a duration threshold covering approximately 95% of observations; estimated from buckets here.</dd>
+<dt>route template</dt><dd>A bounded route pattern, such as /product/:id, instead of a path containing a concrete ID.</dd>
+<dt>scrape</dt><dd>A collector reads an application’s metrics endpoint periodically.</dd>
+<dt>remote write</dt><dd>Sending collected metric samples to a storage receiver.</dd>
+<dt>Prometheus</dt><dd>The metrics store and PromQL query engine in this platform.</dd>
+<dt>exemplar</dt><dd>An example observation attached to a metric sample, carrying a trace ID for correlation. <a href="https://grafana.com/docs/grafana/latest/fundamentals/exemplars/">Grafana definition</a>.</dd>
+</dl>
+
+<h2>Safety</h2>
+<dl class="fields">
+  <dt>redaction</dt><dd>Masking secrets before telemetry leaves the process.</dd>
+  <dt>deny list</dt><dd>The secret key-name rules in <code>sensitiveKeys.ts</code>.</dd>
+  <dt>best-effort export</dt><dd>Telemetry may be dropped; requests must never wait for it.</dd>
+</dl>
+
+<h2>Testing</h2>
+<dl class="fields">
+  <dt>seam</dt><dd>A place where a test can swap behaviour without editing the code under test.</dd>
+  <dt>fake</dt><dd>A working shortcut implementation (FakeChannel).</dd>
+  <dt>spy</dt><dd>A double that records how it was called (captureStdout).</dd>
+  <dt>characterisation test</dt><dd>Pins today's behaviour before a refactor.</dd>
+  <dt>positive control</dt><dd>A test proving the thing <em>can</em> happen, so that "it didn't happen" tests mean something.</dd>
+</dl>
+
+<nav class="course"><a href="../lessons/0001-a-log-lines-journey.html">← Start of course</a></nav>
+</main>
+<script src="../assets/course-map.js"></script>
+<script src="../assets/nav.js"></script>
+</body>
+</html>

@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Capstone: Explain and Review</title>
+<link rel="stylesheet" href="../assets/course.css">
+<style>
+  .sorter .items > li { align-items: flex-start; }
+  .sorter .items > li > .hunk-title { flex: 1 1 auto; font-weight: 600; color: var(--text); }
+</style>
+</head>
+<body>
+<main>
+
+<p class="eyebrow">Lesson 8 · Tickets 01–03 · ~25 min</p>
+<h1>Capstone: explain and review</h1>
+<p class="lede">This lesson has no new concepts. You'll explain the platform in your own words, review a PR with planted mistakes, and walk through an incident, which covers the skills your mission asks for.</p>
+
+<h2>How to use this page</h2>
+<p>Everything here is <strong>retrieval</strong>: produce the answer from memory first, then open the model answer and compare. It's supposed to feel harder than the lessons did. That effort is what makes it stick. If something's gone completely, reread its lesson's "In short" box, not the whole lesson.</p>
+
+<h2>1 · Explain it aloud</h2>
+<p>Answer each one out loud, as if to a teammate who has never seen the repo. Aim for 30–60 seconds each, then open the model answer.</p>
+
+<h3>"Why did we move logs off Elasticsearch?"</h3>
+<details><summary>Model answer</summary>
+<p>That Elasticsearch cluster also serves <strong>product search</strong>, and the old Winston transport made a <strong>blocking network call per log line</strong>. So a burst of logs could slow down customers searching the catalogue. Now services write JSON to stdout and Alloy ships it to Loki, off the request path. Elasticsearch is reserved for search. (ADR 0001, first paragraph.)</p></details>
+
+<h3>"Walk me through one login, from the request to Grafana."</h3>
+<details><summary>Model answer</summary>
+<p>The request arrives, and the HTTP instrumentation starts a <strong>SERVER span</strong> (continuing any incoming <code>traceparent</code>) and makes it active. The middleware puts its trace ID in <code>x-trace-id</code>. Mongoose and MongoDB add CLIENT spans. <code>logger.warn</code> reads the active span, stamps <code>trace_id</code>, <strong>redacts</strong>, and writes one JSON line to stdout. Alloy tails it, makes <code>level</code>/<code>service</code> labels and <code>trace_id</code> structured metadata, and pushes to Loki. Meanwhile, the ended spans are batched, redacted and pushed over OTLP to Alloy, then to Tempo. In Grafana, a derived field links the log line to its trace, and traces-to-logs links back.</p></details>
+
+<h3>"What's the one rule about Loki labels?"</h3>
+<details><summary>Model answer</summary>
+<p>Labels must have <strong>few possible values</strong>, because every combination is a separate stream in the index. So only <code>level</code> and <code>service</code>. Anything per-user or per-request (<code>userId</code>, <code>trace_id</code>) stays in the line or in structured metadata.</p></details>
+
+<h3>"What happens if the collector is down?"</h3>
+<details><summary>Model answer</summary>
+<p>Requests carry on normally. Logs don't need the network at all. Spans sit in a bounded batch queue and are dropped when exports fail. We accept <strong>losing telemetry</strong> to avoid <strong>losing requests</strong>. There's a test for it, and you watched it happen in Lesson 6.</p></details>
+
+<h3>"Why these choices and not the alternatives?"</h3>
+<details><summary>Model answer</summary>
+<p><strong>A separate log-only Elasticsearch</strong> fixes the coupling but still has no traces or metrics, and links signals poorly. <strong>SaaS</strong> adds cost and an external dependency to a lab, and since we speak OTLP we could switch later by reconfiguring only the collector. <strong>Services pushing to each backend directly</strong> would couple every service to backend addresses and leave redaction and sampling without a central home. (ADR 0001, "Considered Options".)</p></details>
+
+<h2>2 · Review a PR: ship or block?</h2>
+<p>A fictional PR for ticket 05, "roll tracing out to <code>cart</code>". Some hunks are fine and some should be blocked. Decide every one, <em>then</em> check.</p>
+
+<div class="sorter" data-bins="Ship|Block">
+  <p class="q">For each hunk: would you approve it as it is?</p>
+  <ol class="items">
+    <li data-bin="1"><span class="hunk-title">cart/src/index.ts</span>
+<pre class="diff"><span class="add">+import app from './app';</span><span class="add">+import './tracing';</span><span class="ctx"> import { dbClient } from './db';</span></pre>
+      <p class="why"><strong>Block.</strong> <code>app</code> loads Express before the SDK starts, so the traces silently lose their spans. <code>./tracing</code> must be the first import (Lesson 5).</p></li>
+    <li data-bin="1"><span class="hunk-title">cart/src/tracing.ts</span>
+<pre class="diff"><span class="add">+import { startTelemetry } from '@ecom-micro/common';</span></pre>
+      <p class="why"><strong>Block.</strong> The main entry loads Express. Import from the <code>@ecom-micro/common/telemetry</code> subpath instead.</p></li>
+    <li data-bin="1"><span class="hunk-title">cart/src/tracing.ts (the logger uses <code>'cart-service'</code>)</span>
+<pre class="diff"><span class="add">+export const telemetry = startTelemetry({ serviceName: 'cart' });</span></pre>
+      <p class="why"><strong>Block.</strong> <code>service.name</code> must equal the logger's <code>service</code>, or trace → logs silently finds nothing (Lesson 6).</p></li>
+    <li data-bin="1"><span class="hunk-title">k8s/observability/alloy.yml, stage.labels</span>
+<pre class="diff"><span class="ctx">   level   = "",</span><span class="ctx">   service = "",</span><span class="add">+  user_id = "",</span></pre>
+      <p class="why"><strong>Block.</strong> High cardinality: one stream per user (Lesson 1). Keep it in the line and filter with <code>| json</code>.</p></li>
+    <li data-bin="0"><span class="hunk-title">cart/src/controllers/addItem.ts</span>
+<pre class="diff"><span class="add">+logger.info('Item added to cart', { userId, productId, quantity });</span></pre>
+      <p class="why"><strong>Ship.</strong> These are structured fields in the line body, which is exactly where high-cardinality IDs belong. Nothing here is secret.</p></li>
+    <li data-bin="1"><span class="hunk-title">common/src/queues/basePublisher.ts</span>
+<pre class="diff"><span class="del">-Buffer.from(JSON.stringify(data))</span><span class="add">+Buffer.from(JSON.stringify({ ...data, traceparent }))</span></pre>
+      <p class="why"><strong>Block.</strong> ADR 0001: trace context goes in <em>AMQP headers</em>, never the payload. This changes every event contract.</p></li>
+    <li data-bin="1"><span class="hunk-title">common/src/observability/telemetry.ts</span>
+<pre class="diff"><span class="del">-return new BatchSpanProcessor(new RedactingSpanExporter(new OTLPTraceExporter()));</span><span class="add">+return new SimpleSpanProcessor(new RedactingSpanExporter(new OTLPTraceExporter()));</span></pre>
+      <p class="why"><strong>Block.</strong> The Simple processor exports every span the moment it ends: one network call per span, no batching, and the redaction runs inside the request. Simple is only for the test seam.</p></li>
+    <li data-bin="1"><span class="hunk-title">cart/src/controllers/checkout.ts</span>
+<pre class="diff"><span class="add">+console.log('checkout body', req.body);</span></pre>
+      <p class="why"><strong>Block.</strong> <code>console.log</code> bypasses redaction. Card data or tokens in the body would reach Loki in plain text (Lesson 3).</p></li>
+    <li data-bin="0"><span class="hunk-title">common/src/middleware/errorHandler.ts</span>
+<pre class="diff"><span class="del">-console.log(err);</span><span class="add">+logger.error('Request failed', { error: err });</span></pre>
+      <p class="why"><strong>Ship.</strong> This fixes the Lesson 1 puzzle: the error becomes one structured, redacted JSON line with a <code>trace_id</code>, instead of an unlabelled stack trace.</p></li>
+    <li data-bin="1"><span class="hunk-title">k8s/observability/grafana.yml, tracesToLogsV2</span>
+<pre class="diff"><span class="del">-query: '{$${__tags}} | trace_id="$${__trace.traceId}"'</span><span class="add">+query: '{${__tags}} | trace_id="${__trace.traceId}"'</span></pre>
+      <p class="why"><strong>Block.</strong> Without <code>$$</code>, Grafana expands these as environment variables at startup, which leaves them empty, and the link breaks silently (Lesson 6).</p></li>
+  </ol>
+</div>
+<p class="meta">Score 8+ and you can review ticket 04–18 PRs for these classes of mistake. The <a href="../reference/0005-review-checklist.html">review checklist</a> collects them in one place.</p>
+
+<h2>3 · Walk an incident</h2>
+<p>Say each step before opening the answer.</p>
+<h3>"Login was really slow for me at about 10:40." Plus a screenshot showing <code>x-trace-id: 7c1e…</code></h3>
+<details><summary>Model walk-through</summary>
+<ol>
+  <li>Tempo → TraceQL → paste the ID. (No ID? Search <code>{ resource.service.name = "auth-service" &amp;&amp; duration &gt; 1s }</code> around 10:40.)</li>
+  <li>Read the waterfall: is the time in the Mongo CLIENT spans (database), or in a gap under the handler (our own code, such as bcrypt)?</li>
+  <li>Click <em>Logs for this span</em> for everything that request logged, including any warnings.</li>
+  <li>For scope, check whether it's just this one request. <code>sum by (level) (count_over_time({service="auth-service"}[5m]))</code> around 10:40 shows whether errors spiked.</li>
+</ol></details>
+
+<h3>"The trace ID in this log line says 'trace not found' in Tempo."</h3>
+<details><summary>Model walk-through</summary>
+<p>Four innocent causes, from most to least likely: it's older than Tempo's <strong>72 h</strong> retention; it was <strong>sampled out</strong> (an upstream <code>traceparent</code> with flags <code>00</code>); it was dropped during a <strong>collector outage</strong>; or the spans haven't arrived yet (the batch delay plus Tempo's block cut, so wait a minute). Only after those, suspect a bug.</p></details>
+
+<h3>"<code>webhook_pending</code> checkouts." (Ticket 06 onwards)</h3>
+<details><summary>What you can and can't do today</summary>
+<p>Not yet: <code>order</code> isn't traced or on the new logger until later tickets. Once it is, you'd search Loki for <code>{service="order-service"} |= "webhook"</code> and follow the trace from the payment request. When the tracing tickets land, the context-propagation skills from Lesson 5 are what will link the Stripe webhook to the order's events.</p></details>
+
+<h2>4 · Where you are now</h2>
+<p>Here are your mission's success criteria, and where each one was practised:</p>
+<dl class="fields">
+  <dt>trace a request end to end, naming every hop</dt><dd>Lessons 1, 4 and 6, plus section 1 of this page.</dd>
+  <dt>review a PR for tickets 04–18</dt><dd>Section 2 and the <a href="../reference/0005-review-checklist.html">review checklist</a>.</dd>
+  <dt>change the logger, bootstrap or config</dt><dd>Lessons 2, 3 and 7 showed you where each knob lives and which test guards it.</dd>
+  <dt>find logs and a trace from a symptom</dt><dd>Section 3.</dd>
+  <dt>explain ADR 0001</dt><dd>Section 1.</dd>
+</dl>
+<div class="callout">
+<p><strong>Next:</strong> we'll do spaced revision sessions. Each one opens with a recall check across these lessons, and we revisit whatever's faded. After that, we'll prepare for tickets 04–18. To try your understanding outside this course, the <a href="https://community.grafana.com/">Grafana Community forums</a> (Loki, Tempo, Alloy) and the CNCF Slack <a href="https://slack.cncf.io/">#opentelemetry channels</a> are where practitioners answer questions.</p>
+</div>
+
+<div class="recap">
+  <h2>In short: the whole course in 3</h2>
+  <ol>
+    <li><strong>Logs go to stdout; spans are pushed to Alloy.</strong> Only Alloy talks to Loki and Tempo, and a dead collector costs telemetry, never requests.</li>
+    <li><strong>One trace ID ties everything together:</strong> it's active in-process, carried by <code>traceparent</code>, stamped on logs, returned in <code>x-trace-id</code>, and linked in Grafana.</li>
+    <li><strong>Guard the invariants:</strong> few labels, logger-only output (redaction), tracing imported first, one service name everywhere.</li>
+  </ol>
+  <p><strong>If you forget everything:</strong> reread the <a href="../reference/0005-review-checklist.html">review checklist</a>. It's this course compressed.</p>
+</div>
+
+<div class="callout">
+<p class="label">Stuck or curious?</p>
+<p>Explain any of section 1 to me in chat and I'll tell you what's missing. Or paste a real ticket 04 diff and we'll review it together with the checklist.</p>
+</div>
+
+<nav class="course">
+  <a href="0007-test-seams.html">← Lesson 7: Test seams</a>
+  <span class="meta">End of tickets 01–03</span>
+</nav>
+
+</main>
+<script src="../assets/sorter.js"></script>
+<script src="../assets/course-map.js"></script>
+<script src="../assets/nav.js"></script>
+</body>
+</html>

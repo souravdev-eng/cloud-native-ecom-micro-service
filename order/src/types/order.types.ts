@@ -38,8 +38,20 @@ export interface OrderCancelledMessage {
   };
 }
 
-// Shape the client POSTs to /api/v1/order/new — quantity only; we never trust
-// a price coming from the browser.
+export interface ShippingAddressInput {
+  fullName: string;
+  phone: string;
+  addressLine1: string;
+  addressLine2?: string;
+  city: string;
+  state: string;
+  postalCode: string;
+  country: string;
+}
+
+// Shape the client POSTs to /api/v1/order/new — quantity and shipping address;
+// we never trust a price coming from the browser.
 export interface CreateOrderInput {
   items: Array<{ productId: string; quantity: number }>;
+  shippingAddress: ShippingAddressInput;
 }

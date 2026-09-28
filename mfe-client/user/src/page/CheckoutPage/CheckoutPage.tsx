@@ -1,17 +1,23 @@
-import { Elements, CardElement } from '@stripe/react-stripe-js';
-import { CircularProgress, MenuItem, FormControl, InputLabel } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CheckIcon from '@mui/icons-material/Check';
-import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
+import {
+	CircularProgress,
+	FormControl,
+	InputLabel,
+	MenuItem,
+} from '@mui/material';
+import { CardElement, Elements } from '@stripe/react-stripe-js';
 import { useNavigate } from 'react-router-dom';
 
-import PaymentProgress from '../../components/PaymentProgress/PaymentProgress';
-import { CARD_ELEMENT_OPTIONS, stripePromise } from '../../api/stripe';
-import { formatMoney, shortOrderId } from '../../utils/money';
-import * as Styled from './CheckoutPage.style';
 import { useCheckout } from './CheckoutPage.hook';
+import * as Styled from './CheckoutPage.style';
+
+import { CARD_ELEMENT_OPTIONS, stripePromise } from '../../api/stripe';
+import PaymentProgress from '../../components/PaymentProgress/PaymentProgress';
+import { formatMoney, shortOrderId } from '../../utils/money';
 
 const steps = ['Shipping', 'Payment', 'Confirmation'];
 
@@ -80,7 +86,9 @@ const CheckoutForm = () => {
 		return (
 			<Styled.PageContainer>
 				<Styled.SuccessContainer>
-					<Styled.SuccessTitle>Your order is waiting for payment</Styled.SuccessTitle>
+					<Styled.SuccessTitle>
+						Your order is waiting for payment
+					</Styled.SuccessTitle>
 					<Styled.SuccessText>
 						Order #{shortOrderId(order.id)} was placed but not paid for.
 					</Styled.SuccessText>
@@ -91,7 +99,9 @@ const CheckoutForm = () => {
 						<Styled.ContinueShoppingLink to={`/user/orders/${order.id}`}>
 							Complete payment
 						</Styled.ContinueShoppingLink>
-						<Styled.SecondaryLink to="/">Continue shopping</Styled.SecondaryLink>
+						<Styled.SecondaryLink to="/">
+							Continue shopping
+						</Styled.SecondaryLink>
 					</Styled.SuccessActions>
 				</Styled.SuccessContainer>
 			</Styled.PageContainer>
@@ -103,7 +113,9 @@ const CheckoutForm = () => {
 			<Styled.PageContainer>
 				<Styled.SuccessContainer>
 					<Styled.SuccessTitle>Your cart is empty</Styled.SuccessTitle>
-					<Styled.SuccessText>Add some items before checkout.</Styled.SuccessText>
+					<Styled.SuccessText>
+						Add some items before checkout.
+					</Styled.SuccessText>
 					<Styled.ContinueShoppingLink to="/">
 						Start Shopping
 					</Styled.ContinueShoppingLink>
@@ -132,7 +144,9 @@ const CheckoutForm = () => {
 						<Styled.ContinueShoppingLink to={`/user/orders/${order.id}`}>
 							View order
 						</Styled.ContinueShoppingLink>
-						<Styled.SecondaryLink to="/">Continue shopping</Styled.SecondaryLink>
+						<Styled.SecondaryLink to="/">
+							Continue shopping
+						</Styled.SecondaryLink>
 					</Styled.SuccessActions>
 				</Styled.SuccessContainer>
 			</Styled.PageContainer>
@@ -156,7 +170,11 @@ const CheckoutForm = () => {
 							active={activeStep === index}
 							completed={activeStep > index}
 						>
-							{activeStep > index ? <CheckIcon sx={{ fontSize: 16 }} /> : index + 1}
+							{activeStep > index ? (
+								<CheckIcon sx={{ fontSize: 16 }} />
+							) : (
+								index + 1
+							)}
 						</Styled.StepCircle>
 						<Styled.StepLabel
 							active={activeStep === index}
@@ -191,7 +209,9 @@ const CheckoutForm = () => {
 										fullWidth
 										label="Full Name"
 										value={shippingAddress.fullName}
-										onChange={(e) => updateShippingAddress('fullName', e.target.value)}
+										onChange={(e) =>
+											updateShippingAddress('fullName', e.target.value)
+										}
 										required
 									/>
 								</Styled.FormField>
@@ -221,7 +241,9 @@ const CheckoutForm = () => {
 										fullWidth
 										label="City"
 										value={shippingAddress.city}
-										onChange={(e) => updateShippingAddress('city', e.target.value)}
+										onChange={(e) =>
+											updateShippingAddress('city', e.target.value)
+										}
 										required
 									/>
 								</Styled.FormField>
@@ -230,7 +252,9 @@ const CheckoutForm = () => {
 										fullWidth
 										label="State / Province"
 										value={shippingAddress.state}
-										onChange={(e) => updateShippingAddress('state', e.target.value)}
+										onChange={(e) =>
+											updateShippingAddress('state', e.target.value)
+										}
 										required
 									/>
 								</Styled.FormField>
@@ -252,7 +276,10 @@ const CheckoutForm = () => {
 											label="Country"
 											value={shippingAddress.country}
 											onChange={(e) =>
-												updateShippingAddress('country', e.target.value as string)
+												updateShippingAddress(
+													'country',
+													e.target.value as string,
+												)
 											}
 										>
 											<MenuItem value="US">United States</MenuItem>
@@ -268,7 +295,9 @@ const CheckoutForm = () => {
 										fullWidth
 										label="Phone Number"
 										value={shippingAddress.phone}
-										onChange={(e) => updateShippingAddress('phone', e.target.value)}
+										onChange={(e) =>
+											updateShippingAddress('phone', e.target.value)
+										}
 										required
 									/>
 								</Styled.FormField>
@@ -277,9 +306,8 @@ const CheckoutForm = () => {
 							<Styled.Note>
 								<InfoOutlinedIcon sx={{ fontSize: 16 }} />
 								<span>
-									This address is sent to Stripe as the card's billing details. The
-									order service has no shipping-address field yet, so it is not
-									stored with the order.
+									This address is saved with your order and used as billing
+									details for secure card payment.
 								</span>
 							</Styled.Note>
 
@@ -353,14 +381,16 @@ const CheckoutForm = () => {
 									<span>
 										Order #{shortOrderId(order.id)} is already placed — retrying
 										pays that order instead of creating a new one. You can also
-										finish it later from{' '}
-										<strong>My Orders</strong>.
+										finish it later from <strong>My Orders</strong>.
 									</span>
 								</Styled.Note>
 							)}
 
 							<Styled.ButtonGroup>
-								<Styled.SecondaryButton onClick={handlePrevStep} disabled={processing}>
+								<Styled.SecondaryButton
+									onClick={handlePrevStep}
+									disabled={processing}
+								>
 									Back
 								</Styled.SecondaryButton>
 								<Styled.PrimaryButton
@@ -404,7 +434,9 @@ const CheckoutForm = () => {
 							/>
 							<Styled.SummaryItemDetails>
 								<Styled.SummaryItemTitle>{item.title}</Styled.SummaryItemTitle>
-								<Styled.SummaryItemMeta>Qty: {item.quantity}</Styled.SummaryItemMeta>
+								<Styled.SummaryItemMeta>
+									Qty: {item.quantity}
+								</Styled.SummaryItemMeta>
 							</Styled.SummaryItemDetails>
 							<Styled.SummaryItemPrice>
 								${item.total.toFixed(2)}
@@ -443,9 +475,11 @@ const CheckoutForm = () => {
 							{order ? (
 								<>
 									The order service priced this at{' '}
-									<strong>{formatMoney(order.totalAmount, order.currency)}</strong> —
-									that is the amount charged. Shipping and tax above are front-end
-									estimates only.
+									<strong>
+										{formatMoney(order.totalAmount, order.currency)}
+									</strong>{' '}
+									— that is the amount charged. Shipping and tax above are
+									front-end estimates only.
 								</>
 							) : (
 								<>

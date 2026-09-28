@@ -1,0 +1,417 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-service-detail
+data:
+  service-detail.json: |
+    {
+      "uid": "service-detail",
+      "title": "Service Detail",
+      "schemaVersion": 41,
+      "version": 1,
+      "refresh": "15s",
+      "time": {
+        "from": "now-1h",
+        "to": "now"
+      },
+      "timezone": "browser",
+      "tags": [
+        "observability",
+        "service"
+      ],
+      "templating": {
+        "list": [
+          {
+            "name": "environment",
+            "label": "Environment",
+            "type": "query",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "prometheus"
+            },
+            "query": {
+              "query": "label_values(http_server_request_duration_count, environment)",
+              "refId": "environment"
+            },
+            "refresh": 1,
+            "sort": 1,
+            "current": {
+              "text": "local",
+              "value": "local"
+            }
+          },
+          {
+            "name": "service",
+            "label": "Service",
+            "type": "query",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "prometheus"
+            },
+            "query": {
+              "query": "label_values(http_server_request_duration_count{environment=\"$environment\"}, service)",
+              "refId": "service"
+            },
+            "refresh": 1,
+            "sort": 1,
+            "current": {
+              "text": "auth-service",
+              "value": "auth-service"
+            }
+          }
+        ]
+      },
+      "panels": [
+        {
+          "id": 1,
+          "title": "Request rate by route",
+          "type": "timeseries",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "sum by (route) (rate(http_server_request_duration_count{service=\"$service\",environment=\"$environment\"}[$__rate_interval]))",
+              "legendFormat": "{{route}}",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              }
+            }
+          ],
+          "gridPos": {
+            "x": 0,
+            "y": 0,
+            "w": 12,
+            "h": 8
+          },
+          "options": {},
+          "fieldConfig": {
+            "defaults": {
+              "unit": "reqps"
+            },
+            "overrides": []
+          }
+        },
+        {
+          "id": 2,
+          "title": "Error rate by route",
+          "type": "timeseries",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "sum by (route) (rate(http_server_request_duration_count{service=\"$service\",environment=\"$environment\",status_class=~\"4xx|5xx\"}[$__rate_interval]))",
+              "legendFormat": "{{route}}",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              }
+            }
+          ],
+          "gridPos": {
+            "x": 12,
+            "y": 0,
+            "w": 12,
+            "h": 8
+          },
+          "options": {},
+          "fieldConfig": {
+            "defaults": {
+              "unit": "reqps"
+            },
+            "overrides": []
+          }
+        },
+        {
+          "id": 3,
+          "title": "Latency percentiles by route",
+          "type": "timeseries",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "histogram_quantile(0.5, sum by (le,route) (rate(http_server_request_duration_bucket{service=\"$service\",environment=\"$environment\"}[$__rate_interval])))",
+              "legendFormat": "p50 {{route}}",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "exemplar": true
+            },
+            {
+              "refId": "B",
+              "expr": "histogram_quantile(0.95, sum by (le,route) (rate(http_server_request_duration_bucket{service=\"$service\",environment=\"$environment\"}[$__rate_interval])))",
+              "legendFormat": "p95 {{route}}",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "exemplar": true
+            },
+            {
+              "refId": "C",
+              "expr": "histogram_quantile(0.99, sum by (le,route) (rate(http_server_request_duration_bucket{service=\"$service\",environment=\"$environment\"}[$__rate_interval])))",
+              "legendFormat": "p99 {{route}}",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "exemplar": true
+            }
+          ],
+          "gridPos": {
+            "x": 0,
+            "y": 8,
+            "w": 24,
+            "h": 9
+          },
+          "options": {},
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s"
+            },
+            "overrides": []
+          }
+        },
+        {
+          "id": 4,
+          "title": "Error logs",
+          "type": "logs",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "{service=\"$service\",level=\"error\"} | json | environment=\"$environment\"",
+              "$schemaVersion": "",
+              "datasource": {
+                "type": "loki",
+                "uid": "loki"
+              },
+              "queryType": "range"
+            }
+          ],
+          "gridPos": {
+            "x": 0,
+            "y": 17,
+            "w": 12,
+            "h": 9
+          },
+          "options": {}
+        },
+        {
+          "id": 5,
+          "title": "Slow recent traces",
+          "type": "table",
+          "datasource": {
+            "type": "tempo",
+            "uid": "tempo"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "query": "{ resource.service.name = \"$service\" && resource.deployment.environment = \"$environment\" && trace:duration > 1s }",
+              "queryType": "traceql",
+              "datasource": {
+                "type": "tempo",
+                "uid": "tempo"
+              },
+              "limit": 1000,
+              "tableType": "traces"
+            }
+          ],
+          "gridPos": {
+            "x": 12,
+            "y": 17,
+            "w": 12,
+            "h": 9
+          },
+          "options": {
+            "showHeader": true,
+            "cellHeight": "sm"
+          },
+          "transformations": [
+            {
+              "id": "sortBy",
+              "options": {
+                "fields": {},
+                "sort": [
+                  {
+                    "field": "Duration",
+                    "desc": true
+                  }
+                ]
+              }
+            },
+            {
+              "id": "limit",
+              "options": {
+                "limitField": 10
+              }
+            }
+          ]
+        },
+        {
+          "id": 6,
+          "title": "Event loop lag",
+          "type": "timeseries",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "nodejs_eventloop_lag{service=\"$service\",environment=\"$environment\"}",
+              "legendFormat": "",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              }
+            }
+          ],
+          "gridPos": {
+            "x": 0,
+            "y": 26,
+            "w": 8,
+            "h": 8
+          },
+          "options": {},
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s"
+            },
+            "overrides": []
+          }
+        },
+        {
+          "id": 7,
+          "title": "Heap used",
+          "type": "timeseries",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "nodejs_heap_used{service=\"$service\",environment=\"$environment\"}",
+              "legendFormat": "",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              }
+            }
+          ],
+          "gridPos": {
+            "x": 8,
+            "y": 26,
+            "w": 8,
+            "h": 8
+          },
+          "options": {},
+          "fieldConfig": {
+            "defaults": {
+              "unit": "bytes"
+            },
+            "overrides": []
+          }
+        },
+        {
+          "id": 8,
+          "title": "GC pause p95",
+          "type": "timeseries",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "histogram_quantile(0.95, sum by (le) (rate(nodejs_gc_duration_bucket{service=\"$service\",environment=\"$environment\"}[$__rate_interval])))",
+              "legendFormat": "",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              }
+            }
+          ],
+          "gridPos": {
+            "x": 16,
+            "y": 26,
+            "w": 8,
+            "h": 8
+          },
+          "options": {},
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s"
+            },
+            "overrides": []
+          }
+        },
+        {
+          "id": 9,
+          "title": "Slow dependency spans",
+          "type": "table",
+          "datasource": {
+            "type": "tempo",
+            "uid": "tempo"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "queryType": "traceql",
+              "query": "{ resource.service.name = \"$service\" && resource.deployment.environment = \"$environment\" && kind = client }",
+              "limit": 1000,
+              "tableType": "spans",
+              "datasource": {
+                "type": "tempo",
+                "uid": "tempo"
+              }
+            }
+          ],
+          "gridPos": {
+            "x": 0,
+            "y": 34,
+            "w": 24,
+            "h": 8
+          },
+          "options": {
+            "showHeader": true,
+            "cellHeight": "sm"
+          },
+          "transformations": [
+            {
+              "id": "sortBy",
+              "options": {
+                "fields": {},
+                "sort": [
+                  {
+                    "field": "Duration",
+                    "desc": true
+                  }
+                ]
+              }
+            },
+            {
+              "id": "limit",
+              "options": {
+                "limitField": 10
+              }
+            }
+          ]
+        }
+      ]
+    }

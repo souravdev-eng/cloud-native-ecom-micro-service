@@ -2,8 +2,8 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { cartApi, orderApi } from '../../api/baseUrl';
 import { usePayOrder } from '../../hooks/usePayOrder';
-import { parseErrorMessage } from '../../utils/parseError';
 import type { Order } from '../../types/order';
+import { parseErrorMessage } from '../../utils/parseError';
 
 /* ============================================================================
  * Checkout — cart → order → payment.
@@ -86,8 +86,9 @@ export const useCheckout = () => {
 		grandTotal: 0,
 	});
 
-	const [shippingAddress, setShippingAddress] =
-		useState<ShippingAddress>(initialShippingAddress);
+	const [shippingAddress, setShippingAddress] = useState<ShippingAddress>(
+		initialShippingAddress,
+	);
 	const [activeStep, setActiveStep] = useState(0);
 
 	// The order created in step 2. Kept even when payment fails, so the page can
@@ -127,9 +128,12 @@ export const useCheckout = () => {
 
 	useEffect(() => {
 		fetchCart();
-	}, [fetchCart]);
+	}, []);
 
-	const updateShippingAddress = (field: keyof ShippingAddress, value: string) => {
+	const updateShippingAddress = (
+		field: keyof ShippingAddress,
+		value: string,
+	) => {
 		setShippingAddress((prev) => ({ ...prev, [field]: value }));
 	};
 
@@ -175,7 +179,19 @@ export const useCheckout = () => {
 			}));
 
 			// The route sends the order object directly (201), not { success, order }.
-			const { data } = await orderApi.post<Order>('/order/new', { items });
+			const { data } = await orderApi.post<Order>('/order/new', {
+				items,
+				shippingAddress: {
+					fullName: shippingAddress.fullName,
+					phone: shippingAddress.phone,
+					addressLine1: shippingAddress.addressLine1,
+					addressLine2: shippingAddress.addressLine2 || undefined,
+					city: shippingAddress.city,
+					state: shippingAddress.state,
+					postalCode: shippingAddress.postalCode,
+					country: shippingAddress.country,
+				},
+			});
 
 			if (!data?.id) {
 				setCheckoutError('The order service responded without an order id.');
@@ -190,7 +206,7 @@ export const useCheckout = () => {
 		} finally {
 			setCreatingOrder(false);
 		}
-	}, [checkoutState.items]);
+	}, [checkoutState.items, shippingAddress]);
 
 	/**
 	 * Place the order, then pay for it. Re-running after a payment failure

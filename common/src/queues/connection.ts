@@ -1,7 +1,7 @@
-import client, { Channel, Connection } from 'amqplib';
+import client, { Channel, ChannelModel } from 'amqplib';
 
 export class QueueConnection {
-  private connection: Connection | undefined;
+  private connection: ChannelModel | undefined;
   private channel: Channel | undefined;
 
   constructor(private readonly endPoint: string) {

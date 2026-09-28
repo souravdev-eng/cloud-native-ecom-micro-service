@@ -10,7 +10,7 @@ const router = Router();
 
 /**
  * POST /api/v1/order/new — place a new order.
- * body: { items: [{ productId, quantity }] }
+ * body: { items: [{ productId, quantity }], shippingAddress: { fullName, phone, addressLine1, addressLine2?, city, state, postalCode, country } }
  * Middleware order is fixed: requireAuth → restrictTo → chain → requestValidation.
  */
 router.post(
@@ -21,7 +21,10 @@ router.post(
   requestValidation,
   async (req: Request, res: Response, next: NextFunction) => {
     // req.user is populated by currentUser + guaranteed present by requireAuth.
-    const order = await createOrder(req.user.id, { items: req.body.items });
+    const order = await createOrder(req.user.id, {
+      items: req.body.items,
+      shippingAddress: req.body.shippingAddress,
+    });
 
     // Publish AFTER the write succeeds so consumers never see a phantom order.
     await new OrderCreatedPublisher(rabbitMQWrapper.channel).publish({

@@ -78,16 +78,18 @@ Host consumes remotes `user`, `dashboard`, and `admin`; its `module-federation.c
 ### Skaffold (local k8s dev)
 ```bash
 skaffold dev              # profile: minimal (default, auto-activated on `dev`)
+skaffold dev -p observability  # minimal + Alloy, Loki, Tempo, Grafana (k8s/observability/)
 skaffold dev -p backend   # adds notification, order, etl
 skaffold dev -p full      # everything including ELK stack
 ```
 - `minimal`: auth, product, cart + Postgres, RabbitMQ, Redis, ingress
 - Images built locally (no push); file sync on `src/**/*.ts` for hot reload
 - Secrets/config must exist in `k8s/secret/` and `k8s/config/` before `skaffold dev`
+- `observability` repeats `minimal`'s manifest list because skaffold applies profiles in declaration order and `minimal` auto-activates on `dev`; a later profile's `rawYaml` replaces the earlier one. Grafana: `kubectl port-forward svc/grafana-srv 3300:3000`, login from `GRAFANA_ADMIN_USER`/`GRAFANA_ADMIN_PASSWORD` in `ecom-secret`.
 
 ## Architecture notes
 
-**Shared foundation via `@ecom-micro/common`.** All Node services depend on this published package for cross-cutting concerns: error types, Express middleware (auth, error handling), RabbitMQ producer/consumer wrappers (`queues/`), typed event contracts (`events/`), and Winston + winston-elasticsearch logger. When adding a new event or error type, the change belongs in `common/src/`, must be published, and then consumed via version bump in each service.
+**Shared foundation via `@ecom-micro/common`.** All Node services depend on this published package for cross-cutting concerns: error types, Express middleware (auth, error handling), RabbitMQ producer/consumer wrappers (`queues/`), typed event contracts (`events/`), and a Winston logger (`createLogger`: redacted JSON to stdout, shipped to Loki by Alloy; see ADR 0001). When adding a new event or error type, the change belongs in `common/src/`, must be published, and then consumed via version bump in each service.
 
 **Event-driven communication over RabbitMQ.** Services are connected asynchronously through RabbitMQ (see `k8s/rabbitmq-depl.yml` and `amqplib` usage). Typical flows: Product events → Cart (inventory sync), Product events → Notification (alerts), Product events → Order (price updates), ETL subscribes to Mongo/Postgres writes for sync. Synchronous HTTP calls between services are avoided — add a new event type in `common/src/events/` instead.
 
@@ -136,6 +138,8 @@ Every product route is behind `requireAuth`, so the storefront shows nothing to 
 - `common` consumer versions drift — several services pin `^2.0.48` while `common/package.json` is at `2.0.51`. Check the declared version before relying on a newly-added export.
 - Secrets in `k8s/secret/` are not gitignored templates; real values must be present locally for `skaffold dev` to succeed. `config.MD` shows sample `AUTH_DB_URL` / `PRODUCT_URL` format.
 - `order/` has no jest config or tests — do not assume test scaffolding exists there.
+- Tracing: `startTelemetry` comes from the `@ecom-micro/common/telemetry` subpath (never the main entry, which loads Express) and must be the first import in a service's entry file (`auth/src/tracing.ts`); modules loaded before it aren't instrumented.
+- `common`'s `npm test` runs Jest under `node --experimental-vm-modules` (the OTLP exporter uses dynamic `import()`), and telemetry tests `jest.mock('module', …)` back to the real built-in so `http` gets patched. Only `http` spans are observable under Jest; Express/Mongoose load through Jest's registry and escape the hooks.
 - Services use Node's npm/ts-node-dev; the MFE monorepo uses pnpm. Don't cross-run.
 - `turbo --filter` matches **package** names (`@mfe/host`), not directory names — `--filter=host` silently matches nothing. `config/dev-config.cjs#packageName()` reads the real name from each app's `package.json`.
 - `mfe-client/scripts/start-dev.sh` is a deprecated shim that execs `scripts/dev.mjs`; use `pnpm dev`.
@@ -143,3 +147,17 @@ Every product route is behind `requireAuth`, so the storefront shows nothing to 
 - `pnpm lint` fails in every workspace: ESLint 9 is installed but the repo still has `.eslintrc.*`, and v9 only reads `eslint.config.js`. Needs a flat-config migration.
 - Building the `user` and `dashboard` remotes prints `Unable to compile federated types #TYPE-001`. The bundle itself compiles fine; only the `@mf-types` declaration emit fails, on TS2883 from MUI `styled()` components under pnpm's nested `node_modules`. Pre-existing.
 - `mfe-client/shared/module-federation.config.ts` has `name: 'sheared'` (typo). Harmless today since `shared` is consumed as a library, but don't rely on that name.
+
+## Agent skills
+
+### Issue tracker
+
+Issues are local markdown files under `.scratch/<feature>/` (committed, not GitHub Issues). See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+The five default role strings (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`), recorded as a `Status:` line in each issue file. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Multi-context: the root `CONTEXT-MAP.md` points to one `CONTEXT.md` per service. System-wide ADRs go in `doc/adr/` and service-specific ADRs in `<svc>/doc/adr/`. See `docs/agents/domain.md`.

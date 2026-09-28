@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Observability Review Checklist</title>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<main>
+
+<p class="eyebrow">Reference · For PRs on tickets 04–18</p>
+<h1>Review checklist</h1>
+<p class="meta">Each item is a mistake that fails <em>silently</em>: nothing errors, and the telemetry just gets worse or unsafe. That's why a reviewer has to catch it.</p>
+
+<h2>Logs</h2>
+<ol>
+  <li><strong>No new <code>console.log</code>.</strong> It bypasses redaction, JSON and trace_id. Use the shared logger. (L3)</li>
+  <li><strong>No new Loki labels with many values.</strong> Only <code>level</code> and <code>service</code>. IDs go in the line or in structured metadata. (L1)</li>
+  <li><strong>Secrets have secret-looking names.</strong> A new sensitive field that doesn't match the deny list needs a word in <code>sensitiveKeys.ts</code> plus a test. (L3)</li>
+  <li><strong>The cluster stays on <code>LOG_FORMAT=json</code>.</strong> Pretty output breaks Alloy's labels and the log → trace link. (L6)</li>
+</ol>
+
+<h2>Traces</h2>
+<ol start="5">
+  <li><strong><code>import './tracing'</code> is the first line</strong> of the entry file. (L5)</li>
+  <li><strong>The bootstrap comes from <code>@ecom-micro/common/telemetry</code></strong>, not the main entry, which loads Express. (L5)</li>
+  <li><strong>One service name:</strong> <code>createLogger({ service })</code> equals <code>startTelemetry({ serviceName })</code>. (L6)</li>
+  <li><strong>Incoming <code>traceparent</code> is continued</strong>, never overwritten. For AMQP, context goes in <em>headers</em>, not payloads. (L5, ADR 0001)</li>
+  <li><strong>Batch processor in production.</strong> Simple is for the test seam only. (L6, L8)</li>
+  <li><strong>No new resource detectors that record the command line or env.</strong> Resource attributes aren't redacted. (L6)</li>
+</ol>
+
+<h2>Safety and architecture</h2>
+<ol start="11">
+  <li><strong>Nothing on the request path waits for telemetry.</strong> No awaits on export, no synchronous network calls. (L6)</li>
+  <li><strong>Services talk only to Alloy</strong>, never to Loki, Tempo or Prometheus directly. No Elasticsearch for telemetry. (ADR 0001)</li>
+  <li><strong>New cross-cutting telemetry lives in <code>common</code></strong> and ships with a version bump; each consumer is bumped. (ADR 0001, CLAUDE.md)</li>
+</ol>
+
+<h2>Grafana and Alloy config</h2>
+<ol start="14">
+  <li><strong><code>$$</code> in Grafana provisioning variables</strong> (<code>$${__tags}</code>), or Grafana expands them from the environment and they come out empty. (L6)</li>
+  <li><strong>Follow the <code>forward_to</code>/<code>output</code> chain</strong> end to end. A component nobody forwards to does nothing. (L2)</li>
+  <li><strong>Requests and limits are set</strong> on new observability workloads (a ticket 02 criterion).</li>
+</ol>
+
+<h2>Tests</h2>
+<ol start="17">
+  <li><strong>They assert on outputs</strong> (channel calls, exported spans, stdout, headers), not on private fields. (L7)</li>
+  <li><strong>Seams don't skip the code under test.</strong> For example, the test exporter must still go through the redactor. (L7)</li>
+  <li><strong>"Nothing is sent" tests have a positive control.</strong> (L7)</li>
+</ol>
+
+<nav class="course"><a href="../lessons/0008-capstone-explain-and-review.html">← Capstone</a></nav>
+</main>
+<script src="../assets/course-map.js"></script>
+<script src="../assets/nav.js"></script>
+</body>
+</html>

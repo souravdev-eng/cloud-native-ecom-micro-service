@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Context and Traceparent</title>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<main>
+
+<p class="eyebrow">Lesson 5 · Ticket 03 · ~20 min</p>
+<h1>Context and traceparent</h1>
+<p class="lede">By the end you'll have forced <code>auth</code> to join a trace <em>you</em> invented, by sending a hand-written <code>traceparent</code> header. You'll also be able to explain why <code>import './tracing'</code> has to be the first line of <code>index.ts</code>.</p>
+
+<h2>Why this exists</h2>
+<p>Here's a puzzle from Lesson 1. This call never mentions a trace:</p>
+<pre>logger.warn('Login failed', { reason: 'unknown_email', email });</pre>
+<p>Yet the line it writes carries <code>trace_id</code> and <code>span_id</code>. Nothing was passed in, so how does the logger know? The answer is <strong>context</strong>. The same idea, sent across a network, is how one trace can cover several services. Tickets 06 onward depend on it.</p>
+<p>OpenTelemetry's definitions: <strong>context</strong> is "an object that contains the information for the sending and receiving service … to correlate one signal with another", and <strong>propagation</strong> is "the mechanism that moves context between services and processes" (<a href="https://opentelemetry.io/docs/concepts/context-propagation/">OTel: Context propagation</a>).</p>
+
+<h2>1 · Inside one process: the active span</h2>
+<p>When the HTTP instrumentation starts the SERVER span for a request, it makes that span <strong>active</strong> for everything that runs on behalf of that request, even across <code>await</code>s. Node's <code>AsyncLocalStorage</code> tracks this. It stores data "throughout the lifetime of a web request or any other asynchronous duration", like thread-local storage in other languages (<a href="https://nodejs.org/api/async_context.html">Node.js: Asynchronous context tracking</a>).</p>
+<p>So any code, however deep, can ask "which span am I in?". That's all <a href="../../../../common/src/observability/traceContext.ts">traceContext.ts</a> does:</p>
+<pre>export const activeTraceIds = () => {
+  const span = trace.getSpan(context.active());   // "the span for this request"
+  if (!span) return undefined;                    // outside any request
+  const spanContext = span.spanContext();
+  if (!isSpanContextValid(spanContext)) return undefined;  // all-zero = no trace
+  return { traceId: spanContext.traceId, spanId: spanContext.spanId };
+};</pre>
+<p>It has two callers, and both rely on running <em>at the right moment</em>:</p>
+<dl class="fields">
+  <dt>the logger (<code>applySchema</code>)</dt><dd>Winston formats run synchronously inside the <code>logger.warn(…)</code> call, so the active span is the caller's own.</dd>
+  <dt>the <code>x-trace-id</code> middleware</dt><dd>Sets the header as the request <em>arrives</em>, not as it's sent, because "by then the trace context of an async handler may no longer be active" (<a href="../../../../common/src/middleware/traceIdHeader.ts">traceIdHeader.ts</a>).</dd>
+</dl>
+<div class="callout">
+<p><strong>Consequence:</strong> a log line written <em>outside</em> any request, like "Mongo connected successfully" at startup, has no <code>trace_id</code>. That's correct behaviour, not a bug. Alloy skips the structured-metadata field for those lines.</p>
+</div>
+
+<h2>2 · Between processes: the traceparent header</h2>
+<p>A process can't see another process's memory, so context has to travel <em>in the request itself</em>. The W3C Trace Context standard defines one header for it (<a href="https://www.w3.org/TR/trace-context/">W3C Trace Context</a>):</p>
+<pre>traceparent: 00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01
+             │  └──────────── trace-id ────────┘ └── parent-id ─┘ └ flags
+             version (00)       32 hex             16 hex         01 = sampled</pre>
+<dl class="fields">
+  <dt>trace-id</dt><dd>The trace this request belongs to. The receiver <strong>keeps</strong> it.</dd>
+  <dt>parent-id</dt><dd>"The ID of this request as known by the caller": the caller's span. The receiver's SERVER span becomes its <strong>child</strong>.</dd>
+  <dt>flags</dt><dd><code>01</code> means "the caller may have recorded trace data" (sampled). <code>00</code> means it didn't.</dd>
+</dl>
+<p>The HTTP instrumentation reads this header on every incoming request and adds it to every outgoing one. That behaviour, <strong>continue, don't replace</strong>, is pinned by a test in <a href="../../../../common/src/observability/__test__/telemetry.test.ts">telemetry.test.ts</a>:</p>
+<pre>it('continues an incoming W3C traceparent instead of starting a new trace', …
+  expect(span.spanContext().traceId).toBe(UPSTREAM_TRACE_ID);
+  expect(span.parentSpanContext?.spanId).toBe(UPSTREAM_SPAN_ID);</pre>
+<p><strong>Looking ahead to ticket 06:</strong> RabbitMQ messages need the same thing. ADR 0001 says trace context goes in the <em>AMQP message headers</em>, never in the event payload, so the event contracts in <code>common/src/events/</code> don't change. The fake channel from ticket 01 already has room for it (<code>options.headers</code>).</p>
+
+<h2>3 · Sampling is decided once, at the root</h2>
+<p>Keeping every trace gets expensive, so some are dropped. <strong>Head sampling</strong> decides "as early as possible", while <strong>tail sampling</strong> decides after "considering all or most of the spans within the trace" (<a href="https://opentelemetry.io/docs/concepts/sampling/">OTel: Sampling</a>). The bootstrap uses head sampling:</p>
+<pre>sampler: new ParentBasedSampler({ root: new TraceIdRatioBasedSampler(sampleRatio()) }),</pre>
+<dl class="fields">
+  <dt>no incoming traceparent (a root)</dt><dd>Kept with probability <code>OTEL_TRACES_SAMPLER_ARG</code>. The default is 1, which keeps everything.</dd>
+  <dt>traceparent present (a child)</dt><dd>Follows the caller's flag, so a trace is "never half-recorded across services" (comment in <a href="../../../../common/src/observability/telemetry.ts">telemetry.ts</a>).</dd>
+</dl>
+<p>The spec's cost control is <em>tail</em> sampling in Alloy, which keeps every error and slow trace (a later ticket). Head sampling stays at 100% so that Alloy still has the whole trace to judge.</p>
+
+<h2>4 · Why tracing.ts must be imported first</h2>
+<p>Auto-instrumentation works by <strong>patching a library at the moment it's loaded</strong>. When Express is <code>require</code>d, the SDK swaps in a wrapped version. If Express was loaded <em>before</em> the SDK started, there was nothing to intercept. OTel's own guide: "The instrumentation setup and configuration must be run <em>before</em> your application code" (<a href="https://opentelemetry.io/docs/languages/js/getting-started/nodejs/">OTel JS: Getting started</a>).</p>
+<p>That's why <a href="../../../../auth/src/index.ts">auth/src/index.ts</a> starts like this:</p>
+<pre>/** Must stay the first import; see tracing.ts. */
+import './tracing';          // ← startTelemetry({ serviceName: 'auth-service' })
+import { Channel } from 'amqplib';
+import mongoose from 'mongoose';
+…
+import app from './app';     // ← loads Express</pre>
+<p>There's a second, subtler rule behind the same bug. <code>startTelemetry</code> comes from a <strong>separate subpath</strong>, <code>@ecom-micro/common/telemetry</code>. The main <code>@ecom-micro/common</code> entry loads Express (for its middleware), so importing the bootstrap from there would load Express <em>before</em> the SDK starts, which is the same bug in disguise. The header comment of <a href="../../../../common/src/observability/telemetry.ts">telemetry.ts</a> says it "must stay free of Express, Mongoose, amqplib and the rest of common".</p>
+<details><summary>What would you actually see if the order were wrong?</summary>
+<p>No error at all. The service runs fine, but its traces are thin: the Express handler spans and the Mongoose/MongoDB spans are missing. You might still get the bare HTTP span, depending on load order. It's a <em>silent</em> failure, which is why it's worth checking in every service's entry file when tickets 05+ roll tracing out to cart, product and order.</p>
+</details>
+
+<h2>5 · Lab: join a trace you invented</h2>
+<ol class="steps">
+  <li>
+    <p><strong>Send your own traceparent.</strong> Make up a trace ID of 32 hex characters (all 1s is easy to spot) and a parent ID of 16:</p>
+<pre>curl -sk -i https://ecom.dev/api/users/currentuser \
+  -H 'traceparent: 00-11111111111111111111111111111111-2222222222222222-01' | grep -i x-trace-id</pre>
+    <details><summary>Checkpoint: what should the header say?</summary>
+    <p><code>x-trace-id: 11111111111111111111111111111111</code>. Auth continued <em>your</em> trace instead of starting one. If you get a different ID, something in front of auth (the NGINX ingress) started its own trace and replaced the header. That would be worth knowing, so tell me.</p></details>
+  </li>
+  <li>
+    <p><strong>Find it in Tempo.</strong> Paste <code>11111111111111111111111111111111</code> into the TraceQL tab.</p>
+    <details><summary>Why does Tempo complain about the root?</summary>
+    <p>The root span, <code>2222…</code>, lives in a "caller" that doesn't exist: you. Tempo shows auth's SERVER span with a parent it never received. In real life, that missing parent would be the upstream service, and it would be there.</p></details>
+  </li>
+  <li>
+    <p><strong>Predict, then test: an unsampled parent.</strong> Same request, a new trace ID and flags <code>00</code>:</p>
+<pre>curl -sk -i https://ecom.dev/api/users/currentuser \
+  -H 'traceparent: 00-33333333333333333333333333333333-4444444444444444-00' | grep -i x-trace-id</pre>
+    <p>Before looking: will <code>x-trace-id</code> be set? Will the trace be in Tempo?</p>
+    <details><summary>What happened, and why it matters</summary>
+    <p>The header is still <code>3333…</code>: the trace ID exists and is carried on, so log lines get it too. But Tempo has <strong>no trace</strong>, because the parent-based sampler honoured "not sampled" and recorded nothing. Remember this for debugging: <em>"log has a trace_id, Tempo says trace not found"</em> can simply mean the trace was sampled out upstream.</p></details>
+  </li>
+  <li>
+    <p><strong>Read the test that guards import order.</strong> Open <a href="../../../../common/src/observability/__test__/telemetry.test.ts">telemetry.test.ts</a> and find <code>require('express')</code> inside <code>beforeAll</code>.</p>
+    <details><summary>Why <code>require</code> there, and not an <code>import</code> at the top?</summary>
+    <p>Top-level imports run before any test code, which would load Express before <code>startTelemetry</code>: the exact bug from section 4. Requiring it after the SDK starts mirrors the rule services must follow. Lesson 7 covers this test's other tricks.</p></details>
+  </li>
+</ol>
+
+<h2>6 · Check yourself</h2>
+<p class="score"></p>
+
+<div class="quiz" data-answer="1">
+  <p class="q">How does the logger find the current request's trace ID?</p>
+  <div class="options">
+    <button>The caller passes it in</button>
+    <button>It reads the active context</button>
+    <button>It parses the incoming header</button>
+    <button>Alloy adds it after reading</button>
+  </div>
+  <p class="why"><code>trace.getSpan(context.active())</code>. AsyncLocalStorage keeps the request's span active across awaits.</p>
+</div>
+
+<div class="quiz" data-answer="3">
+  <p class="q">In a <code>traceparent</code>, what does the receiver keep unchanged?</p>
+  <div class="options">
+    <button>The parent span's ID</button>
+    <button>The version number field</button>
+    <button>Its own span ID</button>
+    <button>The 32-hex trace ID</button>
+  </div>
+  <p class="why">The trace ID stays the same across every hop. The parent-id is the <em>caller's</em> span; the receiver makes a new span that points to it.</p>
+</div>
+
+<div class="quiz" data-answer="0">
+  <p class="q">Express is imported before <code>startTelemetry</code> runs. What happens?</p>
+  <div class="options">
+    <button>Spans go silently missing</button>
+    <button>The service won't start</button>
+    <button>Every request returns 500</button>
+    <button>Logs stop being written</button>
+  </div>
+  <p class="why">Patching only happens at load time, so nothing errors. The traces just lack the Express and database spans, which is why it's easy to miss.</p>
+</div>
+
+<div class="quiz" data-answer="2">
+  <p class="q">Why must trace context go in AMQP <em>headers</em>, not the event payload?</p>
+  <div class="options">
+    <button>Payloads get redacted first</button>
+    <button>RabbitMQ drops large payloads</button>
+    <button>Event contracts stay unchanged</button>
+    <button>Headers are always encrypted</button>
+  </div>
+  <p class="why">ADR 0001: "Trace context travels in AMQP message headers, never in event payloads. Event contracts stay unchanged." Telemetry stays out of the business data.</p>
+</div>
+
+<div class="quiz" data-answer="1">
+  <p class="from">From Lesson 4</p>
+  <p class="q">What span kind is the root of an auth login trace?</p>
+  <div class="options">
+    <button>CLIENT for the call</button>
+    <button>SERVER for the request</button>
+    <button>INTERNAL for the handler</button>
+    <button>CONSUMER for the message</button>
+  </div>
+  <p class="why">The incoming HTTP request is the SERVER span. With your hand-written traceparent, it's no longer the root: your fake caller is.</p>
+</div>
+
+<div class="quiz" data-answer="3">
+  <p class="from">From Lesson 3</p>
+  <p class="q">Which query uses structured metadata without parsing JSON?</p>
+  <div class="options">
+    <button><code>{trace_id="1111…"} | json</code></button>
+    <button><code>{service="auth-service"} | json</code></button>
+    <button><code>{service="auth-service"} |~ "1111"</code></button>
+    <button><code>{service="auth-service"} | trace_id="1111…"</code></button>
+  </div>
+  <p class="why">A <code>| trace_id="…"</code> filter straight after the selector reads structured metadata. <code>{trace_id=…}</code> would need it to be a label, which it isn't.</p>
+</div>
+
+<div class="recap">
+  <h2>In short: remember these 3</h2>
+  <ol>
+    <li><strong>Inside a process, the active span follows the request</strong> (AsyncLocalStorage). That's how logs get <code>trace_id</code> without anyone passing it.</li>
+    <li><strong>Between processes, <code>traceparent</code> carries it:</strong> <code>version-traceId-parentId-flags</code>. Continue it, never replace it. For AMQP, it goes in headers, not payloads.</li>
+    <li><strong>Instrumentation patches libraries as they load</strong>, so <code>import './tracing'</code> comes first and the bootstrap lives on its own Express-free subpath.</li>
+  </ol>
+  <p><strong>If you forget everything:</strong> "same trace ID on every hop; tracing loads first".</p>
+  <p><strong>You don't need to memorise</strong> the sampler class names or the flag bits. Just remember: <code>01</code> sampled, <code>00</code> not. It's all in the <a href="../reference/0003-traces-pipeline.html">traces cheat sheet</a>.</p>
+</div>
+
+<div class="callout">
+<p class="label">Read next (10 min)</p>
+<p><a href="https://opentelemetry.io/docs/concepts/context-propagation/">OpenTelemetry: Context propagation</a> is short and is the primary source. Then look at the <a href="https://www.w3.org/TR/trace-context/#traceparent-header">traceparent section of the W3C spec</a>. You only need the examples, not the parsing rules.</p>
+</div>
+
+<div class="callout">
+<p class="label">Stuck or curious?</p>
+<p>Ask me things like "what happens to context across <code>setTimeout</code>?", "how will ticket 06 inject into AMQP?" or "why did my traceparent get replaced?"</p>
+</div>
+
+<nav class="course">
+  <a href="0004-traces-and-spans.html">← Lesson 4: Traces and spans</a>
+  <a href="0006-linking-logs-and-traces.html">Next: Linking logs and traces →</a>
+</nav>
+
+</main>
+<script src="../assets/quiz.js"></script>
+<script src="../assets/course-map.js"></script>
+<script src="../assets/nav.js"></script>
+</body>
+</html>

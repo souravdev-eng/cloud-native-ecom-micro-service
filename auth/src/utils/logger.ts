@@ -1,8 +1,7 @@
-import { winstonLogger } from '@ecom-micro/common';
-import { config } from '../config';
+import { createLogger } from '@ecom-micro/common';
 
-export const logger = winstonLogger(
-  config.ELASTICSEARCH_URL!,
-  'auth-service',
-  config.NODE_ENV === 'development' ? 'debug' : 'info'
-);
+/**
+ * The logger writes JSON lines to stdout, which Alloy ships to Loki. Grafana
+ * finds them with `{service="auth-service"}`, and `LOG_LEVEL` sets verbosity.
+ */
+export const logger = createLogger({ service: 'auth-service' });
