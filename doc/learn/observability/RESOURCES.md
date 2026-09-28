@@ -39,6 +39,23 @@
 - Spec in this repo: `.scratch/observability-platform/spec.md`
   User stories and implementation decisions for all 18 tickets.
 
+- [Prometheus: Metric types](https://prometheus.io/docs/concepts/metric_types/)
+  Counters, gauges and classic histograms. Primary reading for Lesson 9.
+- [Prometheus: Histograms and summaries](https://prometheus.io/docs/practices/histograms/)
+  Quantiles, bucket precision and aggregation. Use for: reading or reviewing latency queries.
+- [Prometheus: Query functions](https://prometheus.io/docs/prometheus/latest/querying/functions/)
+  rate and histogram_quantile semantics. Use for: rate-before-sum and resets.
+- [Prometheus: Metric and label naming](https://prometheus.io/docs/practices/naming/)
+  Bounded metric dimensions. Use for: rejecting raw URLs and IDs as metric labels.
+- [OpenTelemetry: HTTP metrics conventions](https://opentelemetry.io/docs/specs/semconv/http/http-metrics/)
+  Duration instrument and bounded route templates. Repo uses its own shorter attribute names.
+- [Grafana: Exemplars](https://grafana.com/docs/grafana/latest/fundamentals/exemplars/)
+  Connecting metric examples to traces. Use for: distinguishing an example from a percentile.
+- [Alloy: prometheus.scrape](https://grafana.com/docs/alloy/latest/reference/components/prometheus/prometheus.scrape/)
+  Targets, protocols and intervals. Use for: the pull side of ticket 04.
+- [Alloy: prometheus.remote_write](https://grafana.com/docs/alloy/latest/reference/components/prometheus/prometheus.remote_write/)
+  Forwarding samples and exemplars. Use for: the storage side of ticket 04.
+
 ## Wisdom (Communities)
 
 - [Grafana Community forums](https://community.grafana.com/)
@@ -49,4 +66,4 @@
 ## Gaps
 
 - The lab outputs in Lessons 3–6 still need checking against a running cluster (it was down on 2026-09-27).
-- Metrics (Prometheus, RED, exemplars) sources, for ticket 04 onwards.
+- Lesson 9 live dashboard/exemplar lab still needs verification; the local cluster was unavailable on 2026-09-28.

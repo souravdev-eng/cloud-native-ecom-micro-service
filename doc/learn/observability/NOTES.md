@@ -34,3 +34,10 @@ Interleave retrieval questions from earlier lessons from lesson 3 onward.
 - **Labs in Lessons 3–6 were NOT run against a live cluster.** It was down when they were written (2026-09-27). Their commands are checked against the code and config only. Span names in Lesson 4's waterfall are illustrative. Verify in the first revision session and fix anything that differs. Lesson 7's lab *was* run: 15 tests green, and both mutations fail exactly the tests the lesson predicts.
 - Lessons teach the **committed ticket 03 state**. Ticket 04 (metrics, `mountObservability` in `common/src/observability/http.ts`, which now wraps `traceIdHeader`) was in progress in the working tree at the time. Lesson 4 mentions this in one line.
 - Open questions to settle live: does ingress-nginx pass a client's `traceparent` through untouched (Lesson 5 lab)? After an Alloy outage, do the missed log lines get backfilled (Lesson 6 lab)? Record the answers as learning records.
+
+## Ticket 04 session — 2026-09-28
+- User explicitly requested teaching ticket 04; continue in this course despite the older mission’s ticket-prep exclusion. Mission unchanged.
+- Lesson 9 and reference 0006 added, reusing course.css, quiz.js and navigation. Concepts first, implementation second, local test and optional cluster lab.
+- Recall question sent: why trace_id stays a field rather than a Loki label. No answer yet; no mastery inferred and no new learning record.
+- Common HTTP metrics test passed. Cluster connection refused. Validator could not finish because promtool was missing; auth smoke test not run. Do not treat live dashboard/exemplar acceptance as verified.
+- New terminology always says “metric label” for Prometheus dimensions. Error-rate panel is 4xx + 5xx requests/sec; access logs remain info. Exemplar is latest sampled example, not p95 request or slowest request.

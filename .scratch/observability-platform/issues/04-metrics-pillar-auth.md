@@ -28,7 +28,7 @@ Add a CI-runnable check that every provisioned dashboard JSON parses and referen
 
 **Blocked by:** 03 (traces pillar, needed for exemplars and trace panels)
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [ ] Common tests: after requests to `/product/123`-style paths, `/metrics` shows the duration histogram labelled with the route template and counts that increase
 - [ ] Common tests: exactly one access-log line per request, with `token` query values masked
@@ -37,3 +37,8 @@ Add a CI-runnable check that every provisioned dashboard JSON parses and referen
 - [ ] Service Detail dashboard renders for `auth` with RED, error logs, slow traces and runtime panels
 - [ ] Clicking an exemplar opens the Tempo trace
 - [ ] Dashboard/rules validation check runs locally and passes
+
+## Comments
+
+- 2026-09-28: Status reconciled with implementation commit `25c9a84` (2026-09-27), which adds the auth metrics pillar, common 2.4.1/auth dependency update, Prometheus/Alloy configuration, Service Detail dashboard, tests and configuration-validation CI. The ticket status update was omitted from that commit.
+- This status records the committed implementation. Acceptance checkboxes remain unchecked because passing test results and live dashboard/exemplar verification were not confirmed during this tracking update.
