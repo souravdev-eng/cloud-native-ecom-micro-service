@@ -26,11 +26,10 @@ const app = express();
 
 // middleware
 app.set("trust proxy", 1); //? because we transfer our request via ingress proxy
-/** First, so every response, errors included, carries its trace ID for lookup in Tempo. */
-mountObservability(app, { service: "auth-service" });
 
 /*
- * Health check routes
+ * Health check routes run before request logging so frequent Kubernetes probes
+ * do not fill the auth logs. Application requests still use observability below.
  * - mongodb: Checks if MongoDB is connected and responsive.
  * - rabbitmq: Checks if RabbitMQ is connected and responsive.
  */
@@ -55,6 +54,9 @@ app.use(
     { timeoutMs: 1000 },
   ),
 );
+
+/** Add trace IDs, access logs and metrics to application requests. */
+mountObservability(app, { service: "auth-service" });
 
 app.use(express.json());
 

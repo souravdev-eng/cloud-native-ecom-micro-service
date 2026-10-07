@@ -40,7 +40,7 @@ const start = async () => {
   const PORT = process.env.PORT || 4000;
 
   try {
-    mongoose.set("strictQuery", false);
+    mongoose.set("strictQuery", true);
     await mongoose.connect(process.env.PRODUCT_SERVICE_MONGODB_URL, {
       user: process.env.MONGO_USER,
       pass: process.env.MONGO_PASSWORD,

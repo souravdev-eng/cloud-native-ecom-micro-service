@@ -1,5 +1,7 @@
 # Product Service — Deep Review
 
+For the current cache behavior, gaps, and step-by-step remediation plan, see [Product service cache review and roadmap](cache-review-and-roadmap.md).
+
 **Date:** 2026-04-22  
 **Branch:** feature/client-service  
 **Reviewer:** Claude Code
