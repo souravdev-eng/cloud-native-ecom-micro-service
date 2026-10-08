@@ -15,6 +15,11 @@ spec:
       containers:
         - name: rabbitmq
           image: rabbitmq:3.13-rc-management-alpine
+          readinessProbe:
+            tcpSocket:
+              port: 5672
+            periodSeconds: 2
+            timeoutSeconds: 2
           env:
             - name: RABBITMQ_DEFAULT_USER
               value: ecom

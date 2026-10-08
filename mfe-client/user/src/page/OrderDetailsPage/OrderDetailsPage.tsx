@@ -1,25 +1,26 @@
-import { CircularProgress } from '@mui/material';
-import { CardElement, Elements } from '@stripe/react-stripe-js';
-import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import CheckCircleIcon from '@mui/icons-material/CheckCircleOutline';
+import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import SearchOffIcon from '@mui/icons-material/SearchOff';
+import { CircularProgress } from '@mui/material';
+import { CardElement, Elements } from '@stripe/react-stripe-js';
 
+import { useOrderDetails } from './OrderDetailsPage.hook';
+import * as S from './OrderDetailsPage.style';
+
+import { CARD_ELEMENT_OPTIONS, stripePromise } from '../../api/stripe';
 import PageNav from '../../components/PageNav/PageNav';
 import PaymentProgress from '../../components/PaymentProgress/PaymentProgress';
-import { CARD_ELEMENT_OPTIONS, stripePromise } from '../../api/stripe';
 import * as C from '../../styles/common';
-import * as S from './OrderDetailsPage.style';
 import {
-	ORDER_STATUS_LABEL,
 	formatMoney,
 	formatOrderDate,
 	isCancellable,
 	isPayable,
+	ORDER_STATUS_LABEL,
 	shortOrderId,
 } from '../../utils/money';
-import { useOrderDetails } from './OrderDetailsPage.hook';
 
 const FALLBACK_IMAGE = 'https://via.placeholder.com/72?text=No+Image';
 
@@ -61,7 +62,9 @@ const OrderDetailsView = () => {
 					<C.EmptyState>
 						<SearchOffIcon sx={{ fontSize: 72, color: '#dee2e6' }} />
 						<C.EmptyTitle>Order not available</C.EmptyTitle>
-						<C.EmptyText>{error ?? 'This order could not be found.'}</C.EmptyText>
+						<C.EmptyText>
+							{error ?? 'This order could not be found.'}
+						</C.EmptyText>
 						<C.ButtonRow>
 							<C.SecondaryButton onClick={refetch}>Try again</C.SecondaryButton>
 							<C.LinkButton to="/user/orders">Back to orders</C.LinkButton>
@@ -109,7 +112,9 @@ const OrderDetailsView = () => {
 										{items.length} {items.length === 1 ? 'item' : 'items'}
 										{unitCount !== items.length && ` · ${unitCount} units`}
 									</C.SectionTitle>
-									<C.FieldHint>Placed {formatOrderDate(order.createdAt)}</C.FieldHint>
+									<C.FieldHint>
+										Placed {formatOrderDate(order.createdAt)}
+									</C.FieldHint>
 								</div>
 								<C.StatusBadge status={order.status}>
 									{ORDER_STATUS_LABEL[order.status] ?? order.status}
@@ -128,7 +133,8 @@ const OrderDetailsView = () => {
 									<S.ItemInfo>
 										<S.ItemTitle>{item.title}</S.ItemTitle>
 										<S.ItemMeta>
-											{formatMoney(item.price, order.currency)} × {item.quantity}
+											{formatMoney(item.price, order.currency)} ×{' '}
+											{item.quantity}
 										</S.ItemMeta>
 										<S.ItemMeta>
 											<C.Mono>{item.productId}</C.Mono>
@@ -196,6 +202,33 @@ const OrderDetailsView = () => {
 							)}
 						</C.Card>
 
+						{order.shippingAddress && (
+							<S.MetaCard>
+								<C.SectionTitle>Shipping Address</C.SectionTitle>
+								<C.Row>
+									<C.Label>Recipient</C.Label>
+									<C.Value>{order.shippingAddress.fullName}</C.Value>
+								</C.Row>
+								<C.Row>
+									<C.Label>Phone</C.Label>
+									<C.Value>{order.shippingAddress.phone}</C.Value>
+								</C.Row>
+								<C.Row>
+									<C.Label>Address</C.Label>
+									<C.Value>
+										{order.shippingAddress.addressLine1}
+										{order.shippingAddress.addressLine2
+											? `, ${order.shippingAddress.addressLine2}`
+											: ''}
+										, {order.shippingAddress.city},{' '}
+										{order.shippingAddress.state}{' '}
+										{order.shippingAddress.postalCode},{' '}
+										{order.shippingAddress.country}
+									</C.Value>
+								</C.Row>
+							</S.MetaCard>
+						)}
+
 						{/* Raw fields — useful while the order endpoints are being built */}
 						<S.MetaCard>
 							<C.SectionTitle>Order record</C.SectionTitle>
@@ -220,7 +253,9 @@ const OrderDetailsView = () => {
 							<C.Row>
 								<C.Label>Stripe payment intent</C.Label>
 								<C.Value>
-									<C.Mono>{order.stripePaymentIntentId || 'not created yet'}</C.Mono>
+									<C.Mono>
+										{order.stripePaymentIntentId || 'not created yet'}
+									</C.Mono>
 								</C.Value>
 							</C.Row>
 							<C.Row>
@@ -246,8 +281,8 @@ const OrderDetailsView = () => {
 						</C.Row>
 
 						<C.FieldHint sx={{ marginTop: '12px' }}>
-							Total is computed server-side from the product replica — the client
-							never sends prices.
+							Total is computed server-side from the product replica — the
+							client never sends prices.
 						</C.FieldHint>
 
 						<C.ButtonRow>

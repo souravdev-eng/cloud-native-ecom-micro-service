@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Auth RED metrics: from requests to traces</title><link rel="stylesheet" href="../assets/course.css"></head><body><main>
+<p class="eyebrow">Lesson 9 · Ticket 04 · ~20 min</p>
+<h1>From requests to RED metrics</h1>
+<p class="lede">Your win: explain what auth’s three graphs measure, then follow one latency example to its trace. This lets you review ticket 04 and use it during a slow-login incident.</p>
+<p class="meta">Based on the current repository, 28 September 2026. The ticket records committed implementation; live dashboard and exemplar acceptance remain unconfirmed. This lab has not been run against a live cluster.</p>
+<h2>Recall before you read</h2>
+<p>Why do we keep a trace ID as a log field instead of a Loki label? Say your answer aloud.</p>
+<details><summary>Hint, then a refresher if needed</summary><p>Think about how many different IDs a busy service creates. Each request can introduce a new ID: indexing it as a Loki label creates too many streams. Keep the ID on the log line and filter for it. See <a href="../lessons/0001-a-log-lines-journey.html">Lesson 1</a>. That same cardinality concern will guide our choice of <em>metric labels</em> today.</p></details>
+<h2>1 · Three questions about a service</h2>
+<p>A trace explains one request. A metric describes traffic over time. When login slows down, start with <strong>RED: Rate, Errors, Duration</strong>. Here these mean:</p>
+<dl class="fields"><dt>Rate</dt><dd>How many requests per second reach each route?</dd><dt>Errors</dt><dd>How many 4xx or 5xx responses per second does each route return? That is this dashboard’s definition. A 403 counts even if rejecting an unauthenticated caller is expected.</dd><dt>Duration</dt><dd>How long do requests take? The dashboard shows p50, p95 and p99. p95 estimates the time within which 95% of the observed requests finished.</dd></dl>
+<p>The error panel’s unit is <strong>requests/second</strong>, not percent. If 10 requests/sec arrive and 2 requests/sec fail, the error fraction is 20%. The panel plots 2.</p>
+<p>These definitions and filters are in <a href="../../../../k8s/observability/grafana-service-detail.yml">grafana-service-detail.yml</a>. A rising error graph is a prompt to investigate the response classes; it does not by itself prove a server failure.</p>
+<h2>2 · One observation feeds all three</h2>
+<p>When Express finishes a response, <a href="../../../../common/src/observability/http.ts">http.ts</a> records its elapsed seconds and final route/status. It excludes <code>/metrics</code> from request metrics so the collector’s scrapes do not inflate application traffic. The histogram is created in <a href="../../../../common/src/observability/metrics.ts">metrics.ts</a>:</p>
+<pre>meter.createHistogram("http.server.request.duration", {
+  unit: "s",
+  // bucket boundaries are configured here
+});</pre>
+<p>Read this as “keep a distribution of incoming request times, measured in seconds.” Our exporter exposes a classic histogram under <code>http_server_request_duration</code>. Use the names actually in <code>/metrics</code>; the dashboard does not query the dotted OTel name.</p>
+<p>A classic histogram exposes three related measurements: <code>_count</code> for observations, <code>_sum</code> for total observed duration, and cumulative <code>_bucket</code> counts. <a href="https://prometheus.io/docs/concepts/metric_types/">Prometheus: metric types</a>.</p>
+<pre># Invented observations: 0.04s, 0.08s, 0.30s
+_bucket{le="0.1"} 2
+_bucket{le="0.5"} 3
+_bucket{le="+Inf"} 3
+_count 3
+_sum 0.42</pre>
+<p>Labels and the metric prefix are omitted here to make it readable. <code>le</code> means “less than or equal”: the 0.5-second bucket includes both requests already counted in the 0.1-second bucket. Do not add the buckets together.</p>
+<details><summary>Read the dashboard’s PromQL without memorising it</summary>
+<pre>sum by (route) (
+  rate(http_server_request_duration_count{
+    service="auth-service", environment="local"
+  }[5m])
+)</pre>
+<p>Inside out: select auth’s counts; <code>[5m]</code> selects recent samples; <code>rate</code> calculates their per-second growth, accounting for counter resets; <code>sum by (route)</code> combines matching series while keeping routes separate. Apply rate before aggregation. <a href="https://prometheus.io/docs/prometheus/latest/querying/functions/#rate">Prometheus: rate</a>.</p>
+<p>The errors query adds <code>status_class=~"4xx|5xx"</code>. The duration query uses buckets:</p>
+<pre>histogram_quantile(0.95,
+  sum by (le, route) (
+    rate(http_server_request_duration_bucket{
+      service="auth-service", environment="local"
+    }[5m])
+  )
+)</pre>
+<p>Keep <code>le</code> so the calculation retains bucket boundaries. Merge compatible buckets across replicas before estimating p95. Do not average replica p95s. Bucket width limits precision; p95 is an estimate. The actual dashboard uses <code>$__rate_interval</code> in place of a fixed five minutes. <a href="https://prometheus.io/docs/practices/histograms/">Prometheus: histograms and summaries</a>.</p></details>
+<h3>Choose a route template</h3>
+<p><code>/product/123</code> and <code>/product/456</code> should share <code>route="/product/:id"</code>. Raw IDs would multiply metric series. Every distinct metric-label combination creates a series. <a href="https://prometheus.io/docs/practices/naming/#labels">Prometheus: labels</a>.</p>
+<p>This bundle reads Express’s matched route at response finish. It groups unmatched requests under <code>unmatched</code>. Its metric labels are <code>service</code>, <code>environment</code>, <code>method</code>, <code>route</code> and <code>status_class</code>. These are project choices; the standard OTel HTTP attribute names differ. <a href="https://opentelemetry.io/docs/specs/semconv/http/http-metrics/">OTel HTTP conventions</a> require bounded route templates too.</p>
+<h2>3 · Follow the numbers to Grafana</h2>
+<ol class="steps"><li><strong>Auth records a request.</strong> <a href="../../../../auth/src/app.ts">app.ts</a> calls <code>mountObservability(app, { service: 'auth-service' })</code> before routes.</li><li><strong>Alloy pulls /metrics.</strong> Pod annotations in <a href="../../../../k8s/auth-depl.yml">auth-depl.yml</a> opt into scraping. Alloy discovers the pod and reads port 3000 every 15 seconds.</li><li><strong>Alloy sends the samples.</strong> It remote-writes to Prometheus. Grafana queries Prometheus to draw the graphs. See <a href="https://grafana.com/docs/alloy/latest/reference/components/prometheus/prometheus.scrape/">Alloy scrape</a> and <a href="https://grafana.com/docs/alloy/latest/reference/components/prometheus/prometheus.remote_write/">remote write</a>.</li></ol>
+<pre>prometheus.scrape "services" {
+  targets = discovery.relabel.metrics.output
+  forward_to = [prometheus.remote_write.local.receiver]
+  scrape_interval = "15s"
+}</pre>
+<p>Line by line: name the scrape component; give it discovered targets; send results to the remote-write component; repeat every 15 seconds. Ignore discovery internals today. <strong>Metrics use scraping here; traces use OTLP.</strong></p>
+<h3>An exemplar is a bridge to one request</h3>
+<p>An exemplar attaches an example observation and trace ID to a metric sample. Grafana can draw a dot linking it to Tempo. It is not a trace ID on every metric series. <a href="https://grafana.com/docs/grafana/latest/fundamentals/exemplars/">Grafana: exemplars</a>.</p>
+<p>Our <a href="../../../../common/src/observability/exemplars.ts">exemplars.ts</a> adds the latest sampled request’s trace ID to the <code>+Inf</code> bucket in OpenMetrics text. It retains one example per label combination, with a 1,000-entry cap. The dot is an example request, not “the p95 request,” and this implementation does not choose the slowest request.</p>
+<p>The chain must preserve it: OpenMetrics scrape → Alloy <code>send_exemplars = true</code> → Prometheus exemplar storage → Grafana’s <code>trace_id</code> destination pointing to <code>tempo</code>. Its span must also reach Tempo. Refresh <a href="../lessons/0006-linking-logs-and-traces.html">Lesson 6</a> if IDs exist but traces are missing.</p>
+<h2>4 · Practice with immediate feedback</h2>
+<p class="score" aria-live="polite"></p>
+<div class="quiz" data-answer="1"><p class="q">A count rises by 120 across 60 seconds, with no reset. What approximate request rate is that?</p><div class="options"><button>1 request each second</button><button>2 requests each second</button><button>4 requests each second</button></div><p class="why">120 ÷ 60 = 2 requests/sec. A cumulative count is not itself a rate.</p></div>
+<div class="quiz" data-answer="2"><p class="q">Which value should represent GET /product/123 in the route metric label?</p><div class="options"><button><code>/product/123</code></button><button><code>/product/456</code></button><button><code>/product/:id</code></button></div><p class="why">The template groups IDs into a bounded set of routes. Raw paths create extra series.</p></div>
+<div class="quiz" data-answer="0"><p class="q">The Error rate panel shows 2. What does it mean?</p><div class="options"><button>Two error responses per second</button><button>Two percent of responses failed</button><button>Two error logs per request</button></div><p class="why">This panel counts 4xx and 5xx responses per second. An access log is written at info level, so a 403 need not appear in the error-log panel.</p></div>
+<div class="quiz" data-answer="2"><p class="q">What does clicking an exemplar dot open?</p><div class="options"><button>Every request within that bucket</button><button>The request defining that percentile</button><button>One sampled request’s linked trace</button></div><p class="why">It opens an example trace. Sampling and export failures can still leave the destination missing.</p></div>
+<h2>5 · Lab: prove the grouping, then read auth</h2>
+<ol class="steps"><li><p><strong>Run the small local test.</strong> From the repository root:</p><pre>cd common
+npm test -- --runInBand src/observability/__test__/httpMetrics.test.ts
+cd ..</pre><p>Predict first: two product IDs should produce one route-labelled count of 2. The test also checks secret masking and one access log per request, including the scrape. It passed during lesson creation.</p></li>
+<li><p><strong>When the cluster is running, forward auth and Grafana.</strong> Start your usual <code>skaffold dev -p observability</code> workflow. In separate terminals:</p><pre>kubectl port-forward service/auth-srv 3000:3000
+kubectl port-forward service/grafana-srv 3001:3000</pre><p>Use another available local port if needed and adjust the following URLs.</p></li>
+<li><p><strong>Create one baseline, then some requests.</strong></p><pre>curl -s http://localhost:3000/api/users/currentuser -o /dev/null
+curl -s http://localhost:3000/metrics | rg 'http_server_request_duration_count'
+for i in 1 2 3 4 5; do
+  curl -s -o /dev/null http://localhost:3000/api/users/currentuser
+done
+curl -s http://localhost:3000/metrics | rg 'http_server_request_duration_count'</pre><p>Without a session, this route returns 403. Compare before/after: its <code>4xx</code> count should grow by at least 5 (other traffic can add more). The route string stays fixed. Repeated metrics scrapes should not increase that application count.</p></li>
+<li><p><strong>Read the dashboard.</strong> Open <a href="http://localhost:3001/d/service-detail">Service Detail</a>. Choose <code>local</code> and <code>auth-service</code>. Allow at least two scrape intervals. Check request rate, error rate and latency; explain aloud why this 403 traffic raises both rates. No data needs investigation; it does not mean zero errors.</p></li>
+<li><p><strong>Inspect an exemplar.</strong> Look for <code># {trace_id="…"}</code> on a bucket line in <code>/metrics</code>. If a sampled request produced a dot, click it in the latency panel and compare its trace ID. If there is no dot, check for an exemplar at the source, then scrape/remote-write/storage/link settings. If the dot opens a missing trace, check sampling/export/retention.</p></li></ol>
+<details><summary>Where the rest of ticket 04 fits</summary><p>The runtime panels read event-loop lag, heap usage and GC duration from metrics.ts. They provide clues; they cannot prove the cause of a slow request. Error logs come from Loki’s <code>level="error"</code> stream. Slow traces come from Tempo: the panel sorts its returned traces over 1 second and takes ten, so it is not proof of the globally slowest ten traces. See the <a href="../reference/0006-metrics-pipeline.html">ticket map and review checklist</a> for accessors, tests and config validation.</p></details>
+<div class="callout"><p><strong>Primary reading:</strong> <a href="https://prometheus.io/docs/concepts/metric_types/#histogram">Prometheus: histogram</a>. Read only that section, then explain why our one duration instrument can feed three panels.</p></div>
+<p>Ask me follow-up questions about any confusing line or graph. After the lab, send your before/after count and explain why a 403 can raise the error graph while leaving Error logs empty.</p>
+<p class="meta">Tomorrow: from memory, name the three RED questions and explain why /product/:id is safer. A week later: explain what a missing exemplar dot tells you to check.</p>
+<div class="recap"><h2>Remember these three</h2><ol><li><strong>One duration histogram feeds RED:</strong> count growth gives rate, status filtering gives errors, buckets estimate percentiles.</li><li><strong>Use route templates:</strong> IDs and trace IDs must not multiply metric series.</li><li><strong>An exemplar links an example to Tempo:</strong> it is not the percentile itself.</li></ol><p><strong>Fallback:</strong> ask “how many, how many failed, how long?”</p><p><strong>Do not memorise:</strong> bucket boundaries or the full PromQL. Find them in the reference and explain what each operation does.</p></div>
+<nav class="course"><a href="0008-capstone-explain-and-review.html">← Lesson 8</a><a href="../reference/0006-metrics-pipeline.html">Metrics reference →</a></nav>
+</main><script src="../assets/quiz.js"></script><script src="../assets/course-map.js"></script><script src="../assets/nav.js"></script></body></html>

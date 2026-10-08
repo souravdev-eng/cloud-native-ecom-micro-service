@@ -1,43 +1,11 @@
-import winston, { Logger } from 'winston';
-import {
-  ElasticsearchTransformer,
-  ElasticsearchTransport,
-  LogData,
-  TransformedData,
-} from 'winston-elasticsearch';
+import { Logger } from 'winston';
+import { createLogger } from '../observability/logger';
 
-const eTransformer = (logData: LogData): TransformedData => {
-  return ElasticsearchTransformer(logData);
-};
-
-export const winstonLogger = (elasticSearchNode: string, name: string, level: string): Logger => {
-  const options = {
-    console: {
-      level,
-      handleException: true,
-      json: false,
-      colorize: true,
-    },
-    elasticsearch: {
-      level,
-      transformer: eTransformer,
-      clientOpts: {
-        node: elasticSearchNode,
-        log: level,
-        maxRetries: 2,
-        requestTimeout: 1000,
-        sniffOnStart: false,
-      },
-    },
-  };
-
-  const esTransport: ElasticsearchTransport = new ElasticsearchTransport(options.elasticsearch);
-
-  const logger: Logger = winston.createLogger({
-    exitOnError: false,
-    defaultMeta: { service: name },
-    transports: [new winston.transports.Console(options.console), esTransport],
-  });
-
-  return logger;
-};
+/**
+ * @deprecated Use `createLogger({ service })`. This delegates to it and
+ * ignores `elasticSearchNode`, since logs no longer go to Elasticsearch (ADR 0001).
+ *
+ * `LOG_LEVEL` wins over `level` because callers hardcode the argument.
+ */
+export const winstonLogger = (_elasticSearchNode: string, name: string, level: string): Logger =>
+  createLogger({ service: name, level: process.env.LOG_LEVEL || level });

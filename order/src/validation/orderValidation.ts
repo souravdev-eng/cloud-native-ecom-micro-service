@@ -16,6 +16,35 @@ export const createOrderValidation = [
   body("items.*.quantity")
     .isInt({ min: 1 })
     .withMessage("quantity must be a positive integer"),
+  body("shippingAddress").isObject().withMessage("shippingAddress is required"),
+  body("shippingAddress.fullName")
+    .trim()
+    .notEmpty()
+    .withMessage("fullName is required"),
+  body("shippingAddress.phone")
+    .trim()
+    .notEmpty()
+    .withMessage("phone is required"),
+  body("shippingAddress.addressLine1")
+    .trim()
+    .notEmpty()
+    .withMessage("addressLine1 is required"),
+  body("shippingAddress.city")
+    .trim()
+    .notEmpty()
+    .withMessage("city is required"),
+  body("shippingAddress.state")
+    .trim()
+    .notEmpty()
+    .withMessage("state is required"),
+  body("shippingAddress.postalCode")
+    .trim()
+    .notEmpty()
+    .withMessage("postalCode is required"),
+  body("shippingAddress.country")
+    .trim()
+    .notEmpty()
+    .withMessage("country is required"),
 ];
 
 export const orderIdValidation = [

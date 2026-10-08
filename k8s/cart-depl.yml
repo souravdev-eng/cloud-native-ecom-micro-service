@@ -12,6 +12,13 @@ spec:
       labels:
         app: cart
     spec:
+      initContainers:
+        - name: wait-for-rabbitmq
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - until nc -z -w 2 rabbitmq-srv 5672; do sleep 2; done
       containers:
         - name: cart
           image: souravdeveloper/ecom-cart

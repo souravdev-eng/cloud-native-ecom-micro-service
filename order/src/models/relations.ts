@@ -26,6 +26,14 @@ export const relations = defineRelations(schema, (r) => ({
     // one order has many items. The matching columns are declared on the
     // `one` side below, so `many` needs no from/to.
     items: r.many.orderItems(),
+    shippingAddress: r.one.orderAddresses(),
+  },
+
+  orderAddresses: {
+    order: r.one.orders({
+      from: r.orderAddresses.orderId,
+      to: r.orders.id,
+    }),
   },
 
   orderItems: {

@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Traces and Spans</title>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<main>
+
+<p class="eyebrow">Lesson 4 · Ticket 03 · ~20 min</p>
+<h1>Traces and spans</h1>
+<p class="lede">By the end you'll have taken the <code>x-trace-id</code> from one of your own logins, opened that trace in Tempo, and read its waterfall: which step was the database, and where the time really went.</p>
+
+<h2>Why this exists</h2>
+<p>A log line tells you <em>that</em> something happened. It can't tell you <em>where the 800 ms of a slow login went</em>: the database, the password hash, or something else. A <strong>trace</strong> can. It's "the path of a request through your application" (<a href="https://opentelemetry.io/docs/concepts/signals/traces/">OpenTelemetry: Traces</a>), recorded as timed steps.</p>
+
+<h2>1 · The vocabulary: four words</h2>
+<dl class="fields">
+  <dt>span</dt><dd>"A unit of work or operation": one timed step, with a name, a start and end time, and key-value <strong>attributes</strong> (for example <code>http.response.status_code = 200</code>).</dd>
+  <dt>trace</dt><dd>All the spans that share one <strong>trace ID</strong> (32 hex characters), arranged as a tree.</dd>
+  <dt>parent / root</dt><dd>Each span points at its <strong>parent</strong> span's ID. The one with no parent is the <strong>root</strong>, where the trace started.</dd>
+  <dt>kind</dt><dd><code>SERVER</code>: an incoming request. <code>CLIENT</code>: an outgoing call, <em>including a database call</em>. <code>INTERNAL</code>: work inside the process, like Express middleware.</dd>
+</dl>
+<p>A span also has a <strong>status</strong>: <code>Unset</code> (the default, meaning fine), <code>Error</code>, or <code>Ok</code>. That's the field the error-trace sampling in a later ticket will key on.</p>
+
+<h2>2 · What a login looks like</h2>
+<p>This is roughly the waterfall Tempo draws for a successful <code>POST /api/users/login</code>. Each bar is one span; its position and length show when it ran within the whole request.</p>
+
+<div class="waterfall" role="img" aria-label="Span waterfall of a login request">
+  <div class="row" style="--depth:0;--start:0;--len:100"><div class="name"><span>POST /api/users/login</span><span class="kind">SERVER</span></div><div class="track"><div class="bar"></div></div></div>
+  <div class="row" style="--depth:1;--start:1;--len:2"><div class="name"><span>middleware - jsonParser</span><span class="kind">INTERNAL</span></div><div class="track"><div class="bar"></div></div></div>
+  <div class="row" style="--depth:1;--start:4;--len:92"><div class="name"><span>request handler - /api/users/login</span><span class="kind">INTERNAL</span></div><div class="track"><div class="bar"></div></div></div>
+  <div class="row db" style="--depth:2;--start:6;--len:14"><div class="name"><span>mongoose.User.findOne</span><span class="kind">CLIENT</span></div><div class="track"><div class="bar"></div></div></div>
+  <div class="row db" style="--depth:3;--start:8;--len:10"><div class="name"><span>mongodb.find</span><span class="kind">CLIENT</span></div><div class="track"><div class="bar"></div></div></div>
+</div>
+<p class="meta">Illustrative. Your span names may differ slightly by library version; the lab shows the real ones.</p>
+
+<p>Read it like this:</p>
+<ol>
+  <li>The <strong>root</strong> is the <code>SERVER</code> span: the whole request, from arrival to response.</li>
+  <li>The Mongo lookup is <em>two</em> nested spans: Mongoose (the ODM you call) wraps the MongoDB driver (which talks to the database).</li>
+  <li>Look at the <strong>gap</strong> after the Mongo spans: most of the handler has no child span under it. That time is <em>your own code</em>. Here it's <code>bcryptjs</code> comparing the password (<a href="../../../../auth/src/utils/compareDBPassword.ts">compareDBPassword.ts</a>), which is pure JavaScript, so no library records it.</li>
+</ol>
+<div class="callout">
+<p><strong>Reading tip:</strong> a parent with a long bar and short children means the time is spent <em>in the parent's own code</em>. To see inside that gap, you'd add a custom span (<code>getServiceTracer</code> arrives in ticket 04). You wouldn't add more logs.</p>
+</div>
+
+<h2>3 · Where spans come from, and where they go</h2>
+<p><strong>Nobody wrote those spans by hand.</strong> The <strong>telemetry bootstrap</strong> in <a href="../../../../common/src/observability/telemetry.ts">telemetry.ts</a> (<code>startTelemetry</code>) turns on <em>auto-instrumentation</em>: plugins that patch popular libraries so every request and query creates a span automatically.</p>
+<pre>const instrumentations = [
+  new HttpInstrumentation(),      // → the SERVER span
+  new ExpressInstrumentation(),   // → middleware / handler spans
+  new MongoDBInstrumentation(),   // → mongodb.find
+  new MongooseInstrumentation(),  // → mongoose.User.findOne
+  new PgInstrumentation(), new IORedisInstrumentation(),
+  new RedisInstrumentation(), new AmqplibInstrumentation(),
+];</pre>
+<p>Auth doesn't use Postgres or Redis. The list is shared by every service, and an unused plugin does nothing.</p>
+<p>When a span ends, it travels a path that should look familiar from Lesson 1, with one difference: <strong>spans are pushed over the network</strong>, not written to stdout.</p>
+<pre>auth: span ends
+  → BatchSpanProcessor        queues it, sends in batches (telemetry.ts)
+  → RedactingSpanExporter     masks secrets (Lesson 6)
+  → OTLP/HTTP  → alloy-srv:4318            OTEL_EXPORTER_OTLP_ENDPOINT
+  → Alloy: otelcol.receiver.otlp → processor.batch → exporter.otlp
+  → tempo-srv:4317 → Tempo (72 h retention)  k8s/observability/tempo.yml
+  → Grafana Explore, Tempo datasource</pre>
+<p><strong>OTLP</strong> is OpenTelemetry's own wire protocol. The endpoint comes from one line of shared config in <a href="../../../../k8s/config/app-config.yml">k8s/config/app-config.yml</a>:</p>
+<pre>OTEL_EXPORTER_OTLP_ENDPOINT: 'http://alloy-srv:4318'   # the Alloy Service from Lesson 2</pre>
+<p>Auth only knows Alloy's address, never Tempo's. That's the ADR 0001 rule "services never push directly to each backend".</p>
+
+<h3>The handle: x-trace-id</h3>
+<p>How do you find <em>your</em> trace among thousands? The small middleware in <a href="../../../../common/src/middleware/traceIdHeader.ts">traceIdHeader.ts</a> puts the trace ID on every response:</p>
+<pre>const ids = activeTraceIds();
+if (ids) res.setHeader('x-trace-id', ids.traceId);</pre>
+<p>A bug report or a devtools screenshot now carries the key to the full trace. (Auth mounts it first in <code>app.ts</code>; ticket 04 folds it into <code>mountObservability</code>.)</p>
+
+<h2>4 · Lab: open your own login</h2>
+<ol class="steps">
+  <li>
+    <p><strong>Log in and keep the header.</strong> Use the user from Lesson 3 (<code>-i</code> prints the response headers):</p>
+<pre>curl -sk -i -X POST https://ecom.dev/api/users/login -H 'content-type: application/json' \
+  -d '{"email":"lesson3@example.com","password":"Secret#123"}' | grep -i x-trace-id</pre>
+    <p>Copy the 32-hex value.</p>
+  </li>
+  <li>
+    <p><strong>Open it in Tempo.</strong> In Grafana Explore, pick the <em>Tempo</em> datasource, choose the <em>TraceQL</em> tab, paste the trace ID and run it.</p>
+  </li>
+  <li>
+    <p><strong>Read the waterfall.</strong> Click the root span, then open its <em>Attributes</em>.</p>
+    <details><summary>Checkpoint: find these three things</summary>
+    <p>(1) <code>http.response.status_code</code> on the root span: 200. (2) The Mongo <code>CLIENT</code> span(s) and their duration. (3) The gap in the handler, which is bcrypt. Is it bigger than the database time? For a login it usually is, and that's by design: password hashing is <em>meant</em> to be slow.</p></details>
+  </li>
+  <li>
+    <p><strong>Search instead of paste.</strong> TraceQL puts conditions on spans inside <code>{ }</code> (<a href="https://grafana.com/docs/tempo/latest/traceql/construct-traceql-queries/">TraceQL docs</a>). Try each one:</p>
+<pre>{ resource.service.name = "auth-service" }
+{ resource.service.name = "auth-service" && duration > 50ms }
+{ resource.service.name = "auth-service" && span.http.response.status_code >= 400 }</pre>
+    <p><code>resource.</code> attributes describe the <em>process</em> (the service), and <code>span.</code> attributes describe one span. Lesson 5 explains where <code>service.name</code> is set.</p>
+  </li>
+  <li>
+    <p><strong>Compare with a failed login.</strong> Log in with the wrong password, open that trace, and look for what's different.</p>
+    <details><summary>What changes?</summary>
+    <p>Status code 400, and there's still a Mongo span (the user exists) and a bcrypt gap. For an <em>unknown</em> email, there's no bcrypt gap: the handler returns right after <code>findOne</code>. That timing difference can itself leak which emails exist, which is a real security topic. The trace just made it visible.</p></details>
+  </li>
+</ol>
+
+<h2>5 · Check yourself</h2>
+<p class="score"></p>
+
+<div class="quiz" data-answer="2">
+  <p class="q">What makes a set of spans one trace?</p>
+  <div class="options">
+    <button>They come from one service</button>
+    <button>They run in one process</button>
+    <button>They share one trace ID</button>
+    <button>They end at one moment</button>
+  </div>
+  <p class="why">The trace ID is the only thing that groups them. It can span many services, which is what "distributed tracing" means.</p>
+</div>
+
+<div class="quiz" data-answer="0">
+  <p class="q">What span kind does a MongoDB query get?</p>
+  <div class="options">
+    <button>CLIENT, an outgoing call</button>
+    <button>SERVER, an incoming call</button>
+    <button>INTERNAL, in-process local work</button>
+    <button>PRODUCER, a queued message</button>
+  </div>
+  <p class="why">A database call leaves the process, so the service is the <em>client</em>. OTel's docs list "an outgoing HTTP request or database call" as the CLIENT examples.</p>
+</div>
+
+<div class="quiz" data-answer="3">
+  <p class="q">A handler span is 600 ms, and its only child is 40 ms. Where did the time go?</p>
+  <div class="options">
+    <button>Inside the MongoDB database driver</button>
+    <button>Inside Alloy's batch processor step</button>
+    <button>Inside the network to Tempo</button>
+    <button>Inside the handler's own code</button>
+  </div>
+  <p class="why">Uncovered time belongs to the parent. Export happens <em>after</em> the span ends, off the request path, so it can't show up inside a span.</p>
+</div>
+
+<div class="quiz" data-answer="1">
+  <p class="q">Where does <code>auth</code> send its spans?</p>
+  <div class="options">
+    <button>Straight to tempo-srv on 4317</button>
+    <button>Pushed to alloy-srv over OTLP/HTTP</button>
+    <button>To stdout, tailed by Alloy</button>
+    <button>To Loki as structured metadata</button>
+  </div>
+  <p class="why"><code>OTEL_EXPORTER_OTLP_ENDPOINT=http://alloy-srv:4318</code>. Only Alloy talks to Tempo. Logs use stdout; spans are pushed.</p>
+</div>
+
+<div class="quiz" data-answer="2">
+  <p class="from">From Lesson 3</p>
+  <p class="q">Which query finds wrong-password lines most cheaply?</p>
+  <div class="options">
+    <button><code>{service=~".+"} |= "wrong_password"</code></button>
+    <button><code>{service="auth-service"} | json</code></button>
+    <button><code>{service="auth-service"} |= "wrong_password"</code></button>
+    <button><code>{level=~".+"} |= "wrong_password"</code></button>
+  </div>
+  <p class="why">A narrow label selector plus a text filter, with no parsing. Two of the others scan every stream; <code>| json</code> alone parses every line and doesn't filter anything.</p>
+</div>
+
+<div class="quiz" data-answer="0">
+  <p class="from">From Lesson 1</p>
+  <p class="q">Why is <code>trace_id</code> never a Loki label?</p>
+  <div class="options">
+    <button>Each request brings new values</button>
+    <button>Loki cannot store hex strings</button>
+    <button>It is removed by redaction</button>
+    <button>Grafana reads labels as numbers</button>
+  </div>
+  <p class="why">A new value per request means a new stream per request: the high-cardinality problem. It lives in structured metadata instead.</p>
+</div>
+
+<div class="recap">
+  <h2>In short: remember these 3</h2>
+  <ol>
+    <li><strong>A trace is a tree of timed spans sharing one trace ID.</strong> The root is the SERVER span; DB calls are CLIENT spans.</li>
+    <li><strong>Time with no child span is the parent's own code.</strong> Read the gaps, not only the bars.</li>
+    <li><strong>Spans are pushed:</strong> auth → Alloy (4318) → Tempo. The <code>x-trace-id</code> response header is your way in.</li>
+  </ol>
+  <p><strong>If you forget everything:</strong> "grab <code>x-trace-id</code>, paste it into Tempo, read the waterfall".</p>
+  <p><strong>You don't need to memorise</strong> the instrumentation class names, the TraceQL syntax or the exact span names. See the <a href="../reference/0003-traces-pipeline.html">traces cheat sheet</a> and the <a href="../reference/0004-glossary.html">glossary</a>.</p>
+</div>
+
+<div class="callout">
+<p class="label">Read next (10 min)</p>
+<p><a href="https://opentelemetry.io/docs/concepts/signals/traces/">OpenTelemetry: Traces</a> is the primary source for this lesson's vocabulary. Read up to and including "Span Kind".</p>
+</div>
+
+<div class="callout">
+<p class="label">Stuck or curious?</p>
+<p>Paste a trace ID or describe a waterfall you don't understand, and ask me. "Why are there two Mongo spans?" and "What's that span with no name?" are exactly the right kind of question.</p>
+</div>
+
+<nav class="course">
+  <a href="0003-logql-and-redaction.html">← Lesson 3: LogQL and redaction</a>
+  <a href="0005-context-and-traceparent.html">Next: Context and traceparent →</a>
+</nav>
+
+</main>
+<script src="../assets/quiz.js"></script>
+<script src="../assets/course-map.js"></script>
+<script src="../assets/nav.js"></script>
+</body>
+</html>

@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Linking Logs and Traces</title>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<main>
+
+<p class="eyebrow">Lesson 6 · Ticket 03 · ~20 min</p>
+<h1>Linking logs and traces</h1>
+<p class="lede">By the end you'll have gone from a log line to its trace and back in two clicks. You'll know which three names must match for those clicks to work. And you'll have turned the collector off to see that logins keep working.</p>
+
+<h2>Why this exists</h2>
+<p>Logs say <em>what</em> happened; traces say <em>where the time went</em>. During an incident you need both, for the same request, without copying IDs around by hand. Linking them "natively" is one of the two reasons ADR 0001 picked the Grafana stack. The other half of ticket 03, "the collector being down must never break requests", is what makes all this telemetry safe to run.</p>
+
+<h2>1 · Two links, both in Grafana's config</h2>
+<p>Neither link is code in <code>auth</code>. Both are <strong>datasource settings</strong> in the ConfigMap at the top of <a href="../../../../k8s/observability/grafana.yml">grafana.yml</a>. (Lesson 2: the ConfigMap holds the logic.)</p>
+
+<h3>Log → trace: a derived field on Loki</h3>
+<p>A <em>derived field</em> uses a regex to pull a value out of each log line and turn it into a link (<a href="https://grafana.com/docs/grafana/latest/datasources/loki/configure/">Grafana: Configure Loki</a>):</p>
+<pre>derivedFields:
+  - name: trace_id
+    matcherType: regex
+    matcherRegex: '"trace_id":"([0-9a-f]{32})"'   # the ( ) part is captured
+    datasourceUid: tempo                          # open it in the Tempo datasource
+    url: '$${__value.raw}'                        # …using the captured value
+    urlDisplayLabel: View trace                   # the button text</pre>
+<p>In plain words: <em>"in every log line, find <code>"trace_id":"&lt;32 hex&gt;"</code> and add a <strong>View trace</strong> button that opens that ID in Tempo."</em> You can ignore <code>matcherType</code>. The only part you'd ever change is the regex.</p>
+
+<h3>Trace → logs: traces-to-logs on Tempo</h3>
+<pre>tracesToLogsV2:
+  datasourceUid: loki
+  spanStartTimeShift: '-5m'       # search a bit before the span…
+  spanEndTimeShift: '5m'          # …and a bit after it
+  tags:
+    - key: service.name           # the span's resource attribute
+      value: service              # → the Loki label with this name
+  customQuery: true
+  query: '{$${__tags}} | trace_id="$${__trace.traceId}"'</pre>
+<p>When you click <strong>Logs for this span</strong>, Grafana fills in the template. <code>${__tags}</code> becomes <code>service="auth-service"</code> (from the tag mapping), and <code>${__trace.traceId}</code> becomes the trace ID. The result is the query you already know from Lesson 3:</p>
+<pre>{service="auth-service"} | trace_id="f88743982cd192ec906042c8d4491502"</pre>
+<p>The time shifts are there because a log line and its span "rarely share exact timestamps" (comment in the file; see also <a href="https://grafana.com/docs/grafana/latest/datasources/tempo/configure-tempo-data-source/configure-trace-to-logs/">Grafana: Trace to logs</a>).</p>
+<details><summary>Why <code>$$</code> everywhere?</summary>
+<p>Grafana treats <code>$VAR</code> in provisioning files as an <em>environment variable</em> and expands it at startup. <code>$$</code> escapes that, so <code>$${__value.raw}</code> reaches Grafana as the literal <code>${__value.raw}</code>, which it then expands per click. Forget a <code>$</code> and the link silently comes out empty. That's a real review point.</p>
+</details>
+
+<h2>2 · The contract: one name in three places</h2>
+<p>The trace→logs link only works if a span's <code>service.name</code> <em>exactly equals</em> the Loki <code>service</code> label on its log lines. Grafana's docs warn that if the names don't match, "correlation silently breaks". In our setup the name is written in three places:</p>
+<dl class="fields">
+  <dt>the logger</dt><dd><code>createLogger({ service: 'auth-service' })</code> writes the JSON <code>service</code> field, which Alloy makes the label.</dd>
+  <dt>the bootstrap</dt><dd><code>startTelemetry({ serviceName: 'auth-service' })</code> in <a href="../../../../auth/src/tracing.ts">auth/src/tracing.ts</a> sets <code>service.name</code>.</dd>
+  <dt>Grafana</dt><dd>The <code>tags</code> mapping above: <code>service.name</code> → <code>service</code>.</dd>
+</dl>
+<p>The bootstrap protects this contract on purpose. Its options are applied <em>last</em>, so they win over <code>OTEL_SERVICE_NAME</code> or <code>OTEL_RESOURCE_ATTRIBUTES</code> set in the environment (<code>explicitOptionsDetector</code> in <a href="../../../../common/src/observability/telemetry.ts">telemetry.ts</a>, pinned by a test). The log→trace link has a contract too: the regex expects compact JSON <code>"trace_id":"…"</code>. <code>LOG_FORMAT=pretty</code> in the cluster would break the link <em>and</em> Alloy's labels.</p>
+
+<h2>3 · Spans are redacted too, at export</h2>
+<p>A span attribute can leak a secret just like a log field can. The <code>?token=</code> of the reset-password link lands in <code>url.query</code>, for example. So every exporter is wrapped in <code>RedactingSpanExporter</code> (<a href="../../../../common/src/observability/spanRedaction.ts">spanRedaction.ts</a>), which applies <strong>the same policy as the logger</strong>: <code>isSensitiveKey</code> on attribute names and <code>maskText</code> on string values, including span events, links and the status message.</p>
+<dl class="fields">
+  <dt>why at export time?</dt><dd>One place covers every instrumentation and every custom attribute. And behind the batch processor, the work happens off the request path.</dd>
+  <dt>what it doesn't cover</dt><dd><strong>Resource</strong> attributes aren't redacted. That's why the bootstrap leaves out the process detector, which "records the full command line, which can carry secrets".</dd>
+</dl>
+
+<h2>4 · Why a dead collector can't hurt a request</h2>
+<p>ADR 0001: "Services must keep working with the collector down. Telemetry export is best-effort and must never block a request." Here's how each signal honours that:</p>
+<dl class="fields">
+  <dt>logs</dt><dd>Written to stdout (Lesson 1). No network at all on the request path.</dd>
+  <dt>spans, inside auth</dt><dd><code>BatchSpanProcessor</code> puts finished spans in a <strong>bounded queue</strong> and exports on a timer. If Alloy is unreachable, the export fails after a timeout and the spans are dropped. The request finished long before.</dd>
+  <dt>spans, inside Alloy</dt><dd>If Tempo is down, Alloy's exporter queue fills and then drops (comment on <code>otelcol.processor.batch</code> in <a href="../../../../k8s/observability/alloy.yml">alloy.yml</a>). Auth only ever talks to Alloy.</dd>
+  <dt>no endpoint / tests</dt><dd>A <code>NoopSpanProcessor</code>: nothing is sent, but spans still get IDs, "so logs keep their trace_id and <code>x-trace-id</code> still works locally".</dd>
+</dl>
+<p>This is pinned by the test <code>'keeps serving requests when the collector is down'</code> in <a href="../../../../common/src/observability/__test__/telemetryExport.test.ts">telemetryExport.test.ts</a>, which points the exporter at a closed port and checks that requests still return 200.</p>
+<div class="callout">
+<p><strong>The trade-off, in one sentence:</strong> we accept <em>losing telemetry</em> during an outage so that we never <em>lose requests</em>. The opposite, blocking until spans are delivered, would turn an observability outage into a customer outage.</p>
+</div>
+
+<h2>5 · Lab: two clicks, then pull the plug</h2>
+<ol class="steps">
+  <li>
+    <p><strong>Log → trace.</strong> Log in once (as in Lesson 4). In Explore → Loki, run <code>{service="auth-service"} |= "User logged in"</code>, expand the newest line, and click <strong>View trace</strong>.</p>
+  </li>
+  <li>
+    <p><strong>Trace → logs.</strong> In the trace view, click the root span, then <strong>Logs for this span</strong>.</p>
+    <details><summary>Checkpoint: what query did Grafana write for you?</summary>
+    <p><code>{service="auth-service"} | trace_id="…"</code>, the tag mapping plus the trace ID. It should show the "User logged in" line (and any others from that request).</p></details>
+  </li>
+  <li>
+    <p><strong>Take Alloy away.</strong> Alloy is a DaemonSet, so it can't be scaled to zero. Instead, tell it to run only on a node that doesn't exist:</p>
+<pre>kubectl patch daemonset alloy -p \
+  '{"spec":{"template":{"spec":{"nodeSelector":{"lesson6":"off"}}}}}'
+kubectl get pods -l app=alloy        # wait until none are left</pre>
+  </li>
+  <li>
+    <p><strong>Log in during the outage, and time it.</strong></p>
+<pre>for i in 1 2 3; do
+  curl -sk -o /dev/null -w '%{http_code} %{time_total}s\n' -X POST https://ecom.dev/api/users/login \
+    -H 'content-type: application/json' -d '{"email":"lesson3@example.com","password":"Secret#123"}'
+done</pre>
+    <p>Expect three <code>200</code>s at normal speed. That's the ticket 03 acceptance criterion, seen live.</p>
+  </li>
+  <li>
+    <p><strong>Bring Alloy back.</strong> Undo the patch, restoring the previous template:</p>
+<pre>kubectl rollout undo daemonset alloy
+kubectl rollout status daemonset alloy</pre>
+  </li>
+  <li>
+    <p><strong>Look for the evidence.</strong> Search Loki for the outage logins, and Tempo for their traces.</p>
+    <details><summary>What to expect, and what it teaches</summary>
+    <p><strong>Traces:</strong> almost certainly gone. Auth's exporter couldn't reach Alloy and dropped them by design. <strong>Logs:</strong> the lines were still written to the container's log on the node, so whether they show up depends on whether Alloy picks up where it left off when it restarts. Whatever you find, the lesson is the asymmetry: <em>requests were never affected</em>, and only the telemetry for the outage window may have gaps. Tell me what you saw; it's a good fact to record.</p></details>
+  </li>
+</ol>
+
+<h2>6 · Check yourself</h2>
+<p class="score"></p>
+
+<div class="quiz" data-answer="2">
+  <p class="q">Where is the log → trace link defined?</p>
+  <div class="options">
+    <button>In auth's logger code</button>
+    <button>In Alloy's stage.json step</button>
+    <button>In Grafana's Loki datasource</button>
+    <button>In Tempo's ingester settings</button>
+  </div>
+  <p class="why">A derived field in <code>grafana.yml</code>. The logger only writes <code>trace_id</code> into the line, and Grafana turns it into a link when it displays the line.</p>
+</div>
+
+<div class="quiz" data-answer="0">
+  <p class="q">A PR sets <code>serviceName: 'auth'</code> but the logger keeps <code>'auth-service'</code>. What breaks?</p>
+  <div class="options">
+    <button>Trace to logs finds nothing</button>
+    <button>Log to trace finds nothing</button>
+    <button>Tempo rejects every new span</button>
+    <button>Loki creates a new label</button>
+  </div>
+  <p class="why">The link queries <code>{service="auth"}</code>, but the lines are labelled <code>auth-service</code>. It fails silently. Log→trace still works, because it only needs the trace ID.</p>
+</div>
+
+<div class="quiz" data-answer="3">
+  <p class="q">Alloy is down. What happens to a login's spans?</p>
+  <div class="options">
+    <button>The login waits for export</button>
+    <button>The login returns an error</button>
+    <button>Stdout receives them all instead</button>
+    <button>They are queued, then dropped</button>
+  </div>
+  <p class="why">The batch processor's bounded queue exports off the request path. When exports fail, spans are lost and requests are unaffected.</p>
+</div>
+
+<div class="quiz" data-answer="1">
+  <p class="q">Why are spans redacted at <em>export</em> rather than when attributes are set?</p>
+  <div class="options">
+    <button>Tempo requires redacted input spans</button>
+    <button>One place covers all instrumentation</button>
+    <button>Attributes cannot be changed later</button>
+    <button>Alloy cannot redact any spans</button>
+  </div>
+  <p class="why">Instrumentations set attributes in dozens of places we don't control. Wrapping the exporter catches all of them, off the request path.</p>
+</div>
+
+<div class="quiz" data-answer="2">
+  <p class="from">From Lesson 5</p>
+  <p class="q">A log line has a trace_id, but Tempo says "trace not found". What's one innocent cause?</p>
+  <div class="options">
+    <button>The trace ID was redacted</button>
+    <button>Loki replaced the trace ID</button>
+    <button>The trace was sampled out</button>
+    <button>The span kind was wrong</button>
+  </div>
+  <p class="why">IDs exist even for unsampled traces (flags <code>00</code>). Other innocent causes: the span was dropped during a collector outage, or it's older than Tempo's 72 h retention.</p>
+</div>
+
+<div class="quiz" data-answer="0">
+  <p class="from">From Lesson 3</p>
+  <p class="q">Which component masks secrets in log lines?</p>
+  <div class="options">
+    <button>createLogger, before writing stdout</button>
+    <button>Alloy, before pushing lines</button>
+    <button>Loki, when storing chunks</button>
+    <button>Grafana, when showing lines</button>
+  </div>
+  <p class="why">Only the logger. Spans use the same rules, applied at the exporter.</p>
+</div>
+
+<div class="recap">
+  <h2>In short: remember these 3</h2>
+  <ol>
+    <li><strong>Both links are Grafana config:</strong> a Loki derived field (log → trace) and Tempo traces-to-logs (trace → logs, using <code>{service=…} | trace_id=…</code>).</li>
+    <li><strong>The links depend on names matching:</strong> the logger's <code>service</code> and the span's <code>service.name</code> must be the same string, or trace→logs silently finds nothing.</li>
+    <li><strong>Telemetry is best-effort:</strong> if the collector is down we lose spans, never requests. Spans and logs share one redaction policy.</li>
+  </ol>
+  <p><strong>If you forget everything:</strong> "same service name everywhere; drop telemetry, never requests".</p>
+  <p><strong>You don't need to memorise</strong> the datasource keys or the <code>$$</code> escaping. They're in the <a href="../reference/0003-traces-pipeline.html">traces cheat sheet</a>. Just remember that the links live in <code>grafana.yml</code>.</p>
+</div>
+
+<div class="callout">
+<p class="label">Read next (10 min)</p>
+<p><a href="https://grafana.com/docs/grafana/latest/datasources/tempo/configure-tempo-data-source/configure-trace-to-logs/">Grafana: Configure trace to logs correlation</a> is the primary source for sections 1–2. Then reread the "Consequences" section of <a href="../../../../doc/adr/0001-observability-via-otel-and-grafana-lgtm.md">ADR 0001</a>: every bullet should now map to something you've touched.</p>
+</div>
+
+<div class="callout">
+<p class="label">Stuck or curious?</p>
+<p>If a link doesn't appear, or the outage lab surprised you, tell me what you saw. Debugging the links together is a great way to learn the config.</p>
+</div>
+
+<nav class="course">
+  <a href="0005-context-and-traceparent.html">← Lesson 5: Context and traceparent</a>
+  <a href="0007-test-seams.html">Next: Test seams →</a>
+</nav>
+
+</main>
+<script src="../assets/quiz.js"></script>
+<script src="../assets/course-map.js"></script>
+<script src="../assets/nav.js"></script>
+</body>
+</html>

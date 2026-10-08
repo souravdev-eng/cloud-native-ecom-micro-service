@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Traces Pipeline Cheatsheet</title>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<main>
+
+<p class="eyebrow">Reference · Traces pillar (ticket 03)</p>
+<h1>Traces pipeline cheat sheet</h1>
+
+<h2>The path</h2>
+<pre>auth/src/index.ts: import './tracing' (FIRST)
+  → startTelemetry()               common/src/observability/telemetry.ts
+      auto-instrumentation: http express mongodb mongoose pg ioredis redis amqplib
+      ParentBasedSampler(root: ratio OTEL_TRACES_SAMPLER_ARG, default 1)
+      BatchSpanProcessor → RedactingSpanExporter → OTLP/HTTP
+  → alloy-srv:4318                 OTEL_EXPORTER_OTLP_ENDPOINT (k8s/config/app-config.yml)
+  → Alloy: otelcol.receiver.otlp → processor.batch → exporter.otlp
+  → tempo-srv:4317 → Tempo (single binary, local PV, 72 h)   k8s/observability/tempo.yml
+  → Grafana Explore, Tempo datasource (uid tempo)            k8s/observability/grafana.yml</pre>
+
+<h2>Where export goes</h2>
+<dl class="fields">
+  <dt>testSpanExporter given</dt><dd>Simple processor → redactor → the test's exporter</dd>
+  <dt>NODE_ENV=test or no endpoint</dt><dd>Noop processor: nothing is sent, but IDs still exist (logs keep trace_id)</dd>
+  <dt>otherwise</dt><dd>Batch processor → redactor → OTLP/HTTP to the endpoint</dd>
+</dl>
+
+<h2>traceparent</h2>
+<pre>00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01
+ver  trace-id (32 hex, kept)         parent-id (16)   flags 01 sampled / 00 not</pre>
+<p>Continue it, never replace it. On AMQP (ticket 06+) it goes in message <strong>headers</strong>, never the payload.</p>
+
+<h2>Find a trace</h2>
+<pre>curl -sk -i … | grep -i x-trace-id                  # from any auth response
+
+{ resource.service.name = "auth-service" }
+{ resource.service.name = "auth-service" &amp;&amp; duration &gt; 50ms }
+{ resource.service.name = "auth-service" &amp;&amp; span.http.response.status_code &gt;= 400 }
+{ status = error }</pre>
+<p><code>resource.</code> = the process/service · <code>span.</code> = one span's attributes.</p>
+
+<h2>Reading a waterfall</h2>
+<dl class="fields">
+  <dt>SERVER</dt><dd>An incoming request (usually the root)</dd>
+  <dt>CLIENT</dt><dd>An outgoing call: HTTP or a database</dd>
+  <dt>INTERNAL</dt><dd>In-process work, such as Express middleware</dd>
+  <dt>gap under a parent</dt><dd>The parent's own code (for a login: bcrypt)</dd>
+</dl>
+
+<h2>The links (grafana.yml)</h2>
+<pre># Loki → Tempo: derived field
+matcherRegex: '"trace_id":"([0-9a-f]{32})"'   datasourceUid: tempo
+
+# Tempo → Loki: tracesToLogsV2
+tags: service.name → service    shift ±5m
+query: '{$${__tags}} | trace_id="$${__trace.traceId}"'</pre>
+<p><strong>Invariant:</strong> the logger's <code>service</code> must equal <code>startTelemetry({ serviceName })</code>. The options beat <code>OTEL_SERVICE_NAME</code>. In provisioning files, <code>$$</code> escapes Grafana's env expansion.</p>
+
+<h2>Failure modes</h2>
+<dl class="fields">
+  <dt>Alloy down</dt><dd>Requests fine; spans dropped from auth's bounded queue</dd>
+  <dt>Tempo down</dt><dd>Requests fine; Alloy's queue fills, then drops</dd>
+  <dt>tracing imported late</dt><dd>No error; Express and DB spans silently missing</dd>
+  <dt>"trace not found"</dt><dd>&gt;72 h old · sampled out (flags 00) · outage · not flushed yet</dd>
+</dl>
+
+<nav class="course"><a href="../lessons/0004-traces-and-spans.html">← Lesson 4</a></nav>
+</main>
+<script src="../assets/course-map.js"></script>
+<script src="../assets/nav.js"></script>
+</body>
+</html>

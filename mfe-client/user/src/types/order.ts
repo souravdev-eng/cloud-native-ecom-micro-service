@@ -19,6 +19,20 @@ export interface OrderItem {
 	quantity: number;
 }
 
+export interface OrderAddress {
+	id: string;
+	orderId: string;
+	fullName: string;
+	phone: string;
+	addressLine1: string;
+	addressLine2?: string | null;
+	city: string;
+	state: string;
+	postalCode: string;
+	country: string;
+	createdAt: string;
+}
+
 export interface Order {
 	id: string;
 	userId: string;
@@ -29,6 +43,7 @@ export interface Order {
 	createdAt: string;
 	updatedAt: string;
 	items: OrderItem[];
+	shippingAddress?: OrderAddress;
 }
 
 /** Response shape of GET /api/v1/order. */

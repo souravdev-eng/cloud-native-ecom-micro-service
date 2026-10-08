@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LogQL and Redaction</title>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<main>
+
+<p class="eyebrow">Lesson 3 · Ticket 02 · ~20 min</p>
+<h1>LogQL and redaction</h1>
+<p class="lede">By the end you'll be able to answer a real question ("which logins failed, and why?") with one LogQL query. You'll also be able to say, for any field, whether the logger masks it before it leaves the pod.</p>
+
+<h2>Why this exists</h2>
+<p>Lesson 1 got a log line into Loki. That only helps if you can <em>ask it questions</em> fast, and if it's safe for anyone on the team to look at. Those are the two halves of this lesson: <strong>querying</strong> (LogQL) and <strong>redaction</strong> (what the logger hides before a line is ever written).</p>
+
+<h2>1 · A LogQL query reads left to right</h2>
+<p>Every log query has two parts: a <strong>stream selector</strong> in <code>{ }</code>, then an optional <strong>pipeline</strong> of steps, each starting with <code>|</code> (<a href="https://grafana.com/docs/loki/latest/query/log_queries/">LogQL: log queries</a>). Each step filters or reshapes the lines coming out of the one before it.</p>
+<pre>{service="auth-service"}   |= "Login failed"   | json   | reason="wrong_password"
+└── 1. which streams ──┘   └ 2. text filter ┘   └ 3 ┘   └──── 4. field filter ───┘</pre>
+<dl class="fields">
+  <dt>1 · stream selector</dt><dd>Picks streams by <strong>label</strong>. This is the only part that uses Loki's index, so it's the cheap part. Our labels are only <code>service</code> and <code>level</code>.</dd>
+  <dt>2 · line filter</dt><dd>A plain substring (<code>|=</code>, <code>!=</code>) or regex (<code>|~</code>, <code>!~</code>) check on the raw text. Put these early: Loki's docs note that it "only does further processing when a line matches".</dd>
+  <dt>3 · parser</dt><dd><code>| json</code> turns every JSON key in the line into a field you can filter on. Nested keys are flattened with <code>_</code>, so <code>error.name</code> becomes <code>error_name</code>.</dd>
+  <dt>4 · label filter</dt><dd>Filters on those fields: <code>=</code>, <code>!=</code>, <code>=~</code>, and for numbers or durations <code>&gt;</code>, <code>&gt;=</code>, <code>&lt;</code>, <code>&lt;=</code>. Combine with <code>and</code> / <code>or</code>.</dd>
+</dl>
+
+<div class="callout">
+<p><strong>The one habit:</strong> narrow by label first, cut by text second, parse last. The label selector is cheap, a text filter is fast, and <code>| json</code> costs the most because it parses every line that reaches it.</p>
+</div>
+
+<h3>Structured metadata: filtering without parsing</h3>
+<p>In Lesson 1, Alloy attached <code>trace_id</code>, <code>pod</code> and <code>namespace</code> as <strong>structured metadata</strong>. That's data stored next to each line, without being indexed or creating a stream (<a href="https://grafana.com/docs/loki/latest/get-started/labels/structured-metadata/">Loki: structured metadata</a>). You can filter on it straight away, without <code>| json</code>:</p>
+<pre>{service="auth-service"} | trace_id="f88743982cd192ec906042c8d4491502"</pre>
+<p>This exact query shape is what Grafana runs when you jump from a trace to its logs (Lesson 6).</p>
+
+<h3>From lines to numbers</h3>
+<p>Wrap a log query in a function and it counts instead of listing (<a href="https://grafana.com/docs/loki/latest/query/metric_queries/">LogQL: metric queries</a>). This one answers "how many failed logins per reason in the last hour?":</p>
+<pre>sum by (reason) (
+  count_over_time({service="auth-service"} |= "Login failed" | json [1h])
+)</pre>
+<p>You won't need these often until the dashboards in later tickets, so don't try to learn the syntax now. Just remember that the option exists.</p>
+
+<h2>2 · Redaction: masked before it's written</h2>
+<p>Here's the rule: <strong>secrets are removed inside the process, before the line reaches stdout.</strong> Alloy, Loki and Grafana never see them. It happens in the logger's pipeline, a chain of Winston <em>formats</em> in <a href="../../../../common/src/observability/logger.ts">logger.ts</a> (<code>createLogger</code>):</p>
+<pre>const pipeline = [normaliseErrors(), redactSecrets(), applySchema(fixed)];</pre>
+<dl class="fields">
+  <dt>normaliseErrors</dt><dd>Turns an <code>Error</code> into a plain <code>{ name, message, stack }</code>, so the next step can mask the message and stack too.</dd>
+  <dt>redactSecrets</dt><dd>Walks the whole entry and masks secrets. The rules are below.</dd>
+  <dt>applySchema</dt><dd>Stamps <code>timestamp</code>, <code>service</code> and the rest <em>after</em> redaction, so nothing can mask them.</dd>
+</dl>
+<p>Redaction has two separate rules. It helps to keep them apart in your head:</p>
+
+<h3>Rule A · A secret <em>name</em> hides the whole value</h3>
+<p><a href="../../../../common/src/observability/sensitiveKeys.ts">sensitiveKeys.ts</a> decides this. It lowercases the key, strips everything except letters and digits (so <code>x-api-key</code> becomes <code>xapikey</code>), and then checks three lists:</p>
+<dl class="fields">
+  <dt>contains</dt><dd><code>password</code>, <code>secret</code>, <code>authorization</code>, <code>cookie</code>, <code>session</code>, <code>jwt</code>, <code>apikey</code>, <code>signature</code>, and a few more. Example: <code>newPassword</code>.</dd>
+  <dt>ends with</dt><dd><code>token</code>, <code>tokens</code>, <code>pwd</code>, <code>sid</code>. Ends-with, because <code>tokenizer</code> isn't a secret.</dd>
+  <dt>exactly</dt><dd><code>card</code>, <code>cardnumber</code>, <code>cvc</code>, <code>cvv</code>, <code>pan</code>, <code>otp</code>. Exact, because <code>discard</code> and <code>cardinality</code> contain "card".</dd>
+</dl>
+<p>A match becomes <code>"[REDACTED]"</code>, at any depth. <code>{ user: { card: {…} } }</code> hides the whole card object.</p>
+
+<h3>Rule B · Secret-looking <em>text</em> is masked wherever it appears</h3>
+<p>Every string, in any field and in the message, goes through <a href="../../../../common/src/observability/maskText.ts">maskText.ts</a>:</p>
+<dl class="fields">
+  <dt>emails</dt><dd><code>jane@example.com</code> becomes <code>j***@example.com</code>. The domain is kept, so "every gmail.com send fails" is still visible.</dd>
+  <dt>Stripe keys</dt><dd><code>sk_live_…</code>, <code>rk_test_…</code> and <code>whsec_…</code> become <code>[REDACTED]</code>.</dd>
+  <dt>query parameters</dt><dd>In <code>/reset-password?token=abc&amp;email=…</code>, the <code>token</code> value is redacted by Rule A's name check, and the email is masked.</dd>
+</dl>
+
+<details><summary>Why is the email code so complicated?</summary>
+<p>The usual one-line "match an email" regex can take exponential time on crafted input like <code>a@a.a.a.a…</code>. That's a ReDoS, and log fields often carry user input, so one malicious signup could freeze a log call. <code>maskText.ts</code> uses only regexes with a single character class, which can't backtrack, and checks the domain in plain code. The comment at the top of the file explains this; there's a test for it too ("masks a hostile email-like string in linear time").</p>
+</details>
+
+<div class="callout">
+<p><strong>What redaction does <em>not</em> cover:</strong> anything that skips the logger. <code>console.log(err)</code> in <code>common/src/middleware/errorHandler.ts</code> (the puzzle from Lesson 1) writes straight to stdout: no masking, no JSON, no <code>trace_id</code>. When you review a PR, <strong>any new <code>console.log</code> is a redaction bypass.</strong></p>
+</div>
+<p>The same policy protects traces as well: the span exporter reuses <code>isSensitiveKey</code> and <code>maskText</code> (Lesson 6).</p>
+
+<h2>3 · Drill: masked or kept?</h2>
+<p>Commit to all eight before checking. The field is logged as <code>logger.info('x', { &lt;field&gt;: … })</code>.</p>
+<div class="sorter" data-bins="[REDACTED]|Value kept">
+  <p class="q">Does the <em>whole value</em> become <code>[REDACTED]</code>?</p>
+  <ol class="items">
+    <li data-bin="0"><code>resetToken: "3f9a…"</code><p class="why">Ends with <code>token</code>, so Rule A applies.</p></li>
+    <li data-bin="1"><code>tokenizer: "bpe"</code><p class="why"><code>token</code> is an <em>ends-with</em> rule, and this ends with "izer".</p></li>
+    <li data-bin="0"><code>"x-api-key": "k_123"</code><p class="why">It's normalised to <code>xapikey</code>, which contains <code>apikey</code>.</p></li>
+    <li data-bin="1"><code>cardinality: 12</code><p class="why"><code>card</code> is an <em>exact</em> match rule only.</p></li>
+    <li data-bin="0"><code>sessionId: "s-9"</code><p class="why">Contains <code>session</code>.</p></li>
+    <li data-bin="1"><code>email: "jane@x.io"</code><p class="why">The <em>name</em> isn't secret, so it's not redacted. Rule B masks the <em>text</em> instead, giving <code>j***@x.io</code>.</p></li>
+    <li data-bin="0"><code>card: { number, expiry }</code><p class="why">Exact match on <code>card</code>, so the whole object goes.</p></li>
+    <li data-bin="1"><code>reason: "wrong_password"</code><p class="why">Rule A checks the key (<code>reason</code>), not the value. The value only goes through Rule B, which doesn't match it.</p></li>
+  </ol>
+</div>
+
+<h2>4 · Lab: answer real questions</h2>
+<p>Needs <code>skaffold dev -p observability</code> running and Grafana open (<a href="0001-a-log-lines-journey.html">Lesson 1, step 2</a>). In Explore, pick <em>Loki</em> and use <em>Code</em> mode.</p>
+<ol class="steps">
+  <li>
+    <p><strong>Make two kinds of failure.</strong> One unknown email, and one wrong password for a user you create:</p>
+<pre>curl -sk -X POST https://ecom.dev/api/users/login -H 'content-type: application/json' \
+  -d '{"email":"nobody3@example.com","password":"x"}'
+curl -sk -X POST https://ecom.dev/api/users/signup -H 'content-type: application/json' \
+  -d '{"name":"Lesson Three","email":"lesson3@example.com","password":"Secret#123","passwordConform":"Secret#123"}'
+curl -sk -X POST https://ecom.dev/api/users/login -H 'content-type: application/json' \
+  -d '{"email":"lesson3@example.com","password":"wrong"}'</pre>
+    <p>Signup needs <code>passwordConform</code> to match (<a href="../../../../auth/src/controllers/newUser.ts">newUser.ts</a>). If you've run this before, it says the email is in use, which is fine: the user already exists.</p>
+  </li>
+  <li>
+    <p><strong>Label first, text second.</strong></p>
+<pre>{service="auth-service", level="warn"} |= "Login failed"</pre>
+  </li>
+  <li>
+    <p><strong>Parse and filter on a field.</strong> Only wrong passwords:</p>
+<pre>{service="auth-service"} |= "Login failed" | json | reason="wrong_password"</pre>
+    <details><summary>Checkpoint: which fields does that line carry, and which are masked?</summary>
+    <p><code>reason</code>, <code>userId</code> and <code>email</code> (<a href="../../../../auth/src/controllers/loginUser.ts">loginUser.ts</a>). The email shows as <code>l***@example.com</code>. <code>userId</code> is kept, since it's an ID, not a secret, and it's exactly why <code>userId</code> must never be a <em>label</em> (Lesson 1).</p></details>
+  </li>
+  <li>
+    <p><strong>Count instead of list.</strong> Switch the time picker to "Last 1 hour" and run:</p>
+<pre>sum by (reason) (count_over_time({service="auth-service"} |= "Login failed" | json [1h]))</pre>
+  </li>
+  <li>
+    <p><strong>Prove the password never left the pod.</strong> Search every auth line for the password you just typed:</p>
+<pre>{service=~"auth.*"} |= "Secret#123"</pre>
+    <details><summary>What should you see, and why the <code>=~</code>?</summary>
+    <p>Nothing. The request body is never logged, and if it were, <code>password</code> would be redacted. <code>=~"auth.*"</code> is a regex matcher that also covers the unstructured <code>{service="auth"}</code> stream from Lesson 1's puzzle. That stream is the one place a secret <em>could</em> leak, because it bypasses the logger.</p></details>
+  </li>
+</ol>
+
+<h2>5 · Check yourself</h2>
+<p class="score"></p>
+
+<div class="quiz" data-answer="1">
+  <p class="q">Which part of a LogQL query uses Loki's index?</p>
+  <div class="options">
+    <button>The json parser step</button>
+    <button>The stream selector braces</button>
+    <button>The line filter step</button>
+    <button>The label filter step</button>
+  </div>
+  <p class="why">Only the <code>{…}</code> selector, because Loki indexes labels and nothing else. Every <code>|</code> step works through the lines of the streams that selector picked.</p>
+</div>
+
+<div class="quiz" data-answer="3">
+  <p class="q">Where is a password removed from a log entry?</p>
+  <div class="options">
+    <button>In Alloy's stage.json processing step</button>
+    <button>In Loki when it's stored</button>
+    <button>In Grafana when it's shown</button>
+    <button>In the logger, before stdout</button>
+  </div>
+  <p class="why"><code>redactSecrets</code> runs inside <code>createLogger</code>. Nothing downstream ever holds the secret, so a leak can't come from a misconfigured Alloy or Grafana.</p>
+</div>
+
+<div class="quiz" data-answer="0">
+  <p class="q">Why does <code>applySchema</code> run <em>after</em> <code>redactSecrets</code>?</p>
+  <div class="options">
+    <button>So fixed fields are never masked</button>
+    <button>So errors get their stack traces</button>
+    <button>So the JSON keys stay alphabetical</button>
+    <button>So Alloy can read the labels</button>
+  </div>
+  <p class="why">The code comment says it: "the schema fields are added after redaction so nothing can mask them". Stamping last has a second benefit: a caller's own <code>service</code> or <code>timestamp</code> field can't overwrite the real one.</p>
+</div>
+
+<div class="quiz" data-answer="2">
+  <p class="q">A PR adds <code>console.log(req.body)</code> to a controller. What's the problem?</p>
+  <div class="options">
+    <button>Loki rejects plain text lines</button>
+    <button>It creates a new label</button>
+    <button>It skips the redaction pipeline</button>
+    <button>It slows the request path</button>
+  </div>
+  <p class="why">Only <code>createLogger</code> redacts. <code>console.log</code> goes straight to stdout, so the body's <code>password</code> would reach Loki in plain text.</p>
+</div>
+
+<div class="quiz" data-answer="1">
+  <p class="from">From Lesson 1</p>
+  <p class="q">Which two fields are Loki labels on our log lines?</p>
+  <div class="options">
+    <button>trace_id and service</button>
+    <button>level and service</button>
+    <button>level and userId</button>
+    <button>pod and namespace</button>
+  </div>
+  <p class="why">Only <code>level</code> and <code>service</code> (<code>stage.labels</code> in <code>alloy.yml</code>). <code>trace_id</code>, <code>pod</code> and <code>namespace</code> are structured metadata.</p>
+</div>
+
+<div class="quiz" data-answer="0">
+  <p class="from">From Lesson 2</p>
+  <p class="q">In Alloy's config, how do you find where a line goes next?</p>
+  <div class="options">
+    <button>Follow the forward_to arrow</button>
+    <button>Read the Service selector</button>
+    <button>Check the kind field</button>
+    <button>Find the --- separator</button>
+  </div>
+  <p class="why">Components are chained by <code>forward_to</code> (logs) or <code>output</code> (traces). <code>kind</code> and selectors belong to the Kubernetes YAML around it.</p>
+</div>
+
+<div class="recap">
+  <h2>In short: remember these 3</h2>
+  <ol>
+    <li><strong>LogQL runs left to right:</strong> <code>{labels}</code> → <code>|= "text"</code> → <code>| json</code> → <code>| field="x"</code>. Narrow cheaply first.</li>
+    <li><strong>Redaction happens in the logger, before stdout.</strong> A secret <em>name</em> hides the whole value; secret-looking <em>text</em> (emails, Stripe keys, <code>?token=</code>) is masked anywhere.</li>
+    <li><strong>Anything that skips the logger skips redaction.</strong> A new <code>console.log</code> in a PR is a red flag.</li>
+  </ol>
+  <p><strong>If you forget everything:</strong> "labels, then text, then json", and "only the logger redacts".</p>
+  <p><strong>You don't need to memorise</strong> the deny-list words, the metric-query syntax or the ReDoS details. They're in the <a href="../reference/0002-logql-and-redaction.html">LogQL and redaction sheet</a>.</p>
+</div>
+
+<div class="callout">
+<p class="label">Read next (15 min)</p>
+<p><a href="https://grafana.com/docs/loki/latest/query/log_queries/">Grafana Loki: Log queries</a> is the primary source for section 1. Read "Line filter expression" and "Label filter expression". Then skim <a href="../../../../common/src/observability/sensitiveKeys.ts">sensitiveKeys.ts</a>: it's short, and it's the file you'd edit to protect a new field.</p>
+</div>
+
+<div class="callout">
+<p class="label">Stuck or curious?</p>
+<p>Ask me: "write me a query for X", "would field Y be masked?", "how would I add a new secret name?" I'm your teacher for this; followups are the fastest route.</p>
+</div>
+
+<nav class="course">
+  <a href="0002-reading-k8s-and-alloy-config.html">← Lesson 2: How to read the platform config</a>
+  <a href="0004-traces-and-spans.html">Next: Traces and spans →</a>
+</nav>
+
+</main>
+<script src="../assets/quiz.js"></script>
+<script src="../assets/sorter.js"></script>
+<script src="../assets/course-map.js"></script>
+<script src="../assets/nav.js"></script>
+</body>
+</html>
