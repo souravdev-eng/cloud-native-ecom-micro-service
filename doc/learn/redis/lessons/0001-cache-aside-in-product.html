@@ -253,7 +253,7 @@ rcli get product:6950f35901550edc80e88206
   <dt>the throw-away time</dt><dd>the TTL: <code>EX 900</code> when it's pinned up, counting down in <code>TTL</code>.</dd>
   <dt>you</dt><dd>the product pod, which runs all three steps: look, fetch, store.</dd>
 </dl>
-<p><strong>One thing the picture makes obvious:</strong> if someone edits the original in the filing room, the photocopy on the whiteboard doesn't change. It stays wrong until it's taken down. The throw-away time is what limits how long a wrong copy can survive. That's Lesson 2.</p>
+<p><strong>One thing the picture makes obvious:</strong> if someone edits the original in the filing room, the photocopy on the whiteboard doesn't change. It stays wrong until it's taken down. The throw-away time is what limits how long a wrong copy can survive. That's <a href="0002-cache-consistency.html">Lesson 2</a>.</p>
 
 <h2>6 · Search: the harder label</h2>
 <p>A product page has an easy label: its id. A search doesn't. The question is everything in the URL: the words, the category, the filters, the sort, the page. Two searches that differ in any of those can have different answers, so they need different labels.</p>
@@ -508,7 +508,7 @@ public async set(key: string, value: any, ttlSeconds?: number): Promise&lt;void&
 
 <nav class="course">
   <a href="0000-shared-state-across-pods.html">← Lesson 0: Shared state across pods</a>
-  <span class="meta">Next: Cache consistency (coming)</span>
+  <a href="0002-cache-consistency.html">Lesson 2: Cache consistency →</a>
 </nav>
 
 </main>

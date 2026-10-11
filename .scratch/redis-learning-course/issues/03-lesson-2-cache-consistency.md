@@ -15,10 +15,15 @@ Adds the shared `slowStore` helper (fake data store with configurable latency an
 
 **Status:** ready-for-agent
 
-- [ ] The live stale-search demo was run against `skaffold dev`, with steps and observed output recorded in the lesson (or `NOTES.md` says it wasn't run live)
-- [ ] The live demo restores the original price at the end
-- [ ] The race lab's broken variant leaves a stale value in the cache on every run; the fixed variant doesn't; `--check` asserts both and is part of `labs:verify`
-- [ ] `slowStore` and `pauseAt` are in the shared helpers with a short usage note
-- [ ] The lesson's fix design names which keys to invalidate or version and why, without changing `product` code
-- [ ] Reference sheet 2 gains the invalidation section; the glossary gains new terms
-- [ ] The quiz includes at least one question about an earlier lesson
+- [x] The live stale-search demo was run against `skaffold dev`, with steps and observed output recorded in the lesson (or `NOTES.md` says it wasn't run live)
+- [x] The live demo restores the original price at the end
+- [x] The race lab's broken variant leaves a stale value in the cache on every run; the fixed variant doesn't; `--check` asserts both and is part of `labs:verify`
+- [x] `slowStore` and `pauseAt` are in the shared helpers with a short usage note
+- [x] The lesson's fix design names which keys to invalidate or version and why, without changing `product` code
+- [x] Reference sheet 2 gains the invalidation section; the glossary gains new terms
+- [x] The quiz includes at least one question about an earlier lesson
+
+## Comments
+
+- 2026-10-11: Implemented, uncommitted for review. Lesson 2 is `doc/learn/redis/lessons/0002-cache-consistency.html`; the lab is `sandbox/redis-learning/labs/02-cache-consistency/` (`npm run lab:02`, in `labs:verify`); the helpers are `lib/slowStore.ts` and `lib/pauses.ts` with tests in `lib/__test__/`. The live demo was run against the `minimal` cluster and the price restored; it uses the Tanjiro figure, not the Kindle, because `PATCH` on the Kindle returns 500 (seed data lacks required `originalPrice`/`stockQuantity`). `NOTES.md` records the run, the side effects left (`updatedAt`, two discarded `product-updated` messages in cart), and two repo findings: nothing publishes `product-quantity-updated`, and `newProduct` never touches the cache. Reference sheet 2 gains the invalidation section, the glossary gains 9 terms, Lesson 1 links forward.
+- 2026-10-11: Fixes from `/code-review`: `--check` now proves the old price stays for the whole TTL (3 s in check mode, ±1 s) and that the fixed variant's race really ran (the old price is left under edition 0); the lab banner says "edition number", the word the lesson uses until "Now name it"; the `deleteProduct` excerpt is explained line by line; "backstop TTL" matches the glossary; the `pauses.ts` connection note is accurate; NOTES records why the lesson has two break cycles. Also found by review, not fixed (out of scope): the comment at `order/src/service/order.service.ts:123` assumes `product` consumes `order-created`, which it doesn't.

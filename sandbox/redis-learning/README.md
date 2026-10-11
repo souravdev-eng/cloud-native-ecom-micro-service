@@ -7,13 +7,15 @@ npm install
 npm run redis:single          # Redis 7.4 on localhost:6390 (not 6379)
 npm run lab:00 -- --broken    # Lesson 0: lose updates
 npm run lab:00 -- --fixed     # Lesson 0: lose none
+npm run lab:02 -- --broken    # Lesson 2: an old price stays cached until its TTL
+npm run lab:02 -- --fixed     # Lesson 2: a generation counter keeps it from being read
 npm run labs:verify           # every lab's --check, 3 runs each
 npm test                      # lab helper tests (lib/__test__/)
 npm run redis:down            # stop the lab Redis
 ```
 
 - `docker-compose.yml`: one profile per lab environment (`single` for now).
-- `lib/`: shared helpers. `connect()` refuses anything but the sandbox Redis; `runConcurrently()` starts real worker processes; `createBarrier()` forces race timing; `withPrefix()`/`cleanup()` keep each lab under its own `lab:NN:*` keys. Labs never run `FLUSHDB`/`FLUSHALL`.
+- `lib/`: shared helpers. `connect()` refuses anything but the sandbox Redis; `runConcurrently()` starts real worker processes; `createBarrier()` lines workers up and `createPauses()` holds one at a named step (`pauseAt`/`waitUntilPaused`/`resume`) to force race timing; `createSlowStore()` is a fake system of record with latency and a load counter; `withPrefix()`/`cleanup()` keep each lab under its own `lab:NN:*` keys. Labs never run `FLUSHDB`/`FLUSHALL`.
 - `labs/NN-<slug>/`: one folder per lesson with a local lab, each with `--broken`, `--fixed` and `--check`.
 
 The older reference material below (`docs/`, `examples/`) is being replaced by the course and will be removed once its content has moved.

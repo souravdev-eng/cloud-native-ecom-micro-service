@@ -8,6 +8,7 @@
     "redis:down": "docker compose --profile single down",
     "redis:cli": "docker compose exec lab-redis redis-cli",
     "lab:00": "tsx labs/00-shared-state/index.ts",
+    "lab:02": "tsx labs/02-cache-consistency/index.ts",
     "labs:verify": "tsx scripts/verify.ts",
     "test": "tsx --test lib/__test__/*.test.ts",
     "typecheck": "tsc --noEmit"

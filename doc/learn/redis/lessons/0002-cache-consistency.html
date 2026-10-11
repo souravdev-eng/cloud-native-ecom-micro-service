@@ -1,0 +1,521 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cache Consistency</title>
+<link rel="stylesheet" href="../assets/course.css">
+<style>
+  /* The order things happened in: one row per step. Same look as Lessons 0 and 1. */
+  .timeline { list-style: none; margin: 1.25rem 0 0.5rem; padding: 0; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+  .timeline li { display: flex; gap: 0.75rem; align-items: baseline; padding: 0.45rem 0.9rem; border-top: 1px solid var(--border); max-width: none; }
+  .timeline li:first-child { border-top: 0; }
+  .timeline .who { flex: none; width: 5.2rem; font: 500 0.78rem 'IBM Plex Mono', monospace; color: var(--accent); }
+  .timeline .cmd { flex: 1; min-width: 0; font: 0.84rem 'IBM Plex Mono', monospace; color: var(--text); overflow-wrap: anywhere; }
+  .timeline .val { flex: none; font: 0.8rem 'IBM Plex Mono', monospace; color: var(--muted); }
+  .timeline .end { background: var(--tint); }
+  .timeline .end .who { color: var(--text); }
+  .timeline .bad .val { color: var(--bad); }
+
+  /* "Story so far" chapter cards: short beats of the story, stacked. */
+  .beats { list-style: none; margin: 1.25rem 0; padding: 0; display: grid; gap: 0.75rem; }
+  /* min-width: 0 lets a card shrink below its code block's width, so the code scrolls instead of the page. */
+  .beats li { border: 1px solid var(--border); border-radius: 10px; padding: 0.8rem 1rem; max-width: none; min-width: 0; }
+  .beats li > :first-child { margin-top: 0; }
+  .beats li > :last-child { margin-bottom: 0; }
+  .beats .tag { font: 500 0.72rem 'IBM Plex Mono', monospace; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); margin: 0 0 0.3rem; }
+  .beats .ok { color: var(--good); }
+  .beats .bad { color: var(--bad); }
+
+  /* The lab setup: the real system next to what you run. Stacked on phones, side by side when there's room. */
+  .rig { display: grid; gap: 0.75rem; margin: 1.25rem 0; }
+  @media (min-width: 640px) { .rig { grid-template-columns: 1fr 1fr; } }
+  .rig-card { border: 1px solid var(--border); border-radius: 10px; padding: 0.8rem 1rem; min-width: 0; }
+  .rig-tag { font: 500 0.72rem 'IBM Plex Mono', monospace; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); margin: 0 0 0.6rem; }
+  .rig-box { background: var(--tint); border: 1px solid var(--border); border-radius: 8px; padding: 0.5rem 0.75rem; font: 600 0.95rem Lexend, sans-serif; color: var(--text); }
+  .rig-box span { display: block; font: 0.75rem 'IBM Plex Mono', monospace; color: var(--muted); overflow-wrap: anywhere; }
+  .rig-arrow { font: 0.75rem 'IBM Plex Mono', monospace; color: var(--accent); padding: 0.35rem 0 0.35rem 0.6rem; overflow-wrap: anywhere; }
+</style>
+</head>
+<body>
+<main>
+
+<p class="eyebrow">Lesson 2 · Day 1 · ~30 min · live cluster + local</p>
+<h1>Cache consistency</h1>
+<p class="lede">Lesson 1 showed <code>product</code>'s cache working: copies of MongoDB answers, kept in Redis with a throw-away time. This lesson is about what happens to those copies when a product changes. You'll watch a real search show an old price in the cluster, force a rarer race on your laptop, and design the fix.</p>
+
+<h2>Where this lesson starts</h2>
+
+<details>
+<summary>Recall check: Lesson 1 in 2 minutes</summary>
+<p>From memory, before you look: what were Lesson 1's three "In short" ideas?</p>
+<p>Hint: three steps, a label, a copy.</p>
+<details><summary>Show the answers</summary>
+<ol>
+  <li>Cache-aside: look, fetch, store. The product pod looks in Redis; on a miss it reads MongoDB and stores a copy with a TTL. Redis never fetches anything.</li>
+  <li>The key is the question. A product page is <code>product:&lt;id&gt;</code>; a search is the whole query, sorted and fingerprinted, under <code>product_search:v2:</code>.</li>
+  <li>The cache is a copy, not the truth. MongoDB is the system of record, and the TTL limits how long a copy can be wrong.</li>
+</ol>
+<p>Missed one? Reread section 5 of <a href="0001-cache-aside-in-product.html">Lesson 1</a> (photocopies on the whiteboard). This lesson picks up exactly where that picture ended.</p>
+</details>
+</details>
+
+<h3>What "consistent" means here</h3>
+<p>A cache is consistent when its copy says the same thing as the original. A Kindle that costs 129 in MongoDB and 129 in Redis: consistent. 129 in MongoDB and 149 in Redis: the copy is out of date, and every shopper who gets the copy sees the wrong price. Nothing crashes. It's just wrong.</p>
+
+<h3>Why it matters in our shop</h3>
+<p>Sellers change prices and stock all the time, through <code>PATCH /api/product/:id</code>. Every change makes some copies in Redis out of date. <code>product</code> does clean up after a change, but only one of its two kinds of copy. Search results are never cleaned up, so after a price change a search can show the old price for up to an hour. That bug is in the code today, and you'll see it in the real cluster.</p>
+
+<h3>Why this lesson comes now</h3>
+<p>Lesson 1 ended on one sentence: if someone edits the original in the filing room, the photocopy on the whiteboard doesn't change. This lesson is that sentence, run for real. Lesson 3 then asks the opposite question: what happens when lots of copies vanish at once?</p>
+<p>By the end of this lesson you'll be able to:</p>
+<ul>
+  <li>say exactly which copies <code>product</code> cleans up after a change, and which it misses;</li>
+  <li>explain how a slow reader can put an old copy back <em>after</em> a clean-up, and why the TTL is what finally fixes it;</li>
+  <li>design a way to make every search copy out of date at once, without finding each one.</li>
+</ul>
+
+<h2>Your setup</h2>
+<p>This lesson has two halves. The first runs against the <strong>real cluster</strong>, as in Lesson 1, but this time you change something. The second runs a small race on your laptop with the <strong>lab Redis</strong>, as in Lesson 0:</p>
+<div class="rig" role="img" aria-label="Part A: curl sends a price change and reads through the ingress to the product pod, which writes MongoDB and talks to the product Redis. Part B: two worker processes share the lab Redis, which also holds a slow fake store.">
+  <div class="rig-card">
+    <p class="rig-tag">Part A · the real cluster</p>
+    <div class="rig-box">curl<span>reads, plus one price change and one change back</span></div>
+    <div class="rig-arrow">↓ https://ecom.dev/api/product/…</div>
+    <div class="rig-box">product pod<span>writes the change to MongoDB Atlas, then cleans up Redis</span></div>
+    <div class="rig-arrow">↓ redis://product-redis-service:6379</div>
+    <div class="rig-box">product Redis pod<span>you watch it with rcli monitor, as in Lesson 1</span></div>
+  </div>
+  <div class="rig-card">
+    <p class="rig-tag">Part B · your laptop</p>
+    <div class="rig-box">2 worker processes<span>a shopper (reads) and a seller (writes)</span></div>
+    <div class="rig-arrow">↓ redis://localhost:6390</div>
+    <div class="rig-box">lab Redis in Docker<span>the cache, plus a slow fake store under lab:02:db</span></div>
+  </div>
+</div>
+<dl class="fields">
+  <dt>the price change</dt><dd>a <code>PATCH</code> to <code>product</code>. Unlike Lesson 1, this writes to the real MongoDB, so you put the price back at the end. Every step is through <code>product</code>'s own API; you still never send <code>SET</code> or <code>DEL</code> to the product Redis yourself.</dd>
+  <dt>shopper worker</dt><dd>a process that reads a price the way <code>product</code> does: look in Redis, on a miss load from the store, then save a copy with a TTL.</dd>
+  <dt>seller worker</dt><dd>a process that changes the price in the store, then cleans up the cache, as <code>updateProduct</code> does.</dd>
+  <dt>slow fake store</dt><dd>stands in for MongoDB. Every read and write waits 200 ms, like a trip out of the cluster. It's kept in the lab Redis so both workers see the same one, but the lab only ever treats it as the database.</dd>
+</dl>
+<p><strong>Why a laptop lab for the race?</strong> The race needs one request to be slow at exactly the wrong moment. In the cluster you'd wait days for that. On your laptop, the lab can hold the shopper at that moment every single time.</p>
+
+<h3>Start it</h3>
+<p>The cluster from Lesson 1 should still be up (<code>kubectl get pods</code>). If not, start it the same way. Then, in the lab folder:</p>
+<pre>cd sandbox/redis-learning
+npm run redis:single</pre>
+<p>That starts the lab Redis if it isn't running. Keep Lesson 1's <code>rcli</code> alias in your terminals:</p>
+<pre>alias rcli='kubectl exec deploy/product-redis-deployment -- redis-cli'</pre>
+
+<h3>A login that may change prices</h3>
+<p>Only a <code>seller</code> or <code>admin</code> may change a product. A shopper account gets <code>403 not authorized</code>. Log in with a seller account, as in Lesson 1, and save the cookie:</p>
+<pre>curl -sk -c seller.txt -H 'Content-Type: application/json' \
+  -d '{"email":"seller@example.com","password":"your-password"}' \
+  https://ecom.dev/api/users/login</pre>
+<p>The flags are the same as Lesson 1's login. Only the file name differs, so you don't mix up the two cookies.</p>
+<details><summary>No seller account? How this lesson was run</summary>
+<p>The author had no seller account and didn't create one in the shared database. Instead, the cookie was made the way the auth tests make one: a token signed with the cluster's own secret, inside the product pod, with the <code>admin</code> role:</p>
+<pre>TOKEN=$(kubectl exec deploy/product-deployment -c product -- node -e \
+  "process.stdout.write(require('jsonwebtoken').sign({id:'000000000000000000000001',email:'lesson2@example.com',role:'admin'},process.env.JWT_KEY))")
+printf 'session=%s' "$(printf '{"jwt":"%s"}' "$TOKEN" | base64 | tr -d '\n')" &gt; seller.txt</pre>
+<p>Line 1 signs a token with <code>JWT_KEY</code>, the secret every service checks tokens against. Line 2 wraps it the way <code>cookie-session</code> stores it. Then use <code>-b "$(cat seller.txt)"</code> instead of <code>-b seller.txt</code>. Only do this on your own local cluster, and delete the file afterwards.</p></details>
+
+<h3>Warm up: pick a product</h3>
+<p>One minute. This lesson uses the Tanjiro figure, <code>696099a9ae51e374ecce3165</code>. Read its price:</p>
+<pre class="out">curl -sk -b seller.txt https://ecom.dev/api/product/696099a9ae51e374ecce3165 | grep -o '"price":[0-9]*'
+"price":299</pre>
+<p><code>grep -o</code> prints just the part that matches, so you see the price and not the whole product. <strong>Write the price down.</strong> You'll put it back at the end.</p>
+<details><summary>Why not the Kindle from Lesson 1?</summary>
+<p>Changing the Kindle's price returns <code>500</code>. A change runs Mongoose's <code>save()</code>, which checks the <em>whole</em> document against the schema, and the Kindle was seeded without <code>originalPrice</code> and <code>stockQuantity</code>, two required fields. The log says <code>Product validation failed</code>, and nothing is written. Of the first 100 products, only the Tanjiro figure has both fields. A real gap in the seed data, and a side quest; not this lesson's subject.</p></details>
+
+<h2>1 · The story: a price drop</h2>
+<p>This is the real <code>product</code> service and a real product. The sale is made up.</p>
+
+<ol class="beats">
+  <li>
+    <p class="tag">Before · <span class="ok">works</span></p>
+    <p>The Tanjiro figure costs 299. Shoppers open its page and search for "tanjiro". Both answers are copied into Redis: the page for 15 minutes, the search for 60.</p>
+  </li>
+  <li>
+    <p class="tag">Then · <span class="bad">a change</span></p>
+    <p>The seller drops the price to 249 for a weekend sale. <code>product</code> saves it in MongoDB and takes the page's copy out of Redis, so the next page view fetches the new price.</p>
+  </li>
+  <li>
+    <p class="tag">The catch · <span class="bad">hidden</span></p>
+    <p>Nobody takes the search copy down. For up to an hour, the search list says 299 and the page says 249. A price drop is merely confusing. A price <em>rise</em> is worse: the list shows a lower price than the one charged at checkout. No error, no log line, nothing on any dashboard.</p>
+  </li>
+</ol>
+
+<p>Before you run it, a guess.</p>
+
+<h2>2 · Predict</h2>
+<p>Commit to an answer first.</p>
+<div class="quiz" data-answer="1">
+  <p class="q">Both copies are in Redis at 299. The seller changes the price to 249. Straight after, what do the page and the search show?</p>
+  <div class="options">
+    <button>Page 249, search 249</button>
+    <button>Page 249, search 299</button>
+    <button>Page 299, search 299, until both expire</button>
+    <button>Page 299, search 249</button>
+  </div>
+  <p class="why">The change removes the page's copy, so the next page view fetches 249. Nothing touches the search copy. Run section 3 to watch it.</p>
+</div>
+
+<h2>3 · See it break: a stale search</h2>
+<p>Every output below was copied from a run against the local cluster (timestamps and long values trimmed).</p>
+<ol class="steps">
+  <li>
+    <p><strong>Start watching Redis.</strong> In terminal 2:</p>
+<pre>rcli monitor</pre>
+  </li>
+  <li>
+    <p><strong>Fill both copies.</strong> In terminal 1, open the page, then search:</p>
+<pre class="out">curl -sk -b seller.txt https://ecom.dev/api/product/696099a9ae51e374ecce3165 | grep -o '"price":[0-9]*'
+"price":299
+curl -sk -b seller.txt 'https://ecom.dev/api/product?search=tanjiro' | grep -o '"price":[0-9]*'
+"price":299</pre>
+    <p>Terminal 2 shows two misses, each followed by a copy being stored:</p>
+<pre class="out">"GET" "product:696099a9ae51e374ecce3165"
+"SET" "product:696099a9ae51e374ecce3165" "{…}" "EX" "900"
+"GET" "product_search:v2:0032013ee6eb916aea89637dd0532cba"
+"SET" "product_search:v2:0032013ee6eb916aea89637dd0532cba" "{\"data\":[…]}" "EX" "3600"</pre>
+  </li>
+  <li>
+    <p><strong>Drop the price.</strong></p>
+<pre class="out">curl -sk -b seller.txt -X PATCH -H 'Content-Type: application/json' \
+  -d '{"price":249}' -o /dev/null -w '%{http_code}\n' \
+  https://ecom.dev/api/product/696099a9ae51e374ecce3165
+200</pre>
+    <dl class="fields">
+      <dt>-X PATCH</dt><dd>change part of a product, rather than read it.</dd>
+      <dt>-d '{"price":249}'</dt><dd>the only field being changed. Everything else stays as it is.</dd>
+      <dt>-o /dev/null -w '%{http_code}\n'</dt><dd>hide the reply and print just the status. <code>200</code> means saved.</dd>
+    </dl>
+    <p>Terminal 2 shows the whole clean-up. One line:</p>
+<pre class="out">"DEL" "product:696099a9ae51e374ecce3165"</pre>
+  </li>
+  <li>
+    <p><strong>Read both again.</strong></p>
+<pre class="out">curl -sk -b seller.txt https://ecom.dev/api/product/696099a9ae51e374ecce3165 | grep -o '"price":[0-9]*'
+"price":249
+curl -sk -b seller.txt 'https://ecom.dev/api/product?search=tanjiro' | grep -o '"price":[0-9]*'
+"price":299</pre>
+<pre class="out">"GET" "product:696099a9ae51e374ecce3165"
+"SET" "product:696099a9ae51e374ecce3165" "{…}" "EX" "900"
+"GET" "product_search:v2:0032013ee6eb916aea89637dd0532cba"</pre>
+    <p>The page missed (its copy was deleted), fetched 249 and stored a new copy. The search <em>hit</em>: it found its old copy and answered 299. Stop <code>MONITOR</code> with Ctrl+C and read the search copy's clock:</p>
+<pre class="out">rcli ttl product_search:v2:0032013ee6eb916aea89637dd0532cba
+(integer) 3597</pre>
+    <p>Almost an hour left. Until then, every "tanjiro" search says 299.</p>
+  </li>
+  <li>
+    <p><strong>Put the price back.</strong> Don't skip this: you changed the real database. Use the price you wrote down:</p>
+<pre class="out">curl -sk -b seller.txt -X PATCH -H 'Content-Type: application/json' \
+  -d '{"price":299}' -o /dev/null -w '%{http_code}\n' \
+  https://ecom.dev/api/product/696099a9ae51e374ecce3165
+200
+curl -sk -b seller.txt https://ecom.dev/api/product/696099a9ae51e374ecce3165 | grep -o '"price":[0-9]*'
+"price":299</pre>
+    <p>Now the old search copy happens to be right again. The one thing the change back leaves behind is the product's <code>updatedAt</code> time in MongoDB (the schema stamps every save).</p>
+  </li>
+</ol>
+<details><summary>Did anything else notice the change?</summary>
+<p>Yes. After saving, <code>product</code> also sends a <code>product-updated</code> message over RabbitMQ, so other services can update <em>their</em> copies of the product. In the run above, <code>cart</code>'s log said <code>ProductUpdatedListener: product 696099a9… not found — discarding message</code>: no cart held that product, so there was nothing to update. Those copies in other services are the same problem one level up, and section 9 comes back to them.</p></details>
+
+<h2>4 · Slow motion: one price change</h2>
+<p>Here is step 3 again, with the parts Redis couldn't see filled in:</p>
+<ol class="timeline" aria-label="What happened during the price change">
+  <li><span class="who">product</span><span class="cmd">MongoDB: findById, set price 249, save</span><span class="val">saved</span></li>
+  <li><span class="who">product</span><span class="cmd">Redis: DEL product:6960…3165</span><span class="val">1</span></li>
+  <li><span class="who">product</span><span class="cmd">RabbitMQ: publish product-updated</span><span class="val">sent</span></li>
+  <li><span class="who">product</span><span class="cmd">reply 200</span><span class="val"></span></li>
+  <li class="end bad"><span class="who">Still there</span><span class="cmd">product_search:v2:0032…2cba, the "tanjiro" list at 299</span><span class="val">~60 min</span></li>
+</ol>
+<p>Why doesn't <code>product</code> delete the search copy too? Ask yourself which key it would delete. The page's key is easy: <code>product:</code> plus the id it already has. A search key is a fingerprint of a <em>question</em>: "tanjiro", "figure", "category=other", "price under 300", page 2 of something. Any of them might list this product. The code can't work backwards from a product to every question whose answer contains it, and fingerprints can't be turned back into questions anyway.</p>
+
+<h2>5 · The second way: a slow reader</h2>
+<p>The page's copy <em>was</em> deleted, so the page is safe. Or is it? There's a rarer way for even that copy to go stale, and it needs two pods at once. This is where the lab Redis comes in.</p>
+
+<div class="quiz" data-answer="2">
+  <p class="q">A shopper's pod misses the cache and starts loading the price from MongoDB (149). While it's loading, a seller changes the price to 129 and deletes the key. Then the shopper's pod finishes and saves what it loaded. What does the next shopper see?</p>
+  <div class="options">
+    <button>129: the seller deleted the key</button>
+    <button>129: Redis refuses to save over a deleted key</button>
+    <button>149, until the copy's TTL runs out</button>
+    <button>An error: the two pods conflicted</button>
+  </div>
+  <p class="why">The delete came first; the old copy was saved after it. Nothing deletes it again, so it stays until its throw-away time. Run the lab to see it.</p>
+</div>
+
+<ol class="steps">
+  <li>
+    <p><strong>Run the race.</strong> In the lab folder:</p>
+<pre class="out">npm run lab:02 -- --broken
+
+Broken: delete the key on write · TTL 5s
+  store before:      149
+  reader loaded:     149 (from store)
+  seller set:        129
+  store now:         129
+  cache key:         lab:02:cache:kindle
+  next shopper sees: 149 (from cache) ✗
+
+Shoppers keep reading, once a second
+  after 1s:          149 (from cache) ✗
+  after 2s:          149 (from cache) ✗
+  after 3s:          149 (from cache) ✗
+  after 4s:          149 (from cache) ✗
+  after 5s:          129 (from store) ✓</pre>
+    <p>The store says 129, the cache says 149, and every shopper gets 149 until the copy's 5-second TTL runs out. Then a miss loads 129, and everything is right again. In the shop, that TTL would be 15 minutes.</p>
+  </li>
+  <li>
+    <p><strong>Run it without the forced timing.</strong> The lab normally holds the shopper at the worst moment. <code>--no-pause</code> lets the two workers just run:</p>
+<pre class="out">npm run lab:02 -- --broken --no-pause --ttl 1
+  …
+  next shopper sees: 129 (from cache) ✓</pre>
+    <p>Three runs out of three came out right. The shopper's load finished too late to read the old price. That's why this bug survives testing: it needs a read that is slower than a whole write, at exactly the wrong moment. Under real load (a slow MongoDB, a garbage-collection pause, a busy node) that moment does come.</p>
+  </li>
+</ol>
+
+<details><summary>How does the lab hold the shopper at the worst moment?</summary>
+<p>With a <strong>pause point</strong>, a lab helper in <code>lib/pauses.ts</code>. The shopper calls <code>pauseAt('reader-loaded')</code> right after loading from the store. The seller calls <code>waitUntilPaused('reader-loaded')</code>, does its whole update, then <code>resume('reader-loaded')</code>. Lesson 0's starting gun lines everyone up; a pause point holds one worker while another goes in between. Both are just Redis lists and <code>BLPOP</code>, under <code>lab:02:</code>.</p></details>
+
+<h3>Slow motion: the race</h3>
+<ol class="timeline" aria-label="The race between a slow reader and a writer">
+  <li><span class="who">shopper</span><span class="cmd">GET lab:02:cache:kindle</span><span class="val">→ nil</span></li>
+  <li><span class="who">shopper</span><span class="cmd">store: load kindle (slow)</span><span class="val">→ 149</span></li>
+  <li><span class="who">seller</span><span class="cmd">store: save kindle = 129</span><span class="val">saved</span></li>
+  <li><span class="who">seller</span><span class="cmd">DEL lab:02:cache:kindle</span><span class="val">0, nothing there</span></li>
+  <li><span class="who">shopper</span><span class="cmd">SET lab:02:cache:kindle 149 EX 5</span><span class="val">OK</span></li>
+  <li class="end bad"><span class="who">Everyone</span><span class="cmd">GET lab:02:cache:kindle</span><span class="val">→ 149 for 5 s</span></li>
+</ol>
+<p>Notice the <code>DEL</code> returned 0: when the seller cleaned up, there was nothing to clean. The old price wasn't in Redis yet. It was in the shopper's hands, on its way back.</p>
+
+<h2>6 · Why: the copy in someone's hands</h2>
+<p>Lesson 1's filing room and photocopies come back, with one thing added.</p>
+<div class="callout">
+<p>When an original changes in the filing room, you take its photocopy off the whiteboard. That works for the copy you can find by its label.</p>
+<p>But some photocopies are of <strong>lists</strong>: "every figure under 300", "everything matching tanjiro". The changed item is on some of them, and their labels don't say which. You can't take down what you can't find.</p>
+<p>And a colleague may be walking back from the filing room right now, holding a photocopy made <em>before</em> the change. You clear the board; they pin their old copy up a minute later. The board is wrong again, and nobody knows.</p>
+<p>The fix is a number at the top of the board: <strong>"current edition: 1"</strong>. Every label carries the edition it was made for. When an original changes, you don't hunt for copies; you change the number to 2. Old copies can stay pinned up. Nobody reads them, because nobody asks for edition 1 any more, and they come down at their throw-away time.</p>
+</div>
+<dl class="fields">
+  <dt>taking a copy down</dt><dd><code>DEL product:&lt;id&gt;</code>, what <code>updateProduct</code> does.</dd>
+  <dt>photocopies of lists</dt><dd>the <code>product_search:v2:*</code> keys. A key is a fingerprint of a question, so it can't tell you which products are in its answer.</dd>
+  <dt>the colleague walking back</dt><dd>a pod that read MongoDB before the change and saves its copy after the delete.</dd>
+  <dt>the throw-away time</dt><dd>the TTL. It's what finally cleared the board in both cases, and why every copy must have one.</dd>
+  <dt>the edition number</dt><dd>a counter in Redis. Readers put it into every key; writers <code>INCR</code> it after a change.</dd>
+</dl>
+
+<h2>7 · The fix: change the edition, not the copies</h2>
+<p>The fixed lab is the same race with one change. The shopper reads the edition number first and puts it in the key (<code>…:kindle:g0</code>). The seller <code>INCR</code>s the number after saving, instead of deleting.</p>
+<ol class="steps">
+  <li>
+    <p><strong>Run the same race, fixed.</strong></p>
+<pre class="out">npm run lab:02 -- --fixed
+
+Fixed: bump the edition number on write · TTL 5s
+  store before:      149
+  reader loaded:     149 (from store)
+  seller set:        129
+  store now:         129
+  cache key:         lab:02:cache:kindle:g1
+  next shopper sees: 129 (from store) ✓
+  old copy:          lab:02:cache:kindle:g0 = 149, TTL 5s, never read again</pre>
+    <p>The shopper still saved the old price, under edition 0. By then the edition was 1, so the next shopper asked for <code>…:g1</code>, missed, and loaded 129. The old copy sits there unread until its TTL takes it down.</p>
+  </li>
+  <li>
+    <p><strong>Check both claims.</strong></p>
+<pre class="out">npm run lab:02 -- --check
+  …
+Check
+  broken: next shopper gets the old price: yes ✓
+  broken: stale for the whole TTL, then fresh: yes ✓
+  fixed: the old price was cached under edition 0: yes ✓
+  fixed: next shopper gets the new price: yes ✓
+  no keys left under lab:02:*: yes ✓</pre>
+  </li>
+</ol>
+<p>Two details make it safe, and both matter. The shopper reads the edition <em>before</em> loading from the store, so an old load is always filed under an old edition. The seller bumps the edition <em>after</em> the store has saved, so nobody can load the old price under the new edition. Swap either order and the race comes back.</p>
+<p>It isn't free: every read now costs one extra round trip (read the number, then the copy), and every change makes <em>all</em> copies under that number useless, including ones that were still right.</p>
+
+<h3>Designing the fix for product</h3>
+<p>This course designs the fix; applying it to <code>product</code> is a separate follow-up. Here's the design, key by key:</p>
+<dl class="fields">
+  <dt>product_search:gen · new</dt><dd>one edition number for <strong>all</strong> search copies. A search key can't say which products it lists, so any change to any product must make every search copy out of date. One <code>INCR</code> does it, however many search copies exist.</dd>
+  <dt>product_search:v2:g&lt;gen&gt;:&lt;md5&gt; · was product_search:v2:&lt;md5&gt;</dt><dd>the search key with the edition in it. <code>showProduct</code> reads <code>product_search:gen</code> first, then builds the key. The old copies expire on their own within the hour.</dd>
+  <dt>who bumps it</dt><dd>every write that can change a list: <code>updateProduct</code>, <code>deleteProduct</code>, the quantity listener (stock is shown in results, and <code>quantity[gte]</code> filters on it), and <code>newProduct</code>, which today doesn't touch the cache at all, so a new product is missing from cached searches for up to an hour. Always after the MongoDB write has succeeded.</dd>
+  <dt>product:&lt;id&gt; · keep the delete</dt><dd>the page's key can be found by its id, so deleting it after the save stays. Only the slow-reader race can beat it, and its 15-minute TTL is the backstop. If even that window is too long, give each product its own edition (<code>product:gen:&lt;id&gt;</code>), exactly as the lab does.</dd>
+</dl>
+<details><summary>What else was considered, and why not</summary>
+<ul>
+  <li><strong>Delete every search key</strong> with <code>SCAN MATCH product_search:*</code>, then <code>UNLINK</code>. It walks the whole keyspace on every price change, is slow with many keys, and still loses to the slow-reader race. Never <code>KEYS *</code>: it blocks Redis until it has checked every key.</li>
+  <li><strong>Remember which searches list which product</strong>, in a Redis set per product, and delete exactly those. Precise, but every search writes to many sets, and the sets themselves can go stale. Too much machinery for this shop.</li>
+  <li><strong>Just shorten the search TTL.</strong> Fewer minutes of wrong prices, more trips to MongoDB, and still wrong for a while. A fine stopgap, not a fix.</li>
+</ul>
+<p>The trade-off of the chosen design: a busy shop with constant stock changes would bump the number all the time, and search copies would rarely live long enough to be used. Then you'd move stock out of the cached list, or edition by category. That's a decision for when the numbers say so; the observability work can chart the search hit ratio.</p></details>
+
+<h2>8 · Now name it</h2>
+<p>You've seen each of these happen. Their proper names, used from here on:</p>
+<dl class="fields">
+  <dt>cache invalidation</dt><dd>making a cached copy stop being used after the original changes: deleting it, or making its key unreachable. What <code>updateProduct</code> does for the page, and nothing does for search.</dd>
+  <dt>invalidate on write</dt><dd>doing the invalidation as part of every write to the system of record, instead of waiting for the TTL.</dd>
+  <dt>delete vs update on write</dt><dd>on a change, either delete the copy (the next read fetches the new one) or write the new value into the cache straight away. Delete is the usual choice; see below.</dd>
+  <dt>delete after commit</dt><dd>invalidate only once the database write has succeeded. Delete before it, and a reader can load and re-cache the old value in the gap.</dd>
+  <dt>stale set</dt><dd>the race in section 5: a reader that loaded before a change saves its old copy after the invalidation.</dd>
+  <dt>backstop TTL</dt><dd>the TTL's real job once you invalidate on write: the longest a copy can stay wrong when an invalidation is missed or beaten by a stale set.</dd>
+  <dt>generation counter</dt><dd>the edition number: a counter that is part of every key in a family. <code>INCR</code> it and the whole family is invalidated at once. A <a href="0001-cache-aside-in-product.html">versioned key</a> (<code>v2</code>) is the same idea, changed by hand in code instead of by every write.</dd>
+</dl>
+<p>All of them are in the <a href="../reference/0005-glossary.html">glossary</a>, and the decision list is in the <a href="../reference/0002-caching-and-invalidation.html#invalidation">caching sheet's invalidation section</a>.</p>
+
+<details><summary>Why delete, and not write the new price into the cache?</summary>
+<p>Two sellers change the same price a moment apart: A to 249, then B to 199. MongoDB ends at 199. If each also <code>SET</code>s its price in Redis, the two <code>SET</code>s can arrive in the other order, B then A, and the cache says 249 until its TTL. That's Lesson 0's lost update, in a cache. Two deletes can't be in the wrong order: either way the key is gone and the next read loads 199. Updating the cache on write (write-through) only works when writes to one key can't overlap.</p></details>
+
+<h2>9 · In our repo</h2>
+
+<h3>The price change</h3>
+<p><a href="../../../../product/src/routes/updateProduct.ts">product/src/routes/updateProduct.ts:19, 38-41</a>, with the field-by-field <code>set</code> left out:</p>
+<pre>const product = await Product.findById(req.params.id);
+// … product.set({ title, price, quantity, … }) …
+await product.save();
+await cache.del(`product:${req.params.id}`);
+
+new ProductUpdatePub(rabbitMQWrapper.channel).publish({ id: product.id, price: product.price, … });</pre>
+<dl class="fields">
+  <dt>findById · save</dt><dd>load, change and save the original. <code>save()</code> checks the whole document, which is why the Kindle failed.</dd>
+  <dt>cache.del(`product:${…}`)</dt><dd>the one <code>DEL</code> you saw. It comes after <code>save()</code>: delete after commit, done right.</dd>
+  <dt>no product_search line</dt><dd>the bug is what's missing. Nothing here touches a search key.</dd>
+  <dt>ProductUpdatePub</dt><dd>tells other services, over RabbitMQ, that the product changed.</dd>
+</dl>
+
+<h3>Deleting a product</h3>
+<p><a href="../../../../product/src/routes/deleteProduct.ts">product/src/routes/deleteProduct.ts:16-26</a>, with the 404 on one line:</p>
+<pre>const product = await Product.findByIdAndDelete(req.params.id);
+if (!product) { return next(new NotFoundError(…)); }
+
+await cache.del(`product:${req.params.id}`);
+await new ProductDeletePub(rabbitMQWrapper.channel).publish({ id: product.id });
+res.status(200).send({ product: null });</pre>
+<dl class="fields">
+  <dt>findByIdAndDelete</dt><dd>removes the original from MongoDB and returns it, or null if there was none.</dd>
+  <dt>cache.del</dt><dd>the page's copy, after the delete has committed.</dd>
+  <dt>ProductDeletePub</dt><dd>tells <code>cart</code> and <code>order</code> to drop their copies.</dd>
+</dl>
+<p>The same shape. After a delete, the page returns 404 straight away, but cached searches keep listing the deleted product for up to an hour, and clicking it gives a 404.</p>
+
+<h3>Stock changes, from another service</h3>
+<p><a href="../../../../product/src/queues/listeners/productQuantityUpdate.ts">product/src/queues/listeners/productQuantityUpdate.ts:24-28, 48-49</a>, comments removed:</p>
+<pre>const updated = await Product.findOneAndUpdate(
+  { _id: data.id, quantity: { $gte: data.quantity } },
+  { $inc: { quantity: -data.quantity } },
+  { new: true },
+);
+// … if (!updated) { log and ack; return; } …
+await cache.del(`product:${data.id}`);
+channel.ack(msg);</pre>
+<dl class="fields">
+  <dt>findOneAndUpdate … $inc</dt><dd>take stock away in one atomic step, only if there's enough (Lesson 0's idea, in MongoDB).</dd>
+  <dt>cache.del</dt><dd>again only the page's key. Searches keep showing the old stock, and <code>quantity[gte]</code> filters keep their old answers.</dd>
+  <dt>channel.ack(msg)</dt><dd>tells RabbitMQ the message is done, so it isn't sent again. If the pod crashed after the update but before the ack, RabbitMQ would send the message again and the stock would be taken twice. Lesson 5 comes back to this.</dd>
+</dl>
+<p><strong>A surprise:</strong> nothing in the repo sends this message today. <code>product</code>, <code>cart</code> and <code>order</code> all listen for <code>product-quantity-updated</code>, but no service publishes it (search the repo for <code>RoutingKeyTypes.ProductQuantityUpdated</code>: only listeners). <code>product</code> doesn't listen for <code>order-created</code> either, so as far as the code shows, a sale doesn't lower stock in MongoDB at all. When someone adds the publisher, this listener's search gap comes with it.</p>
+
+<details><summary>Other services' copies</summary>
+<p><code>cart</code> and <code>order</code> keep their own copy of each product (title, price, stock) in their own databases, updated by <code>product-updated</code> messages. Those copies are caches too, just slower ones: a message delivered late, or lost, leaves them stale, with no TTL to rescue them. Same idea, different tools. The rule from this lesson still holds: decide what clears a stale copy, and what the backstop is.</p></details>
+
+<div class="recap">
+  <h2>In short: remember these 3</h2>
+  <ol>
+    <li><strong>A change must clear every copy it affects.</strong> <code>product</code> deletes <code>product:&lt;id&gt;</code> after each change but never touches <code>product_search:v2:*</code>, so search can show an old price for up to an hour.</li>
+    <li><strong>A slow reader can put an old copy back.</strong> It loads before the change and saves after the delete. Only the TTL clears it, so every copy needs one: the backstop.</li>
+    <li><strong>When you can't find the copies, change the edition.</strong> Put a generation number in every key of a family and <code>INCR</code> it after each change. Old copies are never read again and expire on their own.</li>
+  </ol>
+  <p><strong>If you forget everything:</strong> photocopies don't change when the original does; take them down, or change the edition number.</p>
+  <p><strong>You don't need to memorise</strong> the key names, the TTLs or the lab output. The decision list is on the <a href="../reference/0002-caching-and-invalidation.html#invalidation">caching sheet</a>, terms in the <a href="../reference/0005-glossary.html">glossary</a>.</p>
+</div>
+
+<h2>10 · Check yourself</h2>
+<p>Answer from memory first, then click. You can retry a wrong answer.</p>
+<div data-quiz-group>
+<p class="score"></p>
+
+<div class="quiz" data-answer="2">
+  <p class="q">Why doesn't <code>updateProduct</code> simply delete the search keys that list the changed product?</p>
+  <div class="options">
+    <button>Deleting keys in Redis is slow</button>
+    <button>Search keys have no TTL</button>
+    <button>A search key is a fingerprint of a question; it can't tell you which products are in its answer</button>
+    <button>Search keys live in a different Redis</button>
+  </div>
+  <p class="why">The page's key is built from the id the code already has. A search key is an MD5 of the query, and any query might list the product. There's no way back from a product to its search keys.</p>
+</div>
+
+<div class="quiz" data-answer="0">
+  <p class="q">In the broken lab, the seller's <code>DEL</code> returned 0. What does that tell you?</p>
+  <div class="options">
+    <button>The old price wasn't in Redis yet: the shopper still had it, on its way back</button>
+    <button>Redis refused the delete</button>
+    <button>The key had already expired</button>
+    <button>The seller deleted the wrong key</button>
+  </div>
+  <p class="why">Nothing was cached at that moment. The shopper had loaded 149 and saved it after the delete. That's the stale set.</p>
+</div>
+
+<div class="quiz" data-answer="3">
+  <p class="q">In the fixed lab, a teammate moves the <code>INCR</code> of the edition number to <em>before</em> the store save. Is it still safe?</p>
+  <div class="options">
+    <button>Yes: the order doesn't matter</button>
+    <button>Yes: INCR is atomic</button>
+    <button>No: INCR can't run before a save</button>
+    <button>No: a reader can see the new edition, load the old price, and cache it under the new key</button>
+  </div>
+  <p class="why">Between the <code>INCR</code> and the save, a reader picks up edition 1 and loads 149 from the store, which hasn't changed yet. Its copy goes under <code>…:g1</code>, the key everyone now reads. Invalidate after commit.</p>
+</div>
+
+<div class="quiz" data-answer="1">
+  <p class="from">From Lesson 1</p>
+  <p class="q">The search copy had 3,597 seconds left when the price changed. What decided that number?</p>
+  <div class="options">
+    <button>Redis picks it based on memory</button>
+    <button>showProduct: 60 minutes for a text search, set with EX when the copy was stored</button>
+    <button>The cache wrapper's 15-minute default</button>
+    <button>MongoDB tells Redis when the product changes</button>
+  </div>
+  <p class="why">A <code>?search=</code> list is stored with <code>EX 3600</code>; three seconds had passed. The wrapper's 15-minute default is for the product page. Redis never hears from MongoDB.</p>
+</div>
+
+<div class="quiz" data-answer="2">
+  <p class="from">From Lesson 0</p>
+  <p class="q">Two sellers change one price a moment apart, and each also <code>SET</code>s its new price in the cache. What can go wrong?</p>
+  <div class="options">
+    <button>Nothing: each SET is atomic</button>
+    <button>Redis rejects the second SET</button>
+    <button>The SETs land in the other order, and the cache keeps the older price: a lost update</button>
+    <button>Both prices are kept</button>
+  </div>
+  <p class="why">Each <code>SET</code> is atomic on its own, but the order of two writers isn't guaranteed. The later database write can be overwritten in the cache by the earlier one. Deleting instead of updating avoids it.</p>
+</div>
+</div>
+
+<div class="callout">
+<p class="label">Read next (10 min)</p>
+<p>Section 3.2.1, "Leases", of <a href="https://www.usenix.org/system/files/conference/nsdi13/nsdi13-final170_update.pdf">Scaling Memcache at Facebook</a> (NSDI 2013). It names the stale set you just ran, and describes the fix Facebook chose: <em>leases</em>, a different answer to the same race. Then the "Lazy loading" and "Adding TTL" sections of AWS's <a href="https://docs.aws.amazon.com/whitepapers/latest/database-caching-strategies-using-redis/caching-patterns.html">Caching patterns</a>.</p>
+</div>
+
+<div class="callout">
+<p class="label">Stuck or curious?</p>
+<p>Ask anything: "why not use a lock for the race?", "what if Redis is down when the seller tries to delete?", "how often would the edition change in our shop?" When you're ready, say so, and the next session starts by recalling the "In short" box above.</p>
+</div>
+
+<nav class="course">
+  <a href="0001-cache-aside-in-product.html">← Lesson 1: Cache-aside in product</a>
+  <span class="meta">Next: Stampede (coming)</span>
+</nav>
+
+</main>
+<script src="../assets/quiz.js"></script>
+<script src="../assets/course-map.js"></script>
+<script src="../assets/nav.js"></script>
+</body>
+</html>

@@ -42,6 +42,13 @@
   <dt>key prefix</dt><dd>The fixed start of a key saying what kind of thing it holds, such as <code>product:</code>. In the labs, <code>lab:NN:</code>. (L0, L1)</dd>
   <dt>versioned key</dt><dd>A key prefix with a version in it (<code>product_search:v2:</code>), changed when the meaning of the keys changes so old copies are never read again. (L1)</dd>
   <dt>stale</dt><dd>A cached copy that no longer matches the system of record. (L1)</dd>
+  <dt>cache invalidation</dt><dd>Making a cached copy stop being used after the original changes: deleting it, or making its key unreachable. (L2)</dd>
+  <dt>invalidate on write</dt><dd>Doing the invalidation as part of every write to the system of record, rather than waiting for the TTL. (L2)</dd>
+  <dt>delete vs update on write</dt><dd>On a change, delete the copy (the next read fetches it) or write the new value into the cache. Delete is the default: two overlapping updates can land in the wrong order. (L2)</dd>
+  <dt>delete after commit</dt><dd>Invalidate only after the database write has succeeded, so no reader can re-cache the old value in between. (L2)</dd>
+  <dt>stale set</dt><dd>A race: a reader loads a value before a change and saves its copy after the invalidation, putting the old value back. In Lesson 2's picture, the colleague walking back with an old photocopy. (L2)</dd>
+  <dt>backstop TTL</dt><dd>The TTL's job once you invalidate on write: the longest a copy can stay wrong when an invalidation is missed or beaten by a stale set. (L2)</dd>
+  <dt>generation counter</dt><dd>A counter that is part of every key in a family; <code>INCR</code> it and the whole family is invalidated at once, without finding the keys. In Lesson 2's picture, the edition number at the top of the board. (L2)</dd>
 </dl>
 
 <h2>The labs</h2>
@@ -50,6 +57,8 @@
   <dt>connection guard</dt><dd><code>connect()</code> in the lab helpers: it throws for any URL that isn't the sandbox Redis, with no override. (L0)</dd>
   <dt>lab prefix</dt><dd><code>lab:NN:</code>, the key prefix each lab writes under and the only thing its cleanup deletes. (L0)</dd>
   <dt>barrier</dt><dd>A lab helper that holds each worker at a point until all of them arrive, to force the worst-case timing on every run. (L0)</dd>
+  <dt>pause point</dt><dd>A lab helper (<code>createPauses</code>) that holds one worker at a named step until another worker has done its part and resumes it, to force one exact order of events. (L2)</dd>
+  <dt>slow store</dt><dd>A lab helper (<code>createSlowStore</code>) standing in for the system of record: every read and write waits a set latency, and reads are counted. (L2)</dd>
   <dt>broken / fixed variant</dt><dd>The two versions of each lab: one shows the failure, one shows the fix against the same scenario. <code>--check</code> runs both and asserts the outcome. (L0)</dd>
 </dl>
 
