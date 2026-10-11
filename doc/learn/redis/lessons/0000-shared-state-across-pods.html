@@ -1,0 +1,390 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shared State Across Pods</title>
+<link rel="stylesheet" href="../assets/course.css">
+<style>
+  /* The order Redis ran the commands in: one row per command. */
+  .timeline { list-style: none; margin: 1.25rem 0 0.5rem; padding: 0; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+  .timeline li { display: flex; gap: 0.75rem; align-items: baseline; padding: 0.45rem 0.9rem; border-top: 1px solid var(--border); max-width: none; }
+  .timeline li:first-child { border-top: 0; }
+  .timeline .who { flex: none; width: 5.2rem; font: 500 0.78rem 'IBM Plex Mono', monospace; color: var(--accent); }
+  .timeline .cmd { flex: 1; font: 0.84rem 'IBM Plex Mono', monospace; color: var(--text); }
+  .timeline .val { flex: none; font: 0.8rem 'IBM Plex Mono', monospace; color: var(--muted); }
+  .timeline .end { background: var(--tint); }
+  .timeline .end .who { color: var(--text); }
+
+  /* "Story so far" chapter cards: three short beats of the story, stacked. */
+  .beats { list-style: none; margin: 1.25rem 0; padding: 0; display: grid; gap: 0.75rem; }
+  /* min-width: 0 lets a card shrink below its code block's width, so the code scrolls instead of the page. */
+  .beats li { border: 1px solid var(--border); border-radius: 10px; padding: 0.8rem 1rem; max-width: none; min-width: 0; }
+  .beats li > :first-child { margin-top: 0; }
+  .beats li > :last-child { margin-bottom: 0; }
+  .beats .tag { font: 500 0.72rem 'IBM Plex Mono', monospace; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); margin: 0 0 0.3rem; }
+  .beats .ok { color: var(--good); }
+  .beats .bad { color: var(--bad); }
+</style>
+</head>
+<body>
+<main>
+
+<p class="eyebrow">Lesson 0 · Day 1 · ~25 min · local lab</p>
+<h1>Shared state across pods</h1>
+<p class="lede">Why a number shared by three copies of your app can quietly come out wrong, and the one-line change that fixes it.</p>
+
+<h2>Before you start</h2>
+<p>By the end of this lesson you'll be able to:</p>
+<ul>
+  <li>explain why three pods updating one number can lose updates without any error;</li>
+  <li>show it happening, step by step, on your own machine;</li>
+  <li>fix it, and say why the fix works.</li>
+</ul>
+
+<details>
+<summary>Already know this? Take the 3-minute check</summary>
+<div class="diagnostic" data-quiz-group data-pass="4">
+<p>Answer from memory. Only your first try counts.</p>
+<p class="score"></p>
+
+<div class="quiz" data-answer="1">
+  <p class="q">The key <code>views</code> holds 10. Three pods each read it, add 1, and write it back, all at the same moment. What can <code>views</code> end up as?</p>
+  <div class="options">
+    <button>Always 13</button>
+    <button>Anything from 11 to 13</button>
+    <button>Always 11</button>
+    <button>Redis rejects the second write</button>
+  </div>
+  <p class="why">If all three read 10 before anyone writes, all three write 11. If they don't overlap, you get 13. Anything in between can happen too.</p>
+</div>
+
+<div class="quiz" data-answer="2">
+  <p class="q">Why is <code>INCR views</code> safe when many clients send it at once?</p>
+  <div class="options">
+    <button>INCR locks the key first</button>
+    <button>The client retries on conflict</button>
+    <button>Redis finishes each command before starting the next</button>
+    <button>Redis keeps one queue per key</button>
+  </div>
+  <p class="why">Redis runs commands one at a time. INCR reads, adds and writes inside one command, so nothing else can happen in the middle.</p>
+</div>
+
+<div class="quiz" data-answer="0">
+  <p class="q">Three pods each keep <code>let views = 0</code> in memory and add 1 per request. What's wrong?</p>
+  <div class="options">
+    <button>Each pod only counts its own requests</button>
+    <button>Node loses the value on garbage collection</button>
+    <button>Nothing, the load balancer merges them</button>
+    <button>The variable overflows quickly</button>
+  </div>
+  <p class="why">Each pod has its own memory, so you get three partial counts, and each resets when its pod restarts.</p>
+</div>
+
+<div class="quiz" data-answer="3">
+  <p class="q">For a small Redis command like <code>GET</code>, what takes most of the time, seen from the app?</p>
+  <div class="options">
+    <button>Redis finding the key</button>
+    <button>Redis writing to disk</button>
+    <button>Building the command</button>
+    <button>The trip over the network and back</button>
+  </div>
+  <p class="why">Redis runs a GET in microseconds. The request and reply travelling over the network take far longer.</p>
+</div>
+
+<div class="quiz" data-answer="1">
+  <p class="q">Which single command adds 5 to the number in <code>views</code>?</p>
+  <div class="options">
+    <button><code>SET views +5</code></button>
+    <button><code>INCRBY views 5</code></button>
+    <button><code>APPEND views 5</code></button>
+    <button><code>EXPIRE views 5</code></button>
+  </div>
+  <p class="why"><code>INCRBY</code> is <code>INCR</code> with a step. <code>DECR</code> and <code>DECRBY</code> count down.</p>
+</div>
+
+<div class="callout pass-msg">
+<p><strong>4 or 5 right: skim.</strong> Run the two labs in sections 3 and 6 (about 5 minutes), read "In our repo" and the "In short" box, then go to Lesson 1.</p>
+</div>
+<div class="callout fail-msg">
+<p><strong>Read the whole lesson.</strong> It answers every question you missed. Missing some here is normal.</p>
+</div>
+<p class="meta">Note your score: it goes into learning record 0001 at the start of the next session.</p>
+</div>
+</details>
+
+<p><strong>Start the lab Redis now</strong>, so it's ready when the story needs it. From the repo root:</p>
+<pre>cd sandbox/redis-learning
+npm install
+npm run redis:single
+npm run redis:cli -- ping      # PONG</pre>
+<p class="meta">This runs Redis 7.4 in Docker on port 6390. The labs refuse to use 6379, because a <code>kubectl port-forward</code> to the real product Redis would sit there.</p>
+
+<h2>1 · The story: a view counter</h2>
+<p>The product team wants a small badge on every product page: <em>"Viewed 1,284 times"</em>. It's a made-up feature (<code>product</code> doesn't have it), but it's the simplest possible example of many copies of an app sharing one number.</p>
+
+<ol class="beats">
+  <li>
+    <p class="tag">Version 1 · <span class="ok">works on your laptop</span></p>
+    <p>You keep the count in a variable inside the product service: <code>views = views + 1</code> on every page view. With one copy of the service running, the number is right.</p>
+  </li>
+  <li>
+    <p class="tag">Then · <span class="bad">three pods</span></p>
+    <p>Traffic grows, so Kubernetes runs three copies of <code>product</code>, called <strong>pods</strong>. Each pod is a separate program with its own memory, so each has its own <code>views</code> variable. Refresh the page and the badge jumps between three different numbers, depending on which pod answered. Restart a pod and its count goes back to 0.</p>
+  </li>
+  <li>
+    <p class="tag">Version 2 · <span class="ok">looks right</span></p>
+    <p>The count has to live somewhere all three pods can reach. That's Redis: one server, one copy of the number. On every page view, each pod now asks Redis for the number, then writes back one more:</p>
+<pre>const views = Number(await redis.get(key));
+await redis.set(key, String(views + 1));</pre>
+    <p>You test it by refreshing the page a few times. The count goes up by one each time. Ship it.</p>
+  </li>
+</ol>
+
+<p>Then launch day comes, and thousands of people open product pages at the same time.</p>
+
+<h2>2 · Predict</h2>
+<p>Pick an answer before you run anything. If your guess turns out wrong, that's the useful part: it shows exactly what to look at.</p>
+<div class="quiz" data-answer="1">
+  <p class="q">Three pods each count 1,000 page views using version 2 (read, then write back one more). The count starts at 0. What does Redis hold at the end?</p>
+  <div class="options">
+    <button>Exactly 3,000</button>
+    <button>Less than 3,000</button>
+    <button>More than 3,000</button>
+    <button>Redis returns an error</button>
+  </div>
+  <p class="why">Less. Now guess how much less, then run the lab.</p>
+</div>
+
+<h2>3 · See it break</h2>
+<p>The lab plays launch day. Three <strong>workers</strong>, each a separate Node program with its own Redis connection, stand in for the three pods. Each adds 1 to one shared counter, 1,000 times, exactly like version 2.</p>
+<ol class="steps">
+  <li>
+    <p><strong>Run it.</strong></p>
+<pre class="out">npm run lab:00 -- --broken
+
+Broken: GET + SET · 3 processes × 1000 increments
+  expected:          3,000
+  counter:           1,000
+  <span class="bad">lost updates:      2,000 ✗</span></pre>
+    <p>Two out of every three page views vanished. Redis didn't report a single error, and every command did exactly what it was told.</p>
+    <details><summary>Why exactly 2,000, every time?</summary>
+    <p>The lab cheats on purpose so it shows the same result every run. Before each write, it makes all three workers wait until each of them has read the counter, like a starting gun. That forces the worst timing every round, and you'll see why it costs exactly two out of three in section 4. Next step, you'll turn the trick off.</p></details>
+  </li>
+  <li>
+    <p><strong>Run it the way real life works.</strong> Without the starting gun, timing is left to chance:</p>
+<pre class="out">npm run lab:00 -- --broken --no-barrier
+
+  expected:          3,000
+  counter:           1,392
+  <span class="bad">lost updates:      1,608 ✗</span></pre>
+    <p>Still most of the views lost, but the number changes on every run. Try it twice. A bug like this is easy to miss in testing, because when you test one request at a time, nothing overlaps.</p>
+  </li>
+</ol>
+
+<h2>4 · Slow motion</h2>
+<p>Let's watch a single round, with each worker adding 1 just once. Redis has a command, <code>MONITOR</code>, that prints every command it runs. Open a second terminal for it:</p>
+<pre>npm run redis:cli -- monitor | grep counter      # terminal 2
+npm run lab:00 -- --broken --increments 1        # terminal 1</pre>
+<p>Among the lines in terminal 2, you'll find these. Here they are as a list, in the order Redis ran them:</p>
+<ol class="timeline" aria-label="The order Redis ran the commands in">
+  <li><span class="who">Worker A</span><span class="cmd">GET counter</span><span class="val">→ 0</span></li>
+  <li><span class="who">Worker B</span><span class="cmd">GET counter</span><span class="val">→ 0</span></li>
+  <li><span class="who">Worker C</span><span class="cmd">GET counter</span><span class="val">→ 0</span></li>
+  <li><span class="who">Worker A</span><span class="cmd">SET counter 1</span><span class="val">OK</span></li>
+  <li><span class="who">Worker B</span><span class="cmd">SET counter 1</span><span class="val">OK</span></li>
+  <li><span class="who">Worker C</span><span class="cmd">SET counter 1</span><span class="val">OK</span></li>
+  <li class="end"><span class="who">Result</span><span class="cmd">counter = 1</span><span class="val">wanted 3</span></li>
+</ol>
+<p>All three asked for the number before any of them wrote. All three were told 0, all three worked out 0 + 1, and all three wrote 1. Workers B and C didn't add anything: they <strong>overwrote</strong> a 1 with another 1.</p>
+<p>With the starting gun, every one of the 1,000 rounds goes like this, so three increments become one, and 3,000 becomes 1,000. Stop <code>MONITOR</code> with Ctrl+C when you're done; it slows Redis down.</p>
+
+<h2>5 · Why: one whiteboard, one keeper</h2>
+<p>Here's a picture to keep in your head for the rest of the course.</p>
+<div class="callout">
+<p>Redis is a <strong>whiteboard</strong> in a room with a <strong>keeper</strong>. Only the keeper may read or write it, and the keeper deals with <strong>one request at a time</strong>, in the order they arrive.</p>
+<p>Version 2 works like this: you walk up and ask "what's the number?" The keeper says 0. You walk back to your desk, work out 0 + 1, walk back, and say "write 1".</p>
+<p>While you were walking, two colleagues asked the same question and got the same answer. Each of you does a correct job on your own. Together, you lose two updates.</p>
+</div>
+<p>Each part of the picture is a real thing:</p>
+<dl class="fields">
+  <dt>the whiteboard</dt><dd>Redis's memory, the one copy of the number that every pod shares.</dd>
+  <dt>the walk there and back</dt><dd>the network. Every command is a message to Redis plus a reply: one <strong>round trip</strong>.</dd>
+  <dt>working it out at your desk</dt><dd>the <code>+ 1</code>, which happens in the pod, not in Redis.</dd>
+  <dt>one request at a time</dt><dd>Redis really does run commands one at a time, in the order they arrive (<a href="https://redis.io/docs/latest/operate/oss_and_stack/management/optimization/latency/">Redis docs: "Single threaded nature of Redis"</a>).</dd>
+</dl>
+<p><strong>The problem in one sentence:</strong> version 2 needs <em>two</em> visits to the keeper, and other people get their turn in between.</p>
+
+<h2>6 · The fix: let Redis do the adding</h2>
+<p>Don't ask for the number and walk away with it. Ask the keeper to <em>add one</em>. That's one visit: the keeper reads, adds and writes in a single turn, and nobody can get a turn in the middle of it. In Redis, "please add one" is the <code>INCR</code> command:</p>
+<pre>await redis.incr(key);</pre>
+<ol class="steps">
+  <li>
+    <p><strong>Run the fixed version.</strong> Same three workers, same starting gun, same worst-case timing. Only the command changes:</p>
+<pre class="out">npm run lab:00 -- --fixed
+
+Fixed: INCR · 3 processes × 1000 increments
+  expected:          3,000
+  counter:           3,000
+  <span class="good">lost updates:      0 ✓</span></pre>
+    <p>All three workers still hit the counter at the same instant, but now each one takes a single turn. Redis runs the three <code>INCR</code>s one after another: 0 → 1 → 2 → 3.</p>
+  </li>
+  <li>
+    <p><strong>Let the lab check itself.</strong> This runs both versions and confirms what this lesson claims:</p>
+<pre class="out">npm run lab:00 -- --check
+…
+Check
+  <span class="good">broken variant loses updates: yes ✓</span>
+  <span class="good">fixed variant loses none: yes ✓</span>
+  <span class="good">no keys left under lab:00:*: yes ✓</span></pre>
+    <details><summary>Is it safe to run the labs?</summary>
+    <p>Yes. They connect only to the local lab Redis, never to the cluster. Each lab writes only keys starting with its own prefix (<code>lab:00:</code> here) and deletes only those when it's done. No lab ever wipes the whole database.</p></details>
+  </li>
+</ol>
+<p>The same idea comes in other sizes: <code>INCRBY key 5</code> adds 5, and <code>DECR</code> and <code>DECRBY</code> count down. They're all in the <a href="../reference/0001-commands-and-data-types.html">commands sheet</a>.</p>
+
+<h2>7 · Now name it</h2>
+<p>You've seen every one of these happen. Here are their proper names, which the rest of the course uses:</p>
+<dl class="fields">
+  <dt>shared state</dt><dd>data that several pods read and change. It has to live outside the pods, in Redis or a database.</dd>
+  <dt>round trip</dt><dd>one request to Redis and its reply: the walk to the keeper and back.</dd>
+  <dt>read-modify-write</dt><dd>read a value, change it in your code, write it back. Version 2.</dd>
+  <dt>race condition</dt><dd>a bug where the result depends on whose turn comes first.</dd>
+  <dt>lost update</dt><dd>one write silently overwriting another. What happened to Workers B and C.</dd>
+  <dt>atomic</dt><dd>done in one turn, with nothing able to happen in the middle. Every single Redis command is atomic; two commands in a row are not.</dd>
+</dl>
+<p>The full list is in the <a href="../reference/0005-glossary.html">glossary</a>.</p>
+
+<details><summary>Isn't Redis multi-threaded now?</summary>
+<p>Partly. Redis hands some slow chores to helper threads, such as freeing memory and flushing files to disk, and since Redis 6 it can use extra threads to read and write network traffic. But commands still run one at a time on one main thread. The keeper is still alone at the whiteboard.</p></details>
+
+<details><summary>One person who talks for a long time</summary>
+<p>"One request at a time" has a cost. If someone asks the keeper for something slow, such as <code>KEYS *</code> (list every key) on a Redis with millions of keys, everyone else waits until it's done. That's why the labs use <code>SCAN</code>, which goes through the keys in small batches. Later lessons come back to this.</p></details>
+
+<details><summary>Wouldn't it help to send GET and SET together?</summary>
+<p>Sending several commands without waiting for each reply is called <strong>pipelining</strong>. It saves walks, but it can't help here: you need the GET's answer before you know what to SET. And even a pipeline isn't one turn: the keeper can serve other people between its commands. When a job doesn't fit a single built-in command, Redis can run a small Lua script as one turn. Lessons 5 and 6 cover that.</p></details>
+
+<h2>8 · In our repo</h2>
+
+<h3>All product pods share one Redis</h3>
+<p>Every product pod gets the same Redis address from the shared config (<a href="../../../../k8s/config/app-config.yml">k8s/config/app-config.yml:30</a>):</p>
+<pre>PRODUCT_REDIS_URL: 'redis://product-redis-service:6379'</pre>
+<p>When a pod starts, it opens its own connection to that address (<a href="../../../../product/src/redisClient.ts">product/src/redisClient.ts:5-6, 16</a>):</p>
+<pre>const connectRedis = async (url: string) => {
+  client = createClient({ url });
+  …
+  await client.connect();</pre>
+<dl class="fields">
+  <dt>createClient({ url })</dt><dd>each pod makes its own connection, just like each lab worker.</dd>
+  <dt>url</dt><dd>the same address for every pod, so they all reach one Redis: one whiteboard.</dd>
+</dl>
+<p>Right now <a href="../../../../k8s/product-depl.yml">k8s/product-depl.yml:6</a> runs one product pod (<code>replicas: 1</code>). Change it to 3 and you have this lab's setup.</p>
+
+<h3>The same fix, already in MongoDB</h3>
+<p>When someone places an order, <code>product</code> lowers the stock. Several product pods can handle orders at once, so this is the view counter's problem with real money attached. Here's how the code does it (<a href="../../../../product/src/queues/listeners/productQuantityUpdate.ts">product/src/queues/listeners/productQuantityUpdate.ts:24-28</a>):</p>
+<pre>const updated = await Product.findOneAndUpdate(
+  { _id: data.id, quantity: { $gte: data.quantity } },
+  { $inc: { quantity: -data.quantity } },
+  { new: true },
+);</pre>
+<dl class="fields">
+  <dt>{ _id, quantity: { $gte } }</dt><dd>find this product, but only if it has enough stock.</dd>
+  <dt>{ $inc: … }</dt><dd>subtract the amount ordered. The database does the sum, not the app: MongoDB's version of <code>INCR</code>.</dd>
+  <dt>findOneAndUpdate</dt><dd>checks and changes the stock in one turn, so no other pod can sneak in between.</dd>
+  <dt>{ new: true }</dt><dd>return the product after the change. You can ignore it here.</dd>
+</dl>
+<p>The comment above this code calls the bug it avoids the "TOCTOU gap", short for <em>time of check to time of use</em>: the walk back from the whiteboard. Lesson 5 comes back here as the right way to protect stock, with no Redis lock at all.</p>
+
+<div class="recap">
+  <h2>In short: remember these 3</h2>
+  <ol>
+    <li><strong>Pods share only what lives outside them.</strong> Redis is one whiteboard that every pod reaches over the network.</li>
+    <li><strong>Read, then write back, is two visits.</strong> Other pods get their turn in between, and updates are lost without any error.</li>
+    <li><strong>One command is one turn.</strong> Redis runs commands one at a time, so ask it to do the change for you (<code>INCR</code>) instead of reading and writing back.</li>
+  </ol>
+  <p><strong>If you forget everything:</strong> the keeper serves one request at a time, so never walk away with the number.</p>
+  <p><strong>You don't need to memorise</strong> the lab's code, its exact numbers or the node-redis method names. Commands are in the <a href="../reference/0001-commands-and-data-types.html">commands sheet</a>, terms in the <a href="../reference/0005-glossary.html">glossary</a>.</p>
+</div>
+
+<h2>9 · Check yourself</h2>
+<p>Answer from memory first, then click. You can retry a wrong answer.</p>
+<div data-quiz-group>
+<p class="score"></p>
+
+<div class="quiz" data-answer="2">
+  <p class="q">With the starting gun on, why did the broken lab lose <em>exactly</em> 2,000 of 3,000?</p>
+  <div class="options">
+    <button>Redis drops writes when it's busy</button>
+    <button>Two of the workers crashed</button>
+    <button>Each round, all three read the same number</button>
+    <button>The starting gun skips two writes</button>
+  </div>
+  <p class="why">All three read the same number and write the same number + 1. Each round adds 1 instead of 3, so 1,000 rounds give 1,000.</p>
+</div>
+
+<div class="quiz" data-answer="0">
+  <p class="q">A teammate says: "Send the GET and the SET together in one go, and the problem disappears." Are they right?</p>
+  <div class="options">
+    <button>No, other clients can still get a turn in between</button>
+    <button>Yes, one trip closes the gap</button>
+    <button>Yes, Redis runs them as one command</button>
+    <button>Only with fewer than 3 pods</button>
+  </div>
+  <p class="why">The SET needs the GET's answer, so they can't even go together. And a batch of commands still isn't one turn. Use one command, like <code>INCR</code>.</p>
+</div>
+
+<div class="quiz" data-answer="3">
+  <p class="q">One client runs <code>KEYS *</code> on a Redis holding 10 million keys. What do the other clients notice?</p>
+  <div class="options">
+    <button>Nothing, KEYS runs in the background</button>
+    <button>Only clients using those keys slow down</button>
+    <button>Their writes are rejected</button>
+    <button>Every command waits until KEYS finishes</button>
+  </div>
+  <p class="why">The keeper serves one request at a time, so a slow one makes everyone wait. Use <code>SCAN</code>, which works in small batches.</p>
+</div>
+
+<div class="quiz" data-answer="1">
+  <p class="q">What keeps <code>productQuantityUpdate.ts</code> correct when several product pods handle orders at once?</p>
+  <div class="options">
+    <button>RabbitMQ delivers one message at a time</button>
+    <button>MongoDB checks and changes the stock in one step</button>
+    <button>The cache is deleted afterwards</button>
+    <button>The app locks the product in memory</button>
+  </div>
+  <p class="why"><code>findOneAndUpdate</code> with <code>$inc</code> is MongoDB's <code>INCR</code>: the database does the check and the change in one turn.</p>
+</div>
+
+<div class="quiz" data-answer="2">
+  <p class="q">Why do the labs refuse to connect to <code>localhost:6379</code>?</p>
+  <div class="options">
+    <button>Docker can't use port 6379</button>
+    <button>Redis 7 moved to port 6390</button>
+    <button>A port-forward to the real product Redis would be there</button>
+    <button>Port 6379 needs a password</button>
+  </div>
+  <p class="why">With <code>kubectl port-forward</code> open, localhost:6379 <em>is</em> the product cache. The labs only use ports 6390–6399.</p>
+</div>
+</div>
+
+<div class="callout">
+<p class="label">Read next (10 min)</p>
+<p>The "Optimistic locking using check-and-set" section of the <a href="https://redis.io/docs/latest/develop/using-commands/transactions/#optimistic-locking-using-check-and-set">Redis Transactions page</a> opens with this lesson's bug, told with two clients and the number 10. The <code>WATCH</code> fix it goes on to explain is optional for now. Then read the "Single threaded nature of Redis" section of <a href="https://redis.io/docs/latest/operate/oss_and_stack/management/optimization/latency/">Diagnosing latency</a>: the keeper, in Redis's own words.</p>
+</div>
+
+<div class="callout">
+<p class="label">Stuck or curious?</p>
+<p>Ask anything: "how does the starting gun work?", "would this happen with one pod and async code?", "what does MULTI do?" When you're ready, say so, and the next session starts by recalling the "In short" box above.</p>
+</div>
+
+<nav class="course">
+  <span class="meta">Start of course</span>
+  <span class="meta">Next: Cache-aside in product (coming)</span>
+</nav>
+
+</main>
+<script src="../assets/quiz.js"></script>
+<script src="../assets/course-map.js"></script>
+<script src="../assets/nav.js"></script>
+</body>
+</html>

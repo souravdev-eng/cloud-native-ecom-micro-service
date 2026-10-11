@@ -27,13 +27,17 @@ The teaching notes start with the learner preferences carried over from the obse
 
 **Status:** ready-for-agent
 
-- [ ] One command starts the `single` profile; Redis is reachable on the sandbox port, not 6379
-- [ ] The connection guard throws for a non-sandbox URL (e.g. the cluster's product-redis service or `localhost:6379`), and a test covers this
-- [ ] Lab code never calls `FLUSHDB`/`FLUSHALL`; each lab writes under its own `lab:NN:*` prefix and cleans up only that prefix
-- [ ] The broken variant loses more than 0 updates on every run (timing is forced, not left to luck); the fixed variant loses exactly 0
-- [ ] `--check` asserts both outcomes; `labs:verify` runs it 3 times and exits non-zero on any mismatch
-- [ ] The Lesson 0 page follows the lesson format from the spec (question, predict, break it, why, fix, in our repo, In short, check yourself) and opens with the diagnostic
-- [ ] `MISSION.md` carries the spec's success criteria; `NOTES.md` carries the learner preferences; the course map lists every planned page
-- [ ] Reference sheet 1 and the glossary exist, are linked from the course map, and contain none of the factual errors listed in the spec
-- [ ] All links are repo-relative; pages load without console errors and read well at phone width
-- [ ] A learning record template is in place, ready to record the diagnostic result after the first session
+- [x] One command starts the `single` profile; Redis is reachable on the sandbox port, not 6379
+- [x] The connection guard throws for a non-sandbox URL (e.g. the cluster's product-redis service or `localhost:6379`), and a test covers this
+- [x] Lab code never calls `FLUSHDB`/`FLUSHALL`; each lab writes under its own `lab:NN:*` prefix and cleans up only that prefix
+- [x] The broken variant loses more than 0 updates on every run (timing is forced, not left to luck); the fixed variant loses exactly 0
+- [x] `--check` asserts both outcomes; `labs:verify` runs it 3 times and exits non-zero on any mismatch
+- [x] The Lesson 0 page follows the lesson format from the spec (question, predict, break it, why, fix, in our repo, In short, check yourself) and opens with the diagnostic
+- [x] `MISSION.md` carries the spec's success criteria; `NOTES.md` carries the learner preferences; the course map lists every planned page
+- [x] Reference sheet 1 and the glossary exist, are linked from the course map, and contain none of the factual errors listed in the spec
+- [x] All links are repo-relative; pages load without console errors and read well at phone width
+- [x] A learning record template is in place, ready to record the diagnostic result after the first session
+
+## Comments
+
+- 2026-10-11: Implemented, uncommitted for review. Lesson 0 is `doc/learn/redis/lessons/0000-shared-state-across-pods.html` (files are numbered after the lesson, so Lesson 0 ↔ `0000-…` ↔ `labs/00-…` ↔ `lab:00:*`, rather than the spec's `0001-…`). Lab run on `redis:7.4.11-alpine` + node-redis 4.7.1: forced timing loses exactly 2,000/3,000 every run, `INCR` loses 0; `labs:verify` passes 3/3 and exits 1 when the fixed variant is sabotaged. Tests live in `sandbox/redis-learning/lib/__test__/`. Toxiproxy is left to ticket 05, which is the first lesson that needs it.
