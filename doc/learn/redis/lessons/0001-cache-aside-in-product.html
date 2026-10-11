@@ -1,0 +1,519 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cache-Aside in Product</title>
+<link rel="stylesheet" href="../assets/course.css">
+<style>
+  /* The order things happened in: one row per step. Same look as Lesson 0's timeline. */
+  .timeline { list-style: none; margin: 1.25rem 0 0.5rem; padding: 0; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+  .timeline li { display: flex; gap: 0.75rem; align-items: baseline; padding: 0.45rem 0.9rem; border-top: 1px solid var(--border); max-width: none; }
+  .timeline li:first-child { border-top: 0; }
+  .timeline .who { flex: none; width: 5.2rem; font: 500 0.78rem 'IBM Plex Mono', monospace; color: var(--accent); }
+  .timeline .cmd { flex: 1; min-width: 0; font: 0.84rem 'IBM Plex Mono', monospace; color: var(--text); overflow-wrap: anywhere; }
+  .timeline .val { flex: none; font: 0.8rem 'IBM Plex Mono', monospace; color: var(--muted); }
+  .timeline .end { background: var(--tint); }
+  .timeline .end .who { color: var(--text); }
+
+  /* "Story so far" chapter cards: short beats of the story, stacked. */
+  .beats { list-style: none; margin: 1.25rem 0; padding: 0; display: grid; gap: 0.75rem; }
+  /* min-width: 0 lets a card shrink below its code block's width, so the code scrolls instead of the page. */
+  .beats li { border: 1px solid var(--border); border-radius: 10px; padding: 0.8rem 1rem; max-width: none; min-width: 0; }
+  .beats li > :first-child { margin-top: 0; }
+  .beats li > :last-child { margin-bottom: 0; }
+  .beats .tag { font: 500 0.72rem 'IBM Plex Mono', monospace; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); margin: 0 0 0.3rem; }
+  .beats .ok { color: var(--good); }
+  .beats .bad { color: var(--bad); }
+
+  /* The lab setup: what serves the request next to what you watch it with. Stacked on phones, side by side when there's room. */
+  .rig { display: grid; gap: 0.75rem; margin: 1.25rem 0; }
+  @media (min-width: 640px) { .rig { grid-template-columns: 1fr 1fr; } }
+  .rig-card { border: 1px solid var(--border); border-radius: 10px; padding: 0.8rem 1rem; min-width: 0; }
+  .rig-tag { font: 500 0.72rem 'IBM Plex Mono', monospace; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); margin: 0 0 0.6rem; }
+  .rig-box { background: var(--tint); border: 1px solid var(--border); border-radius: 8px; padding: 0.5rem 0.75rem; font: 600 0.95rem Lexend, sans-serif; color: var(--text); }
+  .rig-box span { display: block; font: 0.75rem 'IBM Plex Mono', monospace; color: var(--muted); overflow-wrap: anywhere; }
+  .rig-arrow { font: 0.75rem 'IBM Plex Mono', monospace; color: var(--accent); padding: 0.35rem 0 0.35rem 0.6rem; overflow-wrap: anywhere; }
+</style>
+</head>
+<body>
+<main>
+
+<p class="eyebrow">Lesson 1 · Day 1 · ~30 min · live cluster</p>
+<h1>Cache-aside in product</h1>
+<p class="lede">Lesson 0 showed many pods sharing one Redis. This lesson looks at what our <code>product</code> pods actually keep there: copies of product pages and search results. You'll watch that cache work in the real cluster, one command at a time.</p>
+
+<h2>Where this lesson starts</h2>
+
+<details>
+<summary>Recall check: Lesson 0 in 2 minutes</summary>
+<p>From memory, before you look: what were Lesson 0's three "In short" ideas? Say them out loud or jot them down.</p>
+<p>Hint: a whiteboard, two visits, one turn.</p>
+<details><summary>Show the answers</summary>
+<ol>
+  <li>Pods share only what lives outside them. Redis is one whiteboard every pod reaches over the network.</li>
+  <li>Read, then write back, is two visits. Other pods get their turn in between, and updates are lost without any error.</li>
+  <li>One command is one turn. Ask Redis to make the change for you (<code>INCR</code>) instead of reading and writing back.</li>
+</ol>
+<p>Missed one? Reread section 5 of <a href="0000-shared-state-across-pods.html">Lesson 0</a> (the keeper and the whiteboard) before going on. This lesson reuses that picture.</p>
+</details>
+</details>
+
+<h3>What a cache is</h3>
+<p>A cache is a copy of an answer kept somewhere fast, so you don't have to work it out again. You ask a slow source once, keep the answer nearby for a while, and hand out the copy until it's thrown away.</p>
+
+<h3>Why product has one</h3>
+<p>Products live in <strong>MongoDB</strong>. It holds the real, up-to-date data; anything else is only a copy of it. Our MongoDB is a hosted Atlas database outside the Kubernetes cluster, even on your laptop, so every question to it leaves the cluster and comes back. Redis sits inside the cluster, next to the product pods, and answers from memory. So <code>product</code> keeps copies of two kinds of answer in Redis:</p>
+<ul>
+  <li><strong>one product</strong>: the product detail page, <code>GET /api/product/:id</code>;</li>
+  <li><strong>a list of products</strong>: search and filter results, <code>GET /api/product?search=…</code> or <code>?category=…</code>.</li>
+</ul>
+
+<h3>Why this lesson comes now</h3>
+<p>Lesson 0 was about Redis as shared state. A cache is the most common shared state there is, and it's the one our platform already runs. Lessons 2, 3 and 4 each break this cache in a different way (stale copies, a rush of misses, Redis going away). You can't follow those until you've seen it working.</p>
+<p>By the end of this lesson you'll be able to:</p>
+<ul>
+  <li>say, step by step, what <code>product</code> does when a page is or isn't in Redis;</li>
+  <li>read a real cache key and its remaining lifetime in the cluster, and explain why search keys look like gibberish;</li>
+  <li>explain why the cache is only ever a copy of MongoDB, and what the expiry time is for.</li>
+</ul>
+
+<h2>Your setup</h2>
+<p>This lesson uses the <strong>real cluster</strong>, not the lab Redis. You'll send requests to <code>product</code> from one terminal and watch its Redis from a second one:</p>
+<div class="rig" role="img" aria-label="Terminal 1 sends requests through the ingress to the product pod, which talks to the product Redis pod and to MongoDB Atlas. Terminal 2 runs redis-cli MONITOR inside the product Redis pod.">
+  <div class="rig-card">
+    <p class="rig-tag">Terminal 1 · what serves your request</p>
+    <div class="rig-box">curl<span>your requests, with your login cookie</span></div>
+    <div class="rig-arrow">↓ https://ecom.dev/api/product/…</div>
+    <div class="rig-box">product pod<span>k8s/product-depl.yml · also reads MongoDB Atlas, outside the cluster</span></div>
+    <div class="rig-arrow">↓ redis://product-redis-service:6379</div>
+    <div class="rig-box">product Redis pod<span>k8s/product-redis-depl.yml</span></div>
+  </div>
+  <div class="rig-card">
+    <p class="rig-tag">Terminal 2 · how you watch it</p>
+    <div class="rig-box">kubectl exec<span>runs a command inside a pod</span></div>
+    <div class="rig-arrow">↓ inside the product Redis pod</div>
+    <div class="rig-box">redis-cli MONITOR<span>prints every command Redis runs</span></div>
+  </div>
+</div>
+<dl class="fields">
+  <dt>ingress</dt><dd>the cluster's front door at <code>ecom.dev</code>. It sends every <code>/api/product</code> request to the product pod.</dd>
+  <dt>product pod</dt><dd>the real <code>product</code> service, running your repo's code. It does all the cache work: it reads Redis, reads MongoDB, and writes the copies.</dd>
+  <dt>product Redis pod</dt><dd>one Redis server, the same one every product pod would share. It only stores what it's told; it never talks to MongoDB.</dd>
+  <dt>MONITOR</dt><dd>a Redis command that streams every command the server runs, from any client. You met it in Lesson 0's slow motion.</dd>
+</dl>
+<div class="callout">
+<p><strong>Look, don't touch.</strong> This is the real product cache, so you only send Redis commands that read: <code>MONITOR</code>, <code>GET</code> and <code>TTL</code> for the lab, plus <code>PING</code> and <code>INFO</code> to check it's up. The cache entries you'll see are written by <code>product</code> itself, because you asked it for a page. Never run <code>SET</code>, <code>DEL</code> or <code>FLUSHALL</code> against this Redis. Breaking things is what the lab Redis is for.</p>
+</div>
+
+<h3>Start it</h3>
+<p>From the repo root, build the services, deploy them, and check every pod shows <code>Running</code>:</p>
+<pre>skaffold build -p minimal --push=false --file-output=/tmp/build.json
+skaffold deploy -p minimal --build-artifacts=/tmp/build.json
+kubectl get pods</pre>
+<dl class="fields">
+  <dt>skaffold build -p minimal</dt><dd>builds the images for the minimal profile: auth, product and cart. <code>--push=false</code> keeps them on your machine, where Docker Desktop's Kubernetes can use them. <code>--file-output</code> writes down which images it built.</dd>
+  <dt>skaffold deploy … --build-artifacts</dt><dd>deploys those images, plus everything they need: the product Redis, Postgres, RabbitMQ, Elasticsearch and the ingress. It waits until they're up, then returns.</dd>
+  <dt>kubectl get pods</dt><dd>lists the pods. You're ready when <code>product-deployment-…</code> and <code>product-redis-deployment-…</code> are both <code>1/1 Running</code>.</dd>
+</dl>
+<details><summary>Why not just skaffold dev?</summary>
+<p><code>skaffold dev</code> does the same and also reloads on code changes, but our <code>skaffold.yaml</code> sets <code>push: true</code>, so it tries to push every image to Docker Hub first, and <code>skaffold dev</code> has no flag to turn that off. You don't need the reload for this lesson. When you're done with the cluster, <code>skaffold delete -p minimal</code> removes everything it deployed.</p></details>
+<p>Every product route needs a logged-in user. Log in once with your own account and keep the cookie in a file:</p>
+<pre>curl -sk -c cookies.txt -H 'Content-Type: application/json' \
+  -d '{"email":"you@example.com","password":"your-password"}' \
+  https://ecom.dev/api/users/login</pre>
+<dl class="fields">
+  <dt>-s</dt><dd>silent: no progress bar.</dd>
+  <dt>-k</dt><dd>accept the ingress's self-signed certificate. (Plain <code>http://ecom.dev</code> works too.)</dd>
+  <dt>-c cookies.txt</dt><dd>save the cookie the server sends. It holds your login token. Later commands send it back with <code>-b cookies.txt</code>.</dd>
+  <dt>-H 'Content-Type: …'</dt><dd>tells the server the body is JSON.</dd>
+  <dt>-d '…'</dt><dd>the email and password, as JSON. Swap in your own. No account yet? Create one on the storefront's sign-up page first.</dd>
+</dl>
+<p>Last, a shortcut so you don't type the long <code>kubectl exec</code> every time:</p>
+<pre>alias rcli='kubectl exec deploy/product-redis-deployment -- redis-cli'</pre>
+<p>Now <code>rcli ping</code> runs <code>redis-cli ping</code> inside the product Redis pod. <code>deploy/product-redis-deployment</code> means "a pod of that deployment", so you don't need the pod's random name. The alias lasts until you close the terminal; set it in both.</p>
+
+<h3>Warm up: find a product</h3>
+<p>One minute. Ask for three products, with just their titles:</p>
+<pre>curl -sk -b cookies.txt 'https://ecom.dev/api/product?limit=3&amp;fields=title'</pre>
+<p>Keep the quotes: without them your shell treats <code>?</code> and <code>&amp;</code> as special characters. Pick one product's <code>id</code> and keep it handy. This lesson uses the Kindle, <code>6950f35901550edc80e88206</code>; your ids may differ. If you get <code>"not authorized"</code> with a 403, the cookie is missing: log in again.</p>
+
+<h2>1 · The story: the Kindle page</h2>
+<p>This is the real <code>product</code> service, not a made-up feature. Only the traffic numbers are invented.</p>
+
+<ol class="beats">
+  <li>
+    <p class="tag">Version 1 · <span class="ok">works</span></p>
+    <p>Someone opens the Kindle page. The product pod asks MongoDB for product <code>6950f…88206</code> and sends back what it gets. Simple, always correct.</p>
+  </li>
+  <li>
+    <p class="tag">Then · <span class="bad">a sale</span></p>
+    <p>The Kindle goes on sale. Its page is opened 500 times a minute, and "kindle" is the most searched word on the shop. Every view is a trip out of the cluster to MongoDB, asking the same question and getting the same answer, 500 times a minute. Searches are heavier still: MongoDB has to find and score every matching product.</p>
+  </li>
+  <li>
+    <p class="tag">Version 2 · <span class="ok">what product does today</span></p>
+    <p>Ask MongoDB once, keep a copy of the answer in Redis for a while, and hand out the copy. Fast, and MongoDB gets a break.</p>
+  </li>
+  <li>
+    <p class="tag">The catch · <span class="bad">hidden</span></p>
+    <p>Every copy needs a name, so the next request can find it, and an end date. Give two different questions the same name, and shoppers get each other's answers. Keep a copy too long, and it shows a price that's no longer true. Neither one causes an error. Our code has had the first bug already: you'll see it in section 6.</p>
+  </li>
+</ol>
+
+<p>Before you watch it work, a guess.</p>
+
+<h2>2 · Predict</h2>
+<p>Commit to an answer first. A wrong guess shows you what to look at.</p>
+<div class="quiz" data-answer="1">
+  <p class="q">The Kindle isn't in Redis yet. You open its page twice, a few seconds apart. Which commands does <code>MONITOR</code> show?</p>
+  <div class="options">
+    <button><code>GET</code>, <code>GET</code></button>
+    <button><code>GET</code>, <code>SET</code>, <code>GET</code></button>
+    <button><code>SET</code>, <code>GET</code></button>
+    <button>None: product reads MongoDB, not Redis</button>
+  </div>
+  <p class="why">Look first, copy on a miss, then the next look finds it. Run step 2 below to see it.</p>
+</div>
+<div class="quiz" data-answer="2">
+  <p class="q">You search for "kindle". What does the Redis key for that search look like?</p>
+  <div class="options">
+    <button><code>product:kindle</code></button>
+    <button><code>search:kindle</code></button>
+    <button><code>product_search:v2:</code> and 32 letters and digits</button>
+    <button>Searches aren't cached</button>
+  </div>
+  <p class="why">The key is a fingerprint of the whole question. Section 6 shows why.</p>
+</div>
+
+<h2>3 · Watch it work: one product page</h2>
+<ol class="steps">
+  <li>
+    <p><strong>Start watching Redis.</strong> In terminal 2:</p>
+<pre>rcli monitor</pre>
+    <p>It prints <code>OK</code> and waits. From now on, every command any client sends to the product Redis appears here.</p>
+  </li>
+  <li>
+    <p><strong>Open the page twice.</strong> In terminal 1 (use your own id):</p>
+<pre class="out">for i in 1 2; do
+  curl -sk -b cookies.txt -o /dev/null -w "detail #$i: %{http_code} %{time_total}s\n" \
+    https://ecom.dev/api/product/6950f35901550edc80e88206
+done
+
+detail #1: 200 0.079080s
+detail #2: 200 0.021425s</pre>
+    <p><code>-o /dev/null</code> hides the product itself; <code>-w</code> prints the status and how long the request took. Terminal 2 shows three lines (timestamps and addresses trimmed, the long value cut short):</p>
+<pre class="out">"GET" "product:6950f35901550edc80e88206"
+"SET" "product:6950f35901550edc80e88206" "{\"title\":\"Kindle Paperwhite (11th Gen)\",…}" "EX" "900"
+"GET" "product:6950f35901550edc80e88206"</pre>
+    <p>Request 1: <code>product</code> looked in Redis and found nothing, went to MongoDB (Redis can't see that part), then stored a copy with <code>EX 900</code>: delete it in 900 seconds, which is 15 minutes. Request 2: it looked, found the copy, and answered. No MongoDB at all, and about four times faster here.</p>
+  </li>
+  <li>
+    <p><strong>Ask product which way it went.</strong> The detail route logs one line per request:</p>
+<pre class="out">kubectl logs deploy/product-deployment -c product --tail=2
+
+Return from Mongo...
+Return from Cache...</pre>
+  </li>
+  <li>
+    <p><strong>Read the copy and its clock.</strong> Stop <code>MONITOR</code> with Ctrl+C (it slows Redis down), then:</p>
+<pre class="out">rcli ttl product:6950f35901550edc80e88206
+(integer) 889
+
+rcli get product:6950f35901550edc80e88206
+"{\"title\":\"Kindle Paperwhite (11th Gen)\",…,\"price\":14999,…,\"id\":\"6950f35901550edc80e88206\"}"</pre>
+    <p><code>TTL</code> is the copy's remaining lifetime in seconds: 900 minus the 11 seconds since it was written. Run it again and it has gone down. When it reaches 0, Redis deletes the key, and the next request is a miss again. <code>GET</code> shows the copy is plain JSON text: the product, exactly as MongoDB returned it.</p>
+    <details><summary>What do -1 and -2 mean?</summary>
+    <p><code>TTL</code> returns <code>-2</code> when the key doesn't exist (expired, or never written) and <code>-1</code> when it exists but will never expire. On a cache, <code>-1</code> is a warning sign: that copy will never be refreshed by itself.</p></details>
+  </li>
+</ol>
+
+<h2>4 · Slow motion: one miss</h2>
+<p>Here is request 1 again, with the step Redis couldn't see filled in:</p>
+<ol class="timeline" aria-label="What happened during the first request">
+  <li><span class="who">product</span><span class="cmd">Redis: GET product:6950f…88206</span><span class="val">→ nil</span></li>
+  <li><span class="who">product</span><span class="cmd">MongoDB: findById(6950f…88206)</span><span class="val">→ Kindle</span></li>
+  <li><span class="who">product</span><span class="cmd">Redis: SET product:6950f…88206 {…} EX 900</span><span class="val">OK</span></li>
+  <li><span class="who">product</span><span class="cmd">reply 200 to you</span><span class="val">79 ms</span></li>
+  <li class="end"><span class="who">Next time</span><span class="cmd">Redis: GET product:6950f…88206 → the copy, reply</span><span class="val">21 ms</span></li>
+</ol>
+<p>Notice who does what. Every row starts with the product pod. Redis never asks MongoDB for anything and doesn't know MongoDB exists. The pod looks, fetches and stores; Redis just keeps what it's given.</p>
+
+<h2>5 · Why: photocopies on the whiteboard</h2>
+<p>Lesson 0's whiteboard and keeper come back, with one new room.</p>
+<div class="callout">
+<p>Down the corridor is a <strong>filing room</strong> with the original documents. It's always right, but it's a long walk.</p>
+<p>The <strong>whiteboard</strong> by your desk holds <strong>photocopies</strong>. Each one has a <strong>label</strong> saying what it's a copy of, and a <strong>throw-away time</strong> written in the corner. When the time comes, the keeper takes it down.</p>
+<p>When someone asks you a question, you check the whiteboard first. If the copy is there, you read it out. If not, you walk to the filing room, photocopy the original, pin the copy up with a throw-away time, and then answer. The keeper never walks to the filing room. Only you do.</p>
+</div>
+<p>Each part is a real thing:</p>
+<dl class="fields">
+  <dt>the filing room</dt><dd>MongoDB, the system of record: the original data, outside the cluster.</dd>
+  <dt>a photocopy</dt><dd>a cached value: the JSON text you saw with <code>GET</code>.</dd>
+  <dt>its label</dt><dd>the key: <code>product:6950f…88206</code>. It must cover everything that can change the answer, so two different questions never share a label.</dd>
+  <dt>the throw-away time</dt><dd>the TTL: <code>EX 900</code> when it's pinned up, counting down in <code>TTL</code>.</dd>
+  <dt>you</dt><dd>the product pod, which runs all three steps: look, fetch, store.</dd>
+</dl>
+<p><strong>One thing the picture makes obvious:</strong> if someone edits the original in the filing room, the photocopy on the whiteboard doesn't change. It stays wrong until it's taken down. The throw-away time is what limits how long a wrong copy can survive. That's Lesson 2.</p>
+
+<h2>6 · Search: the harder label</h2>
+<p>A product page has an easy label: its id. A search doesn't. The question is everything in the URL: the words, the category, the filters, the sort, the page. Two searches that differ in any of those can have different answers, so they need different labels.</p>
+<ol class="steps">
+  <li>
+    <p><strong>Watch two kinds of list.</strong> Start <code>rcli monitor</code> again in terminal 2. In terminal 1, run a text search twice and a category list twice:</p>
+<pre>curl -sk -b cookies.txt -o /dev/null 'https://ecom.dev/api/product?search=kindle'      # twice
+curl -sk -b cookies.txt -o /dev/null 'https://ecom.dev/api/product?category=other'     # twice</pre>
+<pre class="out">"GET" "product_search:v2:fbedf1200759f07fadf031101b1efe1f"
+"SET" "product_search:v2:fbedf1200759f07fadf031101b1efe1f" "{\"data\":[…]}" "EX" "3600"
+"GET" "product_search:v2:fbedf1200759f07fadf031101b1efe1f"
+"GET" "product_search:v2:b348b7e87dab38113837b29fd6f05d44"
+"SET" "product_search:v2:b348b7e87dab38113837b29fd6f05d44" "{\"meta\":{…},\"data\":[…]}" "EX" "600"
+"GET" "product_search:v2:b348b7e87dab38113837b29fd6f05d44"</pre>
+    <p>The same look, fetch, store, then a hit. Two differences from the product page: the label is a 32-character fingerprint, and the throw-away times differ. A text search lives for 3,600 seconds (60 minutes), the category list for 600 (10 minutes).</p>
+  </li>
+  <li>
+    <p><strong>Read both clocks.</strong></p>
+<pre class="out">rcli ttl product_search:v2:fbedf1200759f07fadf031101b1efe1f
+(integer) 3589
+rcli ttl product_search:v2:b348b7e87dab38113837b29fd6f05d44
+(integer) 589</pre>
+  </li>
+</ol>
+
+<h3>Where the fingerprint comes from</h3>
+<p><code>product</code> writes the whole question down as text, in a fixed order, then runs it through <strong>MD5</strong>, which turns any text into 32 letters and digits. The same text always gives the same 32 characters; different text gives different ones. For the two searches above:</p>
+<pre>{"search":"kindle"}     → fbedf1200759f07fadf031101b1efe1f
+{"category":"other"}    → b348b7e87dab38113837b29fd6f05d44</pre>
+<p>Why not use the text itself as the label? A search can carry a dozen filters, so the label would be long and its length unpredictable. The fingerprint is always 32 characters, whatever the question. It isn't a secret or a security measure; it's just a short name for a long question.</p>
+
+<h3>A label that left something out</h3>
+<p>The fingerprint only works if it covers the <em>whole</em> question. Our code once got this wrong, and it's worth seeing why. The old key generator built its text from a fixed list of fields (search, category, price, sort, page and a few more). The <code>quantity</code> filter, "only products with at least N in stock", wasn't on the list. So these two different questions got the same label:</p>
+<pre class="out">?category=other&amp;quantity[gte]=1    → 20 products
+  old key: product_search:a77429ffae891bcf765e34e2b29ca9c3
+?category=other&amp;quantity[gte]=60   → 6 products
+  old key: product_search:a77429ffae891bcf765e34e2b29ca9c3</pre>
+<p>Whichever shopper asked first had their answer pinned up. Until that copy expired, the other shopper got it too: 20 products when they'd asked for 6, or the other way round. No error anywhere; just a wrong list. (Those old keys were worked out by running the old code on the side, not read from the cluster.)</p>
+<p>The fix, in the code today, has three parts: fingerprint the whole query, not a list of fields; sort the fields first, so the same filters in a different order give the same label; and put <code>v2</code> in the label, so no pod ever reads a copy pinned up under the old, broken labels. You can watch all three:</p>
+<ol class="steps">
+  <li>
+    <p><strong>Ask three questions.</strong> The third is the first one with its filters swapped round. <code>-g</code> stops curl treating the square brackets as special:</p>
+<pre class="out">curl -gsk -b cookies.txt 'https://ecom.dev/api/product?category=other&amp;quantity[gte]=1'
+curl -gsk -b cookies.txt 'https://ecom.dev/api/product?category=other&amp;quantity[gte]=60'
+curl -gsk -b cookies.txt 'https://ecom.dev/api/product?quantity[gte]=1&amp;category=other'
+
+"GET" "product_search:v2:2d6d48fd41e63a6a17ecc193355d0164"
+"SET" "product_search:v2:2d6d48fd41e63a6a17ecc193355d0164" "{…}" "EX" "600"
+"GET" "product_search:v2:9aa554ee2181aaf86f2a5e4c48bea5ad"
+"SET" "product_search:v2:9aa554ee2181aaf86f2a5e4c48bea5ad" "{…}" "EX" "600"
+"GET" "product_search:v2:2d6d48fd41e63a6a17ecc193355d0164"</pre>
+    <p>Two different questions, two labels. The swapped-round question found the first one's copy: a hit, no <code>SET</code>.</p>
+  </li>
+</ol>
+
+<details><summary>What isn't cached?</summary>
+<p>Not every list goes into Redis. <code>product</code> skips:</p>
+<ul>
+  <li>a plain listing with nothing but <code>limit</code>, <code>sort</code>, <code>fields</code> or <code>page</code>, such as the warm-up's <code>?limit=3&amp;fields=title</code>;</li>
+  <li>later pages of a category or filter list (the ones with <code>nextKey</code> or <code>prevKey</code>). Later pages of a text search <em>are</em> cached;</li>
+  <li>an empty result. Searching for <code>zzqqxx</code> shows a <code>GET</code> and no <code>SET</code>, so the next identical search goes to MongoDB again. Lesson 3 asks whether that's wise;</li>
+  <li>a product id that doesn't exist (the route returns 404 before it stores anything).</li>
+</ul>
+</details>
+
+<h3>Why three different throw-away times?</h3>
+<p>The code sets them; it doesn't say why. A fair reading: a text search costs MongoDB the most (find every match and score it), so its copy is kept longest, 60 minutes. Category and filter lists are cheaper, so 10 minutes. A single product is the cheapest of all, 15 minutes. The longer a copy lives, the fewer trips to MongoDB, and the longer it can be wrong after a change. Every TTL is that trade.</p>
+
+<details><summary>Which Redis is this?</summary>
+<p><code>k8s/product-redis-depl.yml</code> asks for <code>redis:alpine</code> with no version, so you get whatever is newest when the image is pulled: Redis 8.10 when this lesson was written (<code>rcli info server | grep redis_version</code>). The lab Redis is pinned to 7.4. Every command in this course behaves the same on both. Lesson 7 comes back to why an unpinned version is a risk.</p></details>
+
+<h2>7 · Now name it</h2>
+<p>You've watched each of these happen. Their proper names, used from here on:</p>
+<dl class="fields">
+  <dt>cache hit · cache miss</dt><dd>the copy was there (request 2) · the copy wasn't there (request 1).</dd>
+  <dt>cache-aside</dt><dd>the pattern you watched: the app looks in the cache, and on a miss reads the system of record and stores a copy itself. The cache sits <em>aside</em>; it never fetches anything. Also called lazy loading.</dd>
+  <dt>system of record</dt><dd>the place that holds the real data. For products, MongoDB.</dd>
+  <dt>derived copy</dt><dd>data made from the system of record, which can be thrown away and rebuilt at any time. Every cached value is one.</dd>
+  <dt>stale</dt><dd>a copy that no longer matches the system of record: the photocopy of an original someone has since edited. Lesson 2 is about this.</dd>
+  <dt>TTL</dt><dd>time to live: how many seconds a key has left before Redis deletes it. Set with <code>EX</code>, read with <code>TTL</code>.</dd>
+  <dt>cache key</dt><dd>the label a copy is stored under. It must cover everything that can change the answer.</dd>
+  <dt>key prefix</dt><dd>the fixed start of a key, like <code>product:</code> or <code>product_search:v2:</code>, saying what kind of thing it is.</dd>
+  <dt>versioned key</dt><dd>a prefix with a version in it (<code>v2</code>), changed when the meaning of the keys changes, so old copies are never read again.</dd>
+</dl>
+<p>The full list is in the <a href="../reference/0005-glossary.html">glossary</a>. The pattern and the TTLs are on the new <a href="../reference/0002-caching-and-invalidation.html">caching sheet</a>.</p>
+
+<details><summary>Why SET … EX, and not SET, then EXPIRE?</summary>
+<p>Lesson 0's rule again: one command is one turn. <code>SET key value EX 900</code> stores the copy and its throw-away time together. As two commands, a pod that crashed between them would leave a copy with no throw-away time at all: <code>TTL</code> would say <code>-1</code>, and it would never be refreshed.</p></details>
+
+<details><summary>Are there other patterns?</summary>
+<p>Yes. In <strong>write-through</strong>, the app updates the cache every time it writes to the database, instead of waiting for a miss. In <strong>read-through</strong>, a caching library does the fetch on a miss so the app doesn't see it. <code>product</code> uses neither. Cache-aside is the most common, and it caches only what someone actually asked for. The <a href="../reference/0002-caching-and-invalidation.html">caching sheet</a> lists when you'd pick each.</p></details>
+
+<h2>8 · In our repo</h2>
+
+<h3>The product page: look, fetch, store</h3>
+<p><a href="../../../../product/src/routes/showProductDetailById.ts">product/src/routes/showProductDetailById.ts:12-28</a>, with the log lines removed and the 404 on one line:</p>
+<pre>const redisKey = `product:${req.params.id}`;
+const cachedProduct = await cache.get(redisKey);
+if (cachedProduct !== null) {
+  res.status(200).send(cachedProduct);
+} else {
+  const product = await Product.findById(req.params.id);
+  if (!product) { return next(new NotFoundError(…)); }
+  await cache.set(redisKey, product);
+  res.status(200).send(product);
+}</pre>
+<dl class="fields">
+  <dt>redisKey</dt><dd>the label: the prefix <code>product:</code> plus the id from the URL.</dd>
+  <dt>cache.get</dt><dd>look on the whiteboard. The <code>GET</code> you saw in <code>MONITOR</code>.</dd>
+  <dt>!== null … send(cachedProduct)</dt><dd>a hit: answer with the copy, no MongoDB.</dd>
+  <dt>Product.findById</dt><dd>a miss: walk to the filing room.</dd>
+  <dt>if (!product)</dt><dd>no such product: return 404 and store nothing.</dd>
+  <dt>cache.set(redisKey, product)</dt><dd>pin the copy up. No TTL is passed, so the wrapper's default of 15 minutes applies: the <code>EX 900</code>.</dd>
+</dl>
+
+<h3>The search list: same steps, different label</h3>
+<p><a href="../../../../product/src/routes/showProduct.ts">product/src/routes/showProduct.ts:16-23, 35-38</a>, with the hit on one line:</p>
+<pre>if (shouldCacheResult) {
+  cacheKey = generateSearchCacheKey(req.query);
+  const cachedProduct = await redisClient.get(cacheKey);
+  if (cachedProduct) { res.status(200).send(JSON.parse(cachedProduct)); return; }
+}
+// … ask MongoDB …
+if (shouldCacheResult &amp;&amp; product.data.length &gt; 0) {
+  const ttl = req.query.search ? calculateTTL(60, "minutes") : calculateTTL(10, "minutes");
+  await redisClient.set(cacheKey, JSON.stringify(product), { EX: ttl });
+}</pre>
+<dl class="fields">
+  <dt>shouldCacheResult</dt><dd>set on line 13 by <code>shouldCache(req.query)</code>, which decides whether this list is cached at all (see "What isn't cached?" above).</dd>
+  <dt>generateSearchCacheKey</dt><dd>the fingerprint label, shown next.</dd>
+  <dt>redisClient.get · JSON.parse</dt><dd>this route talks to the Redis client directly, not through the <code>cache</code> wrapper the product page uses, so it turns the text back into an object itself.</dd>
+  <dt>product.data.length &gt; 0</dt><dd>empty results are never stored.</dd>
+  <dt>req.query.search ? 60 : 10</dt><dd>the two TTLs: 60 minutes for a text search, 10 for everything else.</dd>
+  <dt>{ EX: ttl }</dt><dd>the copy and its throw-away time in one command.</dd>
+</dl>
+
+<h3>The fingerprint</h3>
+<p><a href="../../../../product/src/utils/cacheKeys.ts">product/src/utils/cacheKeys.ts:40-48</a>, comments removed:</p>
+<pre>function generateSearchCacheKey(query: unknown): string {
+  const keyString = JSON.stringify(sortQueryValue(query));
+  const hash = crypto.createHash("md5").update(keyString).digest("hex");
+  return `product_search:v2:${hash}`;
+}</pre>
+<dl class="fields">
+  <dt>sortQueryValue(query)</dt><dd>copies the whole query with its fields in alphabetical order, at every level. That's why the swapped-round question hit.</dd>
+  <dt>JSON.stringify</dt><dd>writes the question down as text, such as <code>{"search":"kindle"}</code>.</dd>
+  <dt>createHash("md5") … digest("hex")</dt><dd>turns that text into the 32-character fingerprint.</dd>
+  <dt>product_search:v2:</dt><dd>the prefix, with the version that keeps old, broken labels out.</dd>
+</dl>
+
+<h3>The wrapper, and a type that lies</h3>
+<p><a href="../../../../product/src/cache/redisCache.ts">product/src/cache/redisCache.ts:15-18, 20-21, 25</a>, skipping the branch for a caller that passes its own TTL:</p>
+<pre>public async get(key: string): Promise&lt;string | null&gt; {
+  const cachedData = await this.getClient().get(key);
+  return cachedData ? JSON.parse(cachedData) : null;
+}
+
+public async set(key: string, value: any, ttlSeconds?: number): Promise&lt;void&gt; {
+  const serializedValue = JSON.stringify(value);
+  // …
+    await this.getClient().set(key, serializedValue, { EX: this.calculateTTL(15, "minutes") });</pre>
+<dl class="fields">
+  <dt>Promise&lt;string | null&gt;</dt><dd>the type promises a string, or nothing.</dd>
+  <dt>JSON.parse(cachedData)</dt><dd>but it actually returns the parsed <em>object</em>: the Kindle, not text. TypeScript doesn't object because <code>JSON.parse</code> returns <code>any</code>, which fits any type.</dd>
+  <dt>set: JSON.stringify(value)</dt><dd>turns the object into text before storing it. Redis strings hold text, so that part is right.</dd>
+  <dt>calculateTTL(15, "minutes")</dt><dd>the default TTL when the caller passes none: 900 seconds.</dd>
+</dl>
+<p>Why the wrong type matters: a teammate who trusts it writes <code>const raw = await cache.get(key); if (raw) return JSON.parse(raw);</code>. TypeScript is happy, since <code>raw</code> is a string as far as it knows. On a hit it throws: <code>raw</code> is really the Kindle object, which <code>JSON.parse</code> turns into the text <code>"[object Object]"</code>, and that isn't JSON. Today's only caller sends the value straight back with <code>res.send</code>, which happens to work for an object, so nothing has broken yet. The honest type would be <code>get&lt;T&gt;(key): Promise&lt;T | null&gt;</code>. That fix, like the others this course designs, is a follow-up ticket, not part of the course.</p>
+
+<div class="recap">
+  <h2>In short: remember these 3</h2>
+  <ol>
+    <li><strong>Cache-aside: look, fetch, store.</strong> The product pod looks in Redis; on a miss it reads MongoDB and stores a copy with a TTL. Redis never fetches anything.</li>
+    <li><strong>The key is the question.</strong> A product page is <code>product:&lt;id&gt;</code>; a search is the whole query, sorted and fingerprinted, under <code>product_search:v2:</code>. Leave anything out of the key and two questions share one answer.</li>
+    <li><strong>The cache is a copy, not the truth.</strong> MongoDB is the system of record. The TTL (15 min for a product, 60 for a text search, 10 for other lists) limits how long a copy lives, and so how long it can be wrong.</li>
+  </ol>
+  <p><strong>If you forget everything:</strong> check the whiteboard, else fetch from the filing room and pin up a copy with a throw-away time.</p>
+  <p><strong>You don't need to memorise</strong> the fingerprints, the timings or the exact TTLs. The TTLs and the pattern are on the <a href="../reference/0002-caching-and-invalidation.html">caching sheet</a>, terms in the <a href="../reference/0005-glossary.html">glossary</a>.</p>
+</div>
+
+<h2>9 · Check yourself</h2>
+<p>Answer from memory first, then click. You can retry a wrong answer.</p>
+<div data-quiz-group>
+<p class="score"></p>
+
+<div class="quiz" data-answer="3">
+  <p class="q"><code>MONITOR</code> showed <code>GET</code>, then <code>SET … EX 900</code>, for the Kindle. Where did the MongoDB read happen?</p>
+  <div class="options">
+    <button>Inside Redis, as part of the GET</button>
+    <button>Inside Redis, as part of the SET</button>
+    <button>It didn't: the SET came from the browser</button>
+    <button>In the product pod, between the GET and the SET</button>
+  </div>
+  <p class="why">Redis only stores what it's given. The pod got nothing from <code>GET</code>, read MongoDB itself, then sent the copy with <code>SET</code>. That's what puts the cache "aside".</p>
+</div>
+
+<div class="quiz" data-answer="0">
+  <p class="q">Why are search keys an MD5 fingerprint of the query instead of the query text?</p>
+  <div class="options">
+    <button>The whole query must be in the key, and a fingerprint keeps it short</button>
+    <button>To stop attackers reading the keys</button>
+    <button>Redis keys can't contain <code>=</code> or <code>&amp;</code></button>
+    <button>MD5 makes the lookup faster in MongoDB</button>
+  </div>
+  <p class="why">The key has to change whenever the question changes, so it must cover the whole query. The fingerprint is a fixed 32 characters however long the query is. It's a name, not a security measure.</p>
+</div>
+
+<div class="quiz" data-answer="2">
+  <p class="q">The old key generator ignored the <code>quantity</code> filter. What did shoppers see?</p>
+  <div class="options">
+    <button>An error for any search with <code>quantity</code></button>
+    <button>Nothing: those searches were never cached</button>
+    <button>Sometimes another shopper's list, for a different stock filter</button>
+    <button>Slower searches, but correct ones</button>
+  </div>
+  <p class="why">Different questions got the same label, so whoever asked first decided the answer for everyone until the copy expired. A wrong list, with no error.</p>
+</div>
+
+<div class="quiz" data-answer="1">
+  <p class="q">Since <code>get()</code> says it returns a string, a teammate writes <code>const raw = await cache.get(key); if (raw) return JSON.parse(raw);</code>. What happens on a hit?</p>
+  <div class="options">
+    <button>It works: it returns the product</button>
+    <button>It throws, because <code>get()</code> already returned an object</button>
+    <button>TypeScript refuses to compile it</button>
+    <button>It returns null</button>
+  </div>
+  <p class="why">It compiles, because the type says string. But <code>get()</code> already parsed the JSON, so <code>raw</code> is an object. Parsing it again turns it into <code>"[object Object]"</code>, which isn't JSON, so it throws.</p>
+</div>
+
+<div class="quiz" data-answer="3">
+  <p class="from">From Lesson 0</p>
+  <p class="q">Three product pods miss on the Kindle at the same moment. Each reads MongoDB and then <code>SET</code>s its copy. Is that a lost update?</p>
+  <div class="options">
+    <button>Yes: two of the three copies are lost</button>
+    <button>Yes: the TTL is reset, so the copy never expires</button>
+    <button>No: Redis rejects the second and third SET</button>
+    <button>No: all three write the same copy, so nothing is lost</button>
+  </div>
+  <p class="why">A lost update hurts when each write was meant to add something, like Lesson 0's counter. Here each pod writes the same copy of the same product, so overwriting loses nothing. The real cost is three trips to MongoDB instead of one: Lesson 3's subject.</p>
+</div>
+</div>
+
+<div class="callout">
+<p class="label">Read next (10 min)</p>
+<p>The "Cache-Aside (Lazy Loading)" and "Write-Through" sections of AWS's <a href="https://docs.aws.amazon.com/whitepapers/latest/database-caching-strategies-using-redis/caching-patterns.html">Caching patterns</a>: this lesson's pattern and its main alternative, in three short paragraphs each. Then skim the <a href="https://redis.io/docs/latest/commands/ttl/">TTL command page</a> for the <code>-1</code> and <code>-2</code> replies.</p>
+</div>
+
+<div class="callout">
+<p class="label">Stuck or curious?</p>
+<p>Ask anything: "what happens to the search copy when a price changes?", "why does the search route skip the wrapper?", "could two pods miss at the same moment?" (the next lessons answer the first and the last). When you're ready, say so, and the next session starts by recalling the "In short" box above.</p>
+</div>
+
+<nav class="course">
+  <a href="0000-shared-state-across-pods.html">← Lesson 0: Shared state across pods</a>
+  <span class="meta">Next: Cache consistency (coming)</span>
+</nav>
+
+</main>
+<script src="../assets/quiz.js"></script>
+<script src="../assets/course-map.js"></script>
+<script src="../assets/nav.js"></script>
+</body>
+</html>

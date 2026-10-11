@@ -32,7 +32,7 @@ The first draft of Lesson 0 was accurate but read like a reference: an abstract 
 
 ## Curriculum
 0. Shared state across pods (local, `single`). **Written.**
-1. Cache-aside in `product` (live cluster).
+1. Cache-aside in `product` (live cluster). **Written.**
 2. Cache consistency (live cluster + local).
 3. Stampede (local, `single`).
 4. When Redis is down or slow (live cluster + local).
@@ -45,4 +45,11 @@ The first draft of Lesson 0 was accurate but read like a reference: an abstract 
 ## Working notes
 - **2026-10-11, Lesson 0 written.** Lab 00 run on `redis:7.4.11-alpine` with node-redis 4.7.1: forced timing loses exactly 2,000 of 3,000 updates on every run (all three workers read the same value each round); `INCR` loses 0; `--no-barrier` lost about 1,700 in two runs, varying. `labs:verify` passes 3/3 and was confirmed to exit 1 when the fixed variant is sabotaged. The lesson's sample output is copied from these runs.
 - The diagnostic hasn't been taken yet. Record the result in `learning-records/0001-diagnostic-result.md` after the first session.
+- **2026-10-11, Lesson 1 written, lab run live.** Cluster brought up with `skaffold build -p minimal --push=false` then `skaffold deploy -p minimal --build-artifacts=…` (plain `skaffold dev` would push images: `skaffold.yaml` has `local.push: true`, and `skaffold dev` has no `--push` flag). Every command and output in the lesson was run and copied from that cluster: detail miss `GET` → `SET … EX 900` → hit (79 ms vs 21 ms through ingress); `?search=kindle` → `EX 3600`, `?category=other` → `EX 600`; `TTL` 889 / 3589 / 589; an empty search does `GET` with no `SET`; reordered `quantity[gte]`/`category` hits the same key. The product Redis was empty at the start and the cluster Redis image (`redis:alpine`, unpinned) was 8.10.2. Only `MONITOR`, `GET`, `TTL`, `DBSIZE` and `INFO` were sent to it; the cache entries were written by `product` itself.
+- **Not run live:** the curl login step. The author had no test account and didn't create one in the shared Atlas database, so requests used a session cookie minted the way the auth tests do (a JWT signed with the pod's `JWT_KEY`). The login command's shape was checked against `auth/src/controllers/loginUser.ts` (bad credentials return 400). Unauthenticated product requests return **403**, not 401.
+- The old-key collision in Lesson 1 (`product_search:a77429ff…` for both `quantity[gte]=1` and `=60`) was computed by running the pre-`2692620` generator from git history locally, not observed in the cluster; the lesson says so.
+- Lesson 1's picture extends Lesson 0's: MongoDB is the **filing room**, cached values are **photocopies** pinned on the whiteboard with a **label** (key) and a **throw-away time** (TTL); the product pod does the walking. Lesson 2 should reuse it: an original edited in the filing room doesn't change the photocopy.
+- Lesson 1 bends the section order on purpose: the cluster is look-only, so there's no "see it break" lab. The story's last beat names the hidden problem, and the break-and-fix is the old `quantity` key collision in section 6 (computed, then the fix watched live). Lesson 2 is where a cluster lab breaks things.
+- Lesson 1's setup uses `skaffold build --push=false` + `skaffold deploy`, not `skaffold dev` (see above), and says why in a `<details>`.
+- Glossary: "key prefix" now means any key's leading namespace; the lab-specific one is "lab prefix".
 - Lesson 0's repo anchor is `product/src/queues/listeners/productQuantityUpdate.ts`: an atomic conditional `$inc` in MongoDB, the same idea as `INCR`. Lesson 5 comes back to it as the right answer for inventory (no lock).

@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Redis Caching Sheet</title>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<main>
+
+<p class="eyebrow">Reference 2 · Lessons 1+</p>
+<h1>Caching and invalidation</h1>
+<p class="meta">The caching patterns and defaults the lessons use, for lookup after the course. It grows as lessons are added: invalidation comes with Lesson 2, stampede protection with Lesson 3, and what to do when Redis is down with Lesson 4.</p>
+
+<h2>The rule: the cache is a copy</h2>
+<div class="callout">
+<p>A cached value is derived from the system of record (for products, MongoDB) and can be thrown away and rebuilt at any time. Never store anything in a cache that exists nowhere else. Every cached value needs a TTL, which limits how long a wrong copy can survive.</p>
+</div>
+
+<h2>Cache-aside</h2>
+<p>The pattern <code>product</code> uses (Lesson 1). On every read:</p>
+<ol>
+  <li><strong>Look:</strong> <code>GET key</code>. If it returns a value, that's a hit: answer with it.</li>
+  <li><strong>Fetch:</strong> on a miss, read the system of record.</li>
+  <li><strong>Store:</strong> <code>SET key value EX ttl</code>, in one command, then answer.</li>
+</ol>
+<pre>const cached = await redis.get(key);
+if (cached !== null) return JSON.parse(cached);
+const fresh = await loadFromDb();
+await redis.set(key, JSON.stringify(fresh), { EX: ttlSeconds });
+return fresh;</pre>
+<dl class="fields">
+  <dt>Good for</dt><dd>read-heavy data where a short delay before changes show up is acceptable. Only data someone asked for is cached, so the cache stays small.</dd>
+  <dt>Costs</dt><dd>every miss pays for a Redis round trip plus the database read. A copy can be stale until it's invalidated or expires (Lesson 2). Many pods missing the same key at once all hit the database (Lesson 3).</dd>
+  <dt>Who does the work</dt><dd>the app. Redis never fetches anything and doesn't know the database exists.</dd>
+</dl>
+
+<h2>Choosing a pattern</h2>
+<dl class="fields">
+  <dt>cache-aside (lazy loading)</dt><dd>the default. The app fills the cache on a miss. Used by <code>product</code>.</dd>
+  <dt>write-through</dt><dd>the app also writes the new value to the cache every time it writes the database. Fewer stale reads and misses; caches data nobody may read. Usually combined with cache-aside for misses.</dd>
+  <dt>read-through</dt><dd>like cache-aside, but a caching library does the fetch on a miss, so the app only talks to the cache. Not used in this repo.</dd>
+  <dt>write-behind</dt><dd>the app writes only to the cache and something copies it to the database later. The cache becomes the only copy for a while, which breaks the rule above. Out of scope for this course.</dd>
+</dl>
+
+<h2>Key design</h2>
+<dl class="fields">
+  <dt>Prefix every key</dt><dd>with what it holds: <code>product:</code>, <code>product_search:v2:</code>. Prefixes make keys readable in <code>MONITOR</code> and let you find a family with <code>SCAN … MATCH product:*</code>.</dd>
+  <dt>The key is the whole question</dt><dd>anything that can change the answer must be in the key. Leave a filter out and two different questions share one answer (Lesson 1's old <code>quantity</code> bug).</dd>
+  <dt>Normalise before hashing</dt><dd>sort object fields so the same question in a different order gives the same key.</dd>
+  <dt>Hash long questions</dt><dd>MD5 (or any stable hash) of the normalised query gives a fixed-length key. It's a name, not a security measure.</dd>
+  <dt>Version the prefix</dt><dd>bump it (<code>v2</code>, <code>v3</code>) when the key's meaning or the value's shape changes, so no pod reads copies made under the old rules. The old keys expire on their own.</dd>
+</dl>
+
+<h2>TTL defaults</h2>
+<h3>What product uses today</h3>
+<dl class="fields">
+  <dt>product:&lt;id&gt; · 15 min (900 s)</dt><dd>the product detail page. The <code>cache</code> wrapper's default, <code>product/src/cache/redisCache.ts</code>.</dd>
+  <dt>product_search:v2:&lt;md5&gt; with ?search= · 60 min (3,600 s)</dt><dd>a text search, the most expensive query. <code>product/src/routes/showProduct.ts</code>.</dd>
+  <dt>product_search:v2:&lt;md5&gt; otherwise · 10 min (600 s)</dt><dd>category and filter lists, first page only.</dd>
+  <dt>not cached</dt><dd>empty results, a missing product, plain listings with no filter, later pages of a category or filter list.</dd>
+</dl>
+<h3>Choosing a TTL</h3>
+<p>Ask: how long may a user see the old value after a change, and how expensive is a miss? A longer TTL means fewer database reads and a longer window for stale data. If changes are invalidated on write (Lesson 2), the TTL is only the backstop for invalidations that were missed.</p>
+<ul>
+  <li>Always set it in the same command: <code>SET key value EX ttl</code>, never <code>SET</code> then <code>EXPIRE</code>.</li>
+  <li><code>TTL key</code> returns the seconds left, <code>-1</code> for a key with no expiry (a bug in a cache), <code>-2</code> for no such key.</li>
+</ul>
+
+<h2>Coming with later lessons</h2>
+<dl class="fields">
+  <dt>Invalidation</dt><dd>delete vs update on write, delete after commit, invalidating many search keys at once. Lesson 2.</dd>
+  <dt>Stampede protection</dt><dd>single-flight, jittered TTLs, negative caching. Lesson 3.</dd>
+  <dt>When Redis is down or slow</dt><dd>timeouts and falling back to the database. Lesson 4.</dd>
+</dl>
+
+<nav class="course">
+  <a href="0001-commands-and-data-types.html">← Commands and data types</a>
+  <a href="0005-glossary.html">Glossary →</a>
+</nav>
+
+</main>
+<script src="../assets/course-map.js"></script>
+<script src="../assets/nav.js"></script>
+</body>
+</html>

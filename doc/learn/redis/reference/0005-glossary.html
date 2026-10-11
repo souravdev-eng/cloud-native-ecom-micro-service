@@ -31,17 +31,30 @@
   <dt>pipelining</dt><dd>Sending several commands without waiting for each reply. Saves round trips; not atomic. (L0)</dd>
 </dl>
 
+<h2>Caching</h2>
+<dl class="fields">
+  <dt>system of record</dt><dd>The store that holds the real, authoritative data. For products, MongoDB. A cache is never one. (L1)</dd>
+  <dt>derived copy</dt><dd>Data made from the system of record that can be thrown away and rebuilt at any time. Every cached value is one. (L1)</dd>
+  <dt>cache hit · cache miss</dt><dd>The key was in the cache, so the copy was used · the key wasn't there, so the app had to read the system of record. (L1)</dd>
+  <dt>cache-aside</dt><dd>The app looks in the cache; on a miss it reads the system of record and stores a copy itself. The cache never fetches anything. Also called lazy loading. In Lesson 1's picture: check the whiteboard, else walk to the filing room and pin up a photocopy. (L1)</dd>
+  <dt>TTL</dt><dd>Time to live: the seconds a key has left before Redis deletes it. Set with <code>EX</code> on <code>SET</code>, read with the <code>TTL</code> command. In Lesson 1's picture, the throw-away time on a photocopy. (L1)</dd>
+  <dt>cache key</dt><dd>The name a cached value is stored under. It must cover everything that can change the answer. (L1)</dd>
+  <dt>key prefix</dt><dd>The fixed start of a key saying what kind of thing it holds, such as <code>product:</code>. In the labs, <code>lab:NN:</code>. (L0, L1)</dd>
+  <dt>versioned key</dt><dd>A key prefix with a version in it (<code>product_search:v2:</code>), changed when the meaning of the keys changes so old copies are never read again. (L1)</dd>
+  <dt>stale</dt><dd>A cached copy that no longer matches the system of record. (L1)</dd>
+</dl>
+
 <h2>The labs</h2>
 <dl class="fields">
   <dt>sandbox Redis</dt><dd>The local Docker Redis from <code>sandbox/redis-learning/docker-compose.yml</code>, on host ports 6390–6399. The only Redis lab code may connect to. (L0)</dd>
   <dt>connection guard</dt><dd><code>connect()</code> in the lab helpers: it throws for any URL that isn't the sandbox Redis, with no override. (L0)</dd>
-  <dt>key prefix</dt><dd><code>lab:NN:</code>, the namespace each lab writes under and the only thing its cleanup deletes. (L0)</dd>
+  <dt>lab prefix</dt><dd><code>lab:NN:</code>, the key prefix each lab writes under and the only thing its cleanup deletes. (L0)</dd>
   <dt>barrier</dt><dd>A lab helper that holds each worker at a point until all of them arrive, to force the worst-case timing on every run. (L0)</dd>
   <dt>broken / fixed variant</dt><dd>The two versions of each lab: one shows the failure, one shows the fix against the same scenario. <code>--check</code> runs both and asserts the outcome. (L0)</dd>
 </dl>
 
 <nav class="course">
-  <a href="0001-commands-and-data-types.html">← Commands and data types</a>
+  <a href="0002-caching-and-invalidation.html">← Caching and invalidation</a>
   <a href="../lessons/0000-shared-state-across-pods.html">Lesson 0 →</a>
 </nav>
 
