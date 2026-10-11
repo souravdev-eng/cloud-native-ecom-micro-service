@@ -10,6 +10,7 @@
     "lab:00": "tsx labs/00-shared-state/index.ts",
     "lab:02": "tsx labs/02-cache-consistency/index.ts",
     "lab:03": "tsx labs/03-stampede/index.ts",
+    "lab:04": "tsx labs/04-redis-down-or-slow/index.ts",
     "labs:verify": "tsx scripts/verify.ts",
     "test": "tsx --test lib/__test__/*.test.ts",
     "typecheck": "tsc --noEmit"

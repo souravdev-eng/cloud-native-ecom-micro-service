@@ -18,7 +18,7 @@ window.COURSE = {
     { num: 1, title: 'Cache-aside in product', tag: 'Day 1 · cluster', href: '../lessons/0001-cache-aside-in-product.html' },
     { num: 2, title: 'Cache consistency', tag: 'Day 1 · cluster + local', href: '../lessons/0002-cache-consistency.html' },
     { num: 3, title: 'Stampede', tag: 'Day 1 · local', href: '../lessons/0003-stampede.html' },
-    { num: 4, title: 'When Redis is down or slow', tag: 'Day 2 · cluster + local', href: null },
+    { num: 4, title: 'When Redis is down or slow', tag: 'Day 2 · cluster + local', href: '../lessons/0004-redis-down-or-slow.html' },
     { num: 5, title: 'Locks across pods', tag: 'Day 2 · local', href: null },
     { num: 6, title: 'Rate limiting across replicas', tag: 'Day 2 · local', href: null },
     { num: 7, title: 'Replication and failover', tag: 'Day 3 · local', href: null },

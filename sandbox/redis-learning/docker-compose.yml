@@ -1,5 +1,5 @@
 # Local Redis for the course labs. Each profile is one lab environment:
-#   single       one Redis on localhost:6390 (Lessons 0, 3, 5, 6)
+#   single       Redis on localhost:6390 + latency proxy on 6391 (Lessons 0, 2–6)
 # Later lessons add `replication` and `cluster`.
 #
 # Host ports start at 6390 so they never clash with a
@@ -19,3 +19,13 @@ services:
       interval: 2s
       timeout: 2s
       retries: 15
+
+  lab-toxiproxy:
+    image: ghcr.io/shopify/toxiproxy:2.12.0
+    profiles: [single]
+    ports:
+      - "127.0.0.1:6391:6391"
+      - "127.0.0.1:8474:8474"
+    depends_on:
+      lab-redis:
+        condition: service_healthy

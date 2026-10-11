@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lesson 4 — When Redis is down or slow</title>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<main>
+<p class="eyebrow">Lesson 4 · Day 2 · ~25–30 min · local + live lab</p>
+<h1>When the whiteboard stops answering</h1>
+<p class="lede">Lesson 3 kept a crowd of cache misses from overwhelming MongoDB. Now ask what our product pods do when Redis itself stops answering. Products still exist in MongoDB; a slow cache shouldn't stop shoppers seeing them.</p>
+
+<h2>Before you start</h2>
+<details><summary>Recall check: Lesson 3 in 2 minutes</summary>
+<p>From memory: what does sharing a pending fetch protect? How many loads remain across four pods? What does varying the TTL protect?</p>
+<p>Hint: one note on each team's desk, and many different copies coming down together.</p>
+<details><summary>Show the answers</summary><p>Single-flight shares one load per key inside one process. Four pods can still load four times. TTL jitter spreads different keys' expiry times; it doesn't combine reads of one hot key. Revisit <a href="0003-stampede.html">Lesson 3's recap</a> if needed.</p></details>
+</details>
+<p>By the end, you can give a cache request a waiting budget, choose whether to continue when a dependency fails, and separate an observed outage from a prediction made by reading code.</p>
+<h3>Your lab setup</h3>
+<dl class="fields">
+<dt>one sandbox Redis</dt><dd>the shared cache on localhost:6390, separate from the cluster's product Redis.</dd>
+<dt>Toxiproxy</dt><dd>a TCP relay on localhost:6391, between the lab client and Redis. Its HTTP API on port 8474 adds two seconds to each reply.</dd>
+<dt>one Node process</dt><dd>stands in for a product pod making three requests in succession. This lesson isolates waiting time; it isn't a load test across pods.</dd>
+<dt>an independent fake store</dt><dd>a price of 149 in process memory, with a 20 ms read delay and a load counter. It stands in for MongoDB and doesn't go through the broken cache.</dd>
+</dl>
+<ol class="steps">
+<li><p><strong>Start the local environment.</strong></p>
+<pre>cd sandbox/redis-learning
+npm install
+npm run redis:single</pre>
+<p>Run from the repository root, or skip <code>cd</code> if already here. Install pinned dependencies, then start the <code>single</code> profile: Redis and Toxiproxy. Docker must be running. Other lessons keep using port 6390 directly.</p></li>
+</ol>
+<details><summary>What the lab sets up and cleans up</summary>
+<p>The lab saves <code>lab:04:cache:kindle</code> through the direct connection. It creates a proxy through the API, connects through it, then adds a downstream latency toxic: two seconds on replies, with no random variation. Connection setup isn't part of the measured requests.</p>
+<p>Both versions use the same delayed path. On completion or a caught error, the lab disconnects the proxy client, deletes its proxy (including the toxic), and scans/unlinks only <code>lab:04:*</code>. It never clears the database. Run only one copy of lab 04 at a time. After a forced process kill, <code>npm run redis:down</code> removes the leftover proxy environment; start it again before retrying.</p>
+</details>
+
+<h2>1 · The question: the cache is still there</h2>
+<p>Imagine the Kindle page normally returning a saved price quickly. Then the network to Redis slows down. The cached copy exists, but the product pod waits two seconds for the keeper to reply. Every shopper using that path pays the delay.</p>
+<p>This incident is made up for the local lab. Our real routes also await Redis, so we'll inspect their behavior and give you a separate live experiment. If three product pods share the same slow Redis, adding pods doesn't shorten that wait. How long should each pod wait before fetching the original?</p>
+
+<h2>2 · Predict</h2>
+<div class="quiz" data-answer="1"><p class="q">Redis replies after 2 seconds. The client has a connection timeout but no command deadline. How fast is an established connection's GET?</p><div class="options"><button>Fast: a connection timeout covers all commands</button><button>At least 2 seconds: GET still waits for its reply</button><button>Fast: Redis fetches from MongoDB instead</button></div><p class="why">A connection timeout limits establishing a socket. It doesn't limit commands sent through an already connected socket. Redis doesn't fetch from MongoDB.</p></div>
+
+<h2>3 · See it break</h2>
+<ol class="steps">
+<li><p><strong>Make replies slow.</strong></p>
+<pre class="out">npm run lab:04 -- --broken
+
+Broken: wait for every cache reply
+  injected delay:    2000 ms (replies only)
+  command deadline:  none
+  request 1:         2002 ms · cache · price 149
+  request 2:         2004 ms · cache · price 149
+  request 3:         2004 ms · cache · price 149
+  store loads:       0</pre>
+<p>These are measured local results; your milliseconds will vary. The answer is correct, but every request is slow. A live service could accumulate waiting requests while the cache remains connected.</p></li>
+</ol>
+
+<h2>4 · Slow motion</h2>
+<ol>
+<li>The pod sends <code>GET</code>. Redis has the price and generates a reply.</li>
+<li>The relay holds that reply for two seconds. The socket stays connected.</li>
+<li>The route awaits the promise, so it doesn't read the store or send an HTTP response yet.</li>
+</ol>
+<p>An <code>error</code> event listener reports socket problems. It doesn't make the route take another path, and a slow but working socket may produce no error at all.</p>
+
+<h2>5 · Why: put a limit on the walk</h2>
+<div class="callout"><p>Reuse the whiteboard picture. The product pod walks to the keeper for a photocopy, but the keeper doesn't answer promptly. The original is still in the filing room. Give the pod a rule: <strong>“Wait briefly for the copy; if that fails, go to the original.”</strong></p><p>The waiting budget is the command deadline. The filing room is MongoDB. Continuing with the original is the fallback. The copy is an optimization, so its failure shouldn't become a failure of the original.</p></div>
+<p>That rule suits product reads. A security decision or a coordination lease needs its own failure policy: continuing without the required check may be wrong. Choose the policy from what the dependency protects.</p>
+
+<h2>6 · Fix it: stop waiting for the copy</h2>
+<ol class="steps">
+<li><p><strong>Run the same delay with a waiting budget.</strong></p>
+<pre class="out">npm run lab:04 -- --fixed
+
+Fixed: stop waiting, read the store
+  injected delay:    2000 ms (replies only)
+  command deadline:  100 ms
+  request 1:         123 ms · fallback · price 149
+  request 2:         121 ms · fallback · price 149
+  request 3:         122 ms · fallback · price 149
+  store loads:       3</pre>
+<p>After about 100 ms without a cache answer, each request reads the 20 ms fake store. It returns 149 without waiting to write a new cache copy. A real response budget includes both the cache wait and the database read, plus scheduling and network time. Choose those budgets from the service's latency target; 100 ms is a teaching value.</p></li>
+<li><p><strong>Check both outcomes and cleanup.</strong></p>
+<pre>npm run lab:04 -- --check
+npm run labs:verify</pre>
+<p>The check requires all three broken requests to wait at least two seconds, all three fixed requests to finish below 500 ms (100 ms cache budget + 20 ms store delay + scheduling allowance), the expected answer and source, three fixed store loads and zero broken loads. It also checks that lab keys and the proxy are gone. The verifier includes this lab and runs each check three times.</p></li>
+</ol>
+<details><summary>A timeout ends the wait; it doesn't undo a command</summary>
+<p>The lab races <code>redis.get(key)</code> against a timer and clears that timer in <code>finally</code>. Node-redis 4.7.1 does not give this in-flight GET a deadline merely because the socket has a <code>connectTimeout</code>. A late read can still finish. The lab handles its eventual promise settlement and disconnects the dedicated client at the end, discarding the three outstanding reads; it doesn't queue <code>QUIT</code> behind them.</p>
+<p>In production, bound pending commands, disable or cap offline queuing, and bypass a repeatedly failing cache for a short recovery interval. Reconnect with bounded backoff and jitter so pods don't all retry together. Avoid disconnecting a shared client for every request timeout: that can disturb other requests. Never treat a timed-out write or lock acquisition as proof that Redis didn't execute it.</p>
+</details>
+<p>Fallback increases database work. Keep Lesson 3's single-flight, database concurrency limits and overload policy; a healthy MongoDB under one request isn't proof it can absorb all cache traffic. Put a deadline on the store read too, and report cache degradation separately from successful HTTP responses.</p>
+
+<h2>7 · Now name it</h2>
+<p>See also the <a href="../reference/0005-glossary.html">glossary</a>.</p>
+<dl class="fields">
+<dt>fail open</dt><dd>continue the operation when a dependency fails. For this optional cache, read MongoDB instead.</dd>
+<dt>fail closed</dt><dd>refuse or delay the operation when its required dependency cannot be used. This can suit security checks; it hurts availability if imposed by an optional product cache.</dd>
+<dt>command timeout</dt><dd>a deadline on waiting for one command's answer, distinct from connecting a socket or expiring a key.</dd>
+<dt>reconnect strategy</dt><dd>the client's policy for trying a broken connection again. Recovery of the connection doesn't impose a request deadline.</dd>
+<dt>readiness</dt><dd>whether this pod can currently serve traffic according to its dependency contract.</dd>
+</dl>
+<p>The observability work's <a href="../../../../common/src/observability/health.ts">health contract</a> makes <code>/healthz</code> a process check without dependency calls. <code>/readyz</code> runs named checks with deadlines (default one second); any error or timeout returns 503. Those deadlines bound the probe response, not cancellation of its dependency calls.</p>
+<p>If MongoDB can serve product reads while Redis is unavailable, mark cache health as degraded in metrics/logs rather than removing every product pod from traffic. Required stores belong in readiness. This is a proposed contract for product: <a href="../../../../product/src/app.ts">product's current app</a> doesn't mount these health routes. Don't claim that a readiness probe already protects it.</p>
+
+<h2>8 · In our repo: inspect, then measure</h2>
+<p>From <a href="../../../../product/src/redisClient.ts">product/src/redisClient.ts</a>:</p>
+<pre>const connectRedis = async (url: string) =&gt; {
+  client = createClient({ url });
+  client.on("connect", () =&gt; {
+    console.log("Redis Server connected");
+  });
+  client.on("error", (err) =&gt; {
+    console.error("Redis error:", err);
+  });
+  await client.connect();
+};</pre>
+<dl class="fields">
+<dt>createClient({ url })</dt><dd>no explicit reconnect policy, no command deadline, no explicit offline queue limit. “No configured strategy” does not mean “no reconnect”: node-redis 4.x supplies a default retry policy.</dd>
+<dt>connect event</dt><dd>logs a socket connection attempt's success. Verify readiness with a successful command; this message alone isn't proof that product endpoints recovered.</dd>
+<dt>error listener</dt><dd>logs Redis errors; it doesn't catch the rejected promise inside a route or provide a fallback.</dd>
+<dt>await client.connect()</dt><dd><a href="../../../../product/src/index.ts">startup</a> awaits this before Elasticsearch setup and <code>app.listen</code>. Default retries can keep startup waiting; if connect rejects, the startup wrapper exits. Exact outage timing remains to be measured.</dd>
+</dl>
+<p>The detail route in <a href="../../../../product/src/routes/showProductDetailById.ts">showProductDetailById.ts</a>:</p>
+<pre>const cachedProduct = await cache.get(redisKey);
+if (cachedProduct !== null) {
+  res.status(200).send(cachedProduct);
+} else {
+  const product = await Product.findById(req.params.id);
+  // ... not-found check ...
+  await cache.set(redisKey, product);
+  res.status(200).send(product);
+}</pre>
+<p>The initial GET sits before MongoDB and has no cache-specific catch. Only a successful miss takes the database path. Even after a database read, the SET is awaited before the response. Both waits can prevent a successful response. <a href="../../../../product/src/routes/showProduct.ts">showProduct.ts</a> similarly awaits GET and SET for eligible cached queries, without a Redis fallback. A query excluded by <code>shouldCache</code> skips those cache calls. The exact HTTP error, waiting time and recovery behavior need live evidence.</p>
+<p>The deployment in <a href="../../../../k8s/product-redis-depl.yml">k8s/product-redis-depl.yml</a>:</p>
+<pre>metadata:
+  name: product-redis-deployment
+spec:
+  replicas: 1
+  # ... selector and pod metadata ...
+  template:
+    # ... metadata ...
+    spec:
+      containers:
+        - name: product-redis
+          image: redis:alpine</pre>
+<p>The name identifies the deployment to scale. One replica means scaling to zero removes the only cache server; this isn't a failover exercise. The image is unpinned, unlike the local lab's Redis 7.4.11. The omitted manifest mounts a PVC; don't predict an empty cache merely from replacing a pod.</p>
+<p><strong>Assessment:</strong> the current request and startup paths don't make Redis optional. That isn't acceptable for an optional product-read cache. A follow-up should bound GET waits, catch cache-specific failures and read MongoDB, make cache fills best-effort within a budget, bound pending work and reconnects, and allow startup in a recorded degraded state when required stores are healthy. Keep genuine MongoDB errors visible. This lesson changes no product code.</p>
+<h3>Live lab: record what the platform really does</h3>
+<div class="callout"><p class="label">Evidence boundary</p><p>The author did <strong>not run this outage experiment against skaffold dev</strong>. No live status codes, latency or reconnect timings are asserted here. The source findings above and the local results are verified; see <a href="../NOTES.md">NOTES.md</a>. Use the following experiment to fill the gap.</p></div>
+<ol class="steps">
+<li><p><strong>Use the local development cluster and an authenticated baseline.</strong></p>
+<p>Run <code>skaffold dev -p minimal</code> from the repo root in another terminal if your local build/push setup supports it. Lesson 1's <a href="0001-cache-aside-in-product.html">setup</a> explains the repo's <code>local.push: true</code> and the no-push build/deploy alternative. Record which mode you use; a build/deploy run isn't a skaffold-dev observation. Use the login cookie and an existing product ID from Lesson 1. The script deliberately accepts only the <code>docker-desktop</code> context.</p>
+<pre>kubectl logs -f deployment/product-deployment --all-containers=true --since=1m</pre>
+<p>Keep this log stream in another terminal to watch disconnect errors and connection messages. Both baseline endpoints must return 200. A 403 means authentication failed; it isn't evidence about Redis.</p></li>
+<li><p><strong>Take Redis down, measure, and restore it in one script.</strong></p>
+<pre>cd sandbox/redis-learning
+export COOKIE_JAR=/path/to/your/cookies.txt
+export PRODUCT_ID=your_existing_24_character_product_id
+bash labs/04-redis-down-or-slow/live.sh</pre>
+<p>The script calls detail and <code>?search=kindle</code> before the outage, scales <code>product-redis-deployment</code> to zero, waits for its pod to disappear, calls both endpoints again, then scales back to <strong>one replica</strong> and repeats the requests. Every curl prints HTTP status, elapsed seconds and exit code. Curl stops waiting after ten seconds; exit 28 means the measurement timed out, not that the server has a ten-second timeout.</p>
+<p>It installs an exit trap before scaling down. Normal completion, command errors, Ctrl-C and TERM all attempt restoration to one replica and wait for rollout. If restoration itself fails it prints the failure. SIGKILL or loss of the terminal/host can't execute that trap. Manual recovery:</p>
+<pre>kubectl --context docker-desktop -n default scale deployment product-redis-deployment --replicas=1
+kubectl --context docker-desktop -n default rollout status deployment/product-redis-deployment --timeout=120s</pre>
+<p>Use your namespace if you set <code>NAMESPACE</code>. Do not leave Redis at zero. Don't edit manifests while measuring: a skaffold redeploy could restore the replica during the outage.</p></li>
+<li><p><strong>Write down the result before deciding.</strong></p>
+<p>For detail and search, record baseline status/time, outage status/time, curl exit code and the first successful response after restoration. Copy relevant Redis error/connect messages and say whether an HTTP response actually recovered. If recovery is delayed, repeat the bounded curls; don't call a connection log alone recovery. Record environment, client version, whether the route was cache-eligible, and whether you saw an error, a wait, or a database fallback.</p>
+<p>Add this evidence to a learning record or NOTES.md. Startup blocking is a source finding here; this script leaves product running and doesn't test a fresh product startup. Don't turn that prediction into a measured claim.</p></li>
+</ol>
+
+<div class="recap">
+<h2>In short: remember these 3</h2>
+<ol>
+<li><strong>A copy should be optional.</strong> Cache failure should lead to the original when the original can safely serve the request.</li>
+<li><strong>Limit how long you wait.</strong> A command deadline is separate from connection setup, retries and key TTL. A timeout doesn't undo an in-flight operation.</li>
+<li><strong>Measure failure and recovery.</strong> Read the route, record its HTTP result and time, restore Redis to one replica, then verify successful responses.</li>
+</ol>
+<p><strong>If you forget everything:</strong> if the keeper doesn't answer promptly, fetch the original within the request's budget.</p>
+<p><strong>You don't need to memorise</strong> Toxiproxy's JSON or one hundred milliseconds. Remember the dependency's purpose and choose a measured waiting budget.</p>
+</div>
+
+<h2>9 · Check yourself</h2>
+<div data-quiz-group>
+<p class="score"></p>
+<div class="quiz" data-answer="1"><p class="q">What makes the fixed read fast despite a slow cache?</p><div class="options"><button>The key's TTL</button><button>A command waiting budget followed by a store read</button><button>More reconnect attempts</button></div><p class="why">TTL expires data. Reconnect restores a socket. Neither bounds an established connection's command wait.</p></div>
+<div class="quiz" data-answer="0"><p class="q">The GET timed out locally. What can you conclude?</p><div class="options"><button>The caller stopped waiting; Redis may still finish it</button><button>Redis definitely didn't execute it</button><button>The original data is missing</button></div><p class="why">A response timeout isn't cancellation or evidence of absence. This matters even more for writes and lock acquisition.</p></div>
+<div class="quiz" data-answer="2"><p class="q">An optional cache fails, but the database can serve the traffic. What readiness contract fits?</p><div class="options"><button>Restart every pod because Redis failed</button><button>Remove every pod from traffic until Redis recovers</button><button>Keep serving with fallback and report cache degradation</button></div><p class="why">Readiness follows required dependencies. Liveness shouldn't depend on a cache. The fallback must be verified and capacity bounded.</p></div>
+<div class="quiz" data-answer="1"><p class="from">From Lesson 3</p><p class="q">All four pods fall back for the same hot key. In-process single-flight guarantees what?</p><div class="options"><button>Only one MongoDB load for the whole cluster</button><button>One overlapping load per key per process</button><button>No store traffic during a cache outage</button></div><p class="why">Each pod owns its promise map. The database still needs enough capacity for the remaining loads.</p></div>
+</div>
+<div class="callout"><p class="label">Primary sources</p><p><a href="https://github.com/Shopify/toxiproxy#http-api">Toxiproxy API and latency toxic</a>; <a href="https://github.com/redis/node-redis/blob/redis%404.7.1/docs/client-configuration.md">node-redis 4.7.1 client configuration</a>. Check the installed client's behavior when changing versions; a connection option isn't a command deadline.</p></div>
+<nav class="course"><a href="0003-stampede.html">← Lesson 3: Stampede</a><span class="meta">Next: Locks across pods (coming)</span></nav>
+</main>
+<script src="../assets/quiz.js"></script>
+<script src="../assets/course-map.js"></script>
+<script src="../assets/nav.js"></script>
+</body>
+</html>

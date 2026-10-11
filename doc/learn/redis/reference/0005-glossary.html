@@ -60,6 +60,15 @@
   <dt>soft TTL</dt><dd>A freshness deadline after which an acceptable older copy may be served during refresh, until a hard expiry deadline. (L3)</dd>
 </dl>
 
+<h2>When the cache fails</h2>
+<dl class="fields">
+  <dt>fail open</dt><dd>Continue an operation when a dependency fails; for an optional cache, fall back to the system of record. (L4)</dd>
+  <dt>fail closed</dt><dd>Refuse or delay an operation when its required dependency cannot be used. (L4)</dd>
+  <dt>command timeout</dt><dd>A deadline on waiting for one command's answer. It doesn't expire a key, connect a socket, or guarantee cancellation of the command. (L4)</dd>
+  <dt>reconnect strategy</dt><dd>The client's policy for retrying a broken connection. It doesn't give requests a deadline. (L4)</dd>
+  <dt>readiness</dt><dd>Whether a pod can serve traffic according to its required-dependency contract. (L4)</dd>
+</dl>
+
 <h2>The labs</h2>
 <dl class="fields">
   <dt>sandbox Redis</dt><dd>The local Docker Redis from <code>sandbox/redis-learning/docker-compose.yml</code>, on host ports 6390–6399. The only Redis lab code may connect to. (L0)</dd>

@@ -13,11 +13,13 @@ The live result isn't known yet: whether routes catch Redis errors, whether star
 
 **Blocked by:** 03
 
-**Status:** ready-for-agent
+**Status:** implemented (local verified; live experiment explicitly unrun)
 
-- [ ] Toxiproxy runs in the `single` profile, and the lab adds and removes latency through its API
-- [ ] Broken variant: request latency ≥ the injected delay; fixed variant: latency stays bounded by the timeout and the answer comes from the fallback; `--check` asserts both and is part of `labs:verify`
-- [ ] The live behaviour was observed against `skaffold dev` and written into the lesson (or `NOTES.md` says it wasn't run live)
-- [ ] The live lab always scales Redis back to 1 replica at the end, and the lesson says so clearly
-- [ ] The lesson says whether the current behaviour is acceptable and what the fix would be, without changing `product` code
-- [ ] The quiz includes at least one question about an earlier lesson
+- [x] Toxiproxy runs in the `single` profile, and the lab adds and removes latency through its API
+- [x] Broken variant: request latency ≥ the injected delay; fixed variant: latency stays bounded by the timeout and the answer comes from the fallback; `--check` asserts both and is part of `labs:verify`
+- [x] The live behaviour was observed against `skaffold dev` and written into the lesson (or `NOTES.md` says it wasn't run live)
+- [x] The live lab always scales Redis back to 1 replica at the end, and the lesson says so clearly
+- [x] The lesson says whether the current behaviour is acceptable and what the fix would be, without changing `product` code
+- [x] The quiz includes at least one question about an earlier lesson
+
+Implementation: `labs/04-redis-down-or-slow/index.ts`, `live.sh`, and `doc/learn/redis/lessons/0004-redis-down-or-slow.html`. Live evidence gap is recorded in NOTES.md as allowed above. Starting HEAD: `6ad28698358860d231b4f8369be0efcbd4c049a3`.
