@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Redis Glossary</title>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<main>
+
+<p class="eyebrow">Reference 5 · All lessons</p>
+<h1>Glossary</h1>
+<p class="meta">Every lesson uses these words with exactly these meanings. Terms are added as lessons introduce them; the lesson that introduces each one is in brackets.</p>
+
+<h2>Many processes, one Redis</h2>
+<dl class="fields">
+  <dt>shared state</dt><dd>Data that several processes read and change. Pods share no memory, so shared state has to live outside them, in Redis or a database. (L0)</dd>
+  <dt>worker</dt><dd>One process in a lab, standing in for one pod: its own memory, its own Redis connection. (L0)</dd>
+  <dt>round trip</dt><dd>One request to Redis plus its reply. Every command costs one; the network time usually dwarfs Redis's own work. Also called RTT. In Lesson 0's picture, the walk to the keeper and back. (L0)</dd>
+  <dt>read-modify-write</dt><dd>Read a value, change it in the app, write it back. Done as two commands, it leaves a gap where other clients can write. (L0)</dd>
+  <dt>race condition</dt><dd>A bug where the result depends on how operations from different clients happen to interleave. (L0)</dd>
+  <dt>lost update</dt><dd>Two clients read the same value and both write back a change; the second write overwrites the first, which is lost without any error. (L0)</dd>
+  <dt>TOCTOU</dt><dd>Time of check to time of use: the gap between reading a value and acting on it, in which someone else can change it. A read-modify-write has one. (L0)</dd>
+</dl>
+
+<h2>How Redis runs commands</h2>
+<dl class="fields">
+  <dt>command thread</dt><dd>The single main thread on which Redis executes every command, one at a time. Other threads only do side work, such as freeing memory or reading and writing sockets. In Lesson 0's picture, it's the keeper of the whiteboard. (L0)</dd>
+  <dt>atomic</dt><dd>No other client's command can run in the middle of it. Every single Redis command is atomic; a sequence of commands is not. (L0)</dd>
+  <dt>pipelining</dt><dd>Sending several commands without waiting for each reply. Saves round trips; not atomic. (L0)</dd>
+</dl>
+
+<h2>The labs</h2>
+<dl class="fields">
+  <dt>sandbox Redis</dt><dd>The local Docker Redis from <code>sandbox/redis-learning/docker-compose.yml</code>, on host ports 6390–6399. The only Redis lab code may connect to. (L0)</dd>
+  <dt>connection guard</dt><dd><code>connect()</code> in the lab helpers: it throws for any URL that isn't the sandbox Redis, with no override. (L0)</dd>
+  <dt>key prefix</dt><dd><code>lab:NN:</code>, the namespace each lab writes under and the only thing its cleanup deletes. (L0)</dd>
+  <dt>barrier</dt><dd>A lab helper that holds each worker at a point until all of them arrive, to force the worst-case timing on every run. (L0)</dd>
+  <dt>broken / fixed variant</dt><dd>The two versions of each lab: one shows the failure, one shows the fix against the same scenario. <code>--check</code> runs both and asserts the outcome. (L0)</dd>
+</dl>
+
+<nav class="course">
+  <a href="0001-commands-and-data-types.html">← Commands and data types</a>
+  <a href="../lessons/0000-shared-state-across-pods.html">Lesson 0 →</a>
+</nav>
+
+</main>
+<script src="../assets/course-map.js"></script>
+<script src="../assets/nav.js"></script>
+</body>
+</html>
