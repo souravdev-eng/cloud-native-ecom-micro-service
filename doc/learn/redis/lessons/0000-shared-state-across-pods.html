@@ -25,6 +25,15 @@
   .beats .tag { font: 500 0.72rem 'IBM Plex Mono', monospace; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); margin: 0 0 0.3rem; }
   .beats .ok { color: var(--good); }
   .beats .bad { color: var(--bad); }
+
+  /* The lab setup: the real cluster next to the laptop copy. Stacked on phones, side by side when there's room. */
+  .rig { display: grid; gap: 0.75rem; margin: 1.25rem 0; }
+  @media (min-width: 640px) { .rig { grid-template-columns: 1fr 1fr; } }
+  .rig-card { border: 1px solid var(--border); border-radius: 10px; padding: 0.8rem 1rem; min-width: 0; }
+  .rig-tag { font: 500 0.72rem 'IBM Plex Mono', monospace; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); margin: 0 0 0.6rem; }
+  .rig-box { background: var(--tint); border: 1px solid var(--border); border-radius: 8px; padding: 0.5rem 0.75rem; font: 600 0.95rem Lexend, sans-serif; color: var(--text); }
+  .rig-box span { display: block; font: 0.75rem 'IBM Plex Mono', monospace; color: var(--muted); overflow-wrap: anywhere; }
+  .rig-arrow { font: 0.75rem 'IBM Plex Mono', monospace; color: var(--accent); padding: 0.35rem 0 0.35rem 0.6rem; overflow-wrap: anywhere; }
 </style>
 </head>
 <body>
@@ -32,9 +41,26 @@
 
 <p class="eyebrow">Lesson 0 · Day 1 · ~25 min · local lab</p>
 <h1>Shared state across pods</h1>
-<p class="lede">Why a number shared by three copies of your app can quietly come out wrong, and the one-line change that fixes it.</p>
+<p class="lede">The first lesson of the course. It covers the idea every later lesson builds on: several copies of a service sharing one Redis, what goes wrong when they all change it, and how to stop it.</p>
 
-<h2>Before you start</h2>
+<h2>Where this course starts</h2>
+
+<h3>What Redis is</h3>
+<p>Redis is a database that keeps its data in memory instead of reading it from disk. Memory is fast, so a read or a write takes well under a millisecond. That's why apps use Redis for things they need quickly and often: a cache, a counter, a lock.</p>
+<p>Your app talks to Redis over the network, one short command at a time. Every value is stored under a name, called a <strong>key</strong>. Storing and reading one looks like this:</p>
+<pre>&gt; SET greeting hello
+OK
+&gt; GET greeting
+"hello"</pre>
+
+<h3>Why it's in our platform</h3>
+<p>The <code>product</code> service uses Redis as a cache. It keeps copies of product pages and search results there, so it doesn't have to ask MongoDB every time someone opens a page. Lessons 1–4 look at that cache closely.</p>
+
+<h3>Why the course starts here</h3>
+<p>In Kubernetes, a service can run as several identical copies, called <strong>pods</strong>, to handle more traffic. Every copy talks to the same Redis. That's what makes Redis useful: one place every pod can see. It's also where the hard problems come from: every pod can change it at the same time. This lesson shows the simplest version of that problem. Every later lesson is a bigger version of it.</p>
+
+<h3>How each lesson works</h3>
+<p>Each lesson tells one short story, asks you to predict what will happen, and runs a lab that breaks something on your machine. Then it explains why, fixes it, and finds the same thing in our code. It ends with a short summary and a quiz. About 25 minutes.</p>
 <p>By the end of this lesson you'll be able to:</p>
 <ul>
   <li>explain why three pods updating one number can lose updates without any error;</li>
@@ -43,7 +69,7 @@
 </ul>
 
 <details>
-<summary>Already know this? Take the 3-minute check</summary>
+<summary>Already know Redis basics? Take the 3-minute check</summary>
 <div class="diagnostic" data-quiz-group data-pass="4">
 <p>Answer from memory. Only your first try counts.</p>
 <p class="score"></p>
@@ -113,12 +139,47 @@
 </div>
 </details>
 
-<p><strong>Start the lab Redis now</strong>, so it's ready when the story needs it. From the repo root:</p>
+<h2>Your lab setup</h2>
+<p>You won't touch the real cluster in this lesson. Instead, you run a small copy of the same arrangement on your laptop:</p>
+<div class="rig" role="img" aria-label="In the cluster, product pods connect to the product Redis pod. On your laptop, three worker processes connect to a Redis running in Docker.">
+  <div class="rig-card">
+    <p class="rig-tag">How product runs in the cluster</p>
+    <div class="rig-box">product pods<span>1 today, more under load</span></div>
+    <div class="rig-arrow">↓ redis://product-redis-service:6379</div>
+    <div class="rig-box">Redis pod<span>k8s/product-redis-depl.yml</span></div>
+  </div>
+  <div class="rig-card">
+    <p class="rig-tag">What you run on your laptop</p>
+    <div class="rig-box">3 worker processes<span>labs/00-shared-state/worker.ts</span></div>
+    <div class="rig-arrow">↓ redis://localhost:6390</div>
+    <div class="rig-box">Redis in Docker<span>docker-compose.yml</span></div>
+  </div>
+</div>
+<dl class="fields">
+  <dt>Redis in Docker</dt><dd>a real Redis 7.4 server running in a container. It plays the part of the product Redis pod.</dd>
+  <dt>worker process</dt><dd>a small Node program that connects to Redis and updates a number. The lab starts three of them as separate programs, each with its own memory and its own connection, just like three pods.</dd>
+  <dt>the lab script</dt><dd><code>labs/00-shared-state/index.ts</code>. It resets the number to 0, starts the three workers, waits for them to finish, and prints the result.</dd>
+</dl>
+<p><strong>Why not use the cluster?</strong> The labs break things on purpose. With a separate Redis, a lab can never damage the product cache, and the lab code refuses to connect to anything except this local Redis. That's also why it isn't on 6379, the usual Redis port: a <code>kubectl port-forward</code> to the real product Redis would sit there.</p>
+
+<h3>Start it</h3>
+<p>You need Docker Desktop running and Node.js installed. From the repo root:</p>
 <pre>cd sandbox/redis-learning
 npm install
 npm run redis:single
-npm run redis:cli -- ping      # PONG</pre>
-<p class="meta">This runs Redis 7.4 in Docker on port 6390. The labs refuse to use 6379, because a <code>kubectl port-forward</code> to the real product Redis would sit there.</p>
+npm run redis:cli -- ping</pre>
+<dl class="fields">
+  <dt>cd sandbox/redis-learning</dt><dd>the lab folder. Every lab command runs from here.</dd>
+  <dt>npm install</dt><dd>installs <code>redis</code>, the same Node client library <code>product</code> uses, and <code>tsx</code>, which runs the TypeScript labs directly.</dd>
+  <dt>npm run redis:single</dt><dd>starts the Redis container in the background and waits until it's ready. "Single" means one Redis server; later lessons start bigger setups.</dd>
+  <dt>npm run redis:cli -- ping</dt><dd>opens <code>redis-cli</code>, Redis's own command-line tool, inside the container and sends <code>PING</code>. It answers <code>PONG</code> when Redis is up.</dd>
+</dl>
+
+<h3>Warm up: your first two commands</h3>
+<p>One minute. Store a value under a key, then read it back:</p>
+<pre>npm run redis:cli -- set lab:00:greeting hello
+npm run redis:cli -- get lab:00:greeting</pre>
+<p>The first prints <code>OK</code>, the second <code>hello</code> (some terminals show it in quotes). You've just written to Redis over the network and read it back. Version 2 of the story below does exactly this, just from three pods at once. (Keys starting with <code>lab:00:</code> belong to this lesson, so the lab cleans this one up for you.)</p>
 
 <h2>1 · The story: a view counter</h2>
 <p>The product team wants a small badge on every product page: <em>"Viewed 1,284 times"</em>. It's a made-up feature (<code>product</code> doesn't have it), but it's the simplest possible example of many copies of an app sharing one number.</p>
