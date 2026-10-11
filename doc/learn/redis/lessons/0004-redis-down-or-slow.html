@@ -142,14 +142,13 @@ if (cachedProduct !== null) {
   name: product-redis-deployment
 spec:
   replicas: 1
-  # ... selector and pod metadata ...
+  # ... selector ...
   template:
-    # ... metadata ...
     spec:
       containers:
         - name: product-redis
           image: redis:alpine</pre>
-<p>The name identifies the deployment to scale. One replica means scaling to zero removes the only cache server; this isn't a failover exercise. The image is unpinned, unlike the local lab's Redis 7.4.11. The omitted manifest mounts a PVC; don't predict an empty cache merely from replacing a pod.</p>
+<p>The name identifies the deployment to scale. One replica means scaling to zero removes the only cache server; this isn't a failover exercise. The outer <code>spec</code> configures the deployment; <code>template</code> describes its pods, and the inner <code>spec.containers</code> lists the programs each pod runs. The container name labels that program; <code>image</code> selects its Redis build. It is unpinned, unlike the local lab's Redis 7.4.11. Ignore the omitted selector and pod labels here; they connect the deployment to its pods. The omitted manifest mounts a PVC; don't predict an empty cache merely from replacing a pod.</p>
 <p><strong>Assessment:</strong> the current request and startup paths don't make Redis optional. That isn't acceptable for an optional product-read cache. A follow-up should bound GET waits, catch cache-specific failures and read MongoDB, make cache fills best-effort within a budget, bound pending work and reconnects, and allow startup in a recorded degraded state when required stores are healthy. Keep genuine MongoDB errors visible. This lesson changes no product code.</p>
 <h3>Live lab: record what the platform really does</h3>
 <div class="callout"><p class="label">Evidence boundary</p><p>The author did <strong>not run this outage experiment against skaffold dev</strong>. No live status codes, latency or reconnect timings are asserted here. The source findings above and the local results are verified; see <a href="../NOTES.md">NOTES.md</a>. Use the following experiment to fill the gap.</p></div>
