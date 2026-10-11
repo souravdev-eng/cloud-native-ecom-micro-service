@@ -1,0 +1,23 @@
+{
+  "name": "redis-learning-labs",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Runnable labs for the Redis for distributed systems course (doc/learn/redis/)",
+  "scripts": {
+    "redis:single": "docker compose --profile single up -d --wait",
+    "redis:down": "docker compose --profile single down",
+    "redis:cli": "docker compose exec lab-redis redis-cli",
+    "lab:00": "tsx labs/00-shared-state/index.ts",
+    "labs:verify": "tsx scripts/verify.ts",
+    "test": "tsx --test lib/__test__/*.test.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "redis": "4.7.1"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.5",
+    "tsx": "4.23.15",
+    "typescript": "5.9.3"
+  }
+}

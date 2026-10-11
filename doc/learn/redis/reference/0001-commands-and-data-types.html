@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Redis Commands Sheet</title>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<main>
+
+<p class="eyebrow">Reference 1 · Lessons 0+</p>
+<h1>Commands and data types</h1>
+<p class="meta">Only the commands the lessons use so far, each with its time complexity. It grows as lessons are added. The full catalogue is at <a href="https://redis.io/docs/latest/develop/data-types/">redis.io</a>.</p>
+
+<h2>The rule: unbounded O(N) is an incident</h2>
+<div class="callout">
+<p>Redis runs commands one at a time, so while one command runs, every other client waits. An O(1) command is fine. A command whose cost grows with the data, such as <code>KEYS</code>, or reading every element of a big collection, stalls the whole server for as long as it takes. Use the bounded version: <code>SCAN</code> instead of <code>KEYS</code>, and <code>UNLINK</code> instead of <code>DEL</code> for big keys.</p>
+</div>
+
+<h2>Strings and counters</h2>
+<p>A string holds text, a serialised object or a number, up to 512 MB. Lessons 0–1 use only strings.</p>
+<dl class="fields">
+  <dt>GET key · O(1)</dt><dd>The value, or nil if the key doesn't exist.</dd>
+  <dt>SET key value [EX seconds] [NX] · O(1)</dt><dd>Writes the value. <code>EX</code> sets a time-to-live in the same atomic command; <code>NX</code> writes only if the key doesn't exist yet. node-redis: <code>set(key, value, { EX: 60 })</code>.</dd>
+  <dt>INCR key · O(1)</dt><dd>Adds 1 and returns the new value, atomically. A missing key counts as 0. Errors if the value isn't an integer. This is Lesson 0's fix.</dd>
+  <dt>INCRBY key n · DECR key · DECRBY key n · O(1)</dt><dd>The same, with a step or downwards. node-redis: <code>incrBy</code>, <code>decr</code>, <code>decrBy</code>.</dd>
+</dl>
+<details><summary>Why not GET, add, then SET?</summary>
+<p>Because it's a read-modify-write across two round trips. Another client's command can run in between, and its update gets overwritten: a lost update (Lesson 0). Any single command above is atomic; a sequence of them isn't.</p></details>
+
+<h2>Keys</h2>
+<dl class="fields">
+  <dt>SCAN cursor MATCH pattern COUNT n · O(1) per call</dt><dd>Walks the keyspace a small batch at a time, so other clients run in between calls. Start with cursor 0 and stop when it returns 0. It can return a key more than once, so make the work idempotent. node-redis: <code>scanIterator({ MATCH, COUNT })</code>.</dd>
+  <dt>KEYS pattern · O(N), all keys</dt><dd>Checks every key in one go and blocks the server meanwhile. For debugging only, never in app or lab code.</dd>
+  <dt>DEL key … · O(1) per string key</dt><dd>For a key holding a collection, the cost grows with the number of elements, and the server blocks while it frees them.</dd>
+  <dt>UNLINK key … · O(1) per key</dt><dd>Removes the keys straight away; a big value's memory is freed later in a background thread, so the server doesn't stall. Prefer it for cleanup and big keys.</dd>
+  <dt>FLUSHDB · FLUSHALL</dt><dd>Delete every key in the database, or in all databases. Never in lab code: labs clean up only their own <code>lab:NN:*</code> prefix with SCAN + UNLINK.</dd>
+</dl>
+
+<h2>Looking inside</h2>
+<dl class="fields">
+  <dt>PING</dt><dd>Replies PONG. A quick "is it up?" check.</dd>
+  <dt>MONITOR</dt><dd>Streams every command the server runs. Great for seeing an interleaving (Lesson 0, step 4); it slows the server down, so use it only in the sandbox and stop it when you're done.</dd>
+</dl>
+<p>In the sandbox: <code>npm run redis:cli</code> opens <code>redis-cli</code> inside the lab Redis. Add a command after <code>--</code> to run just that one, e.g. <code>npm run redis:cli -- ping</code>.</p>
+
+<h2>Data types</h2>
+<dl class="fields">
+  <dt>string</dt><dd>Text, JSON or a number (see above). Used from Lesson 0.</dd>
+  <dt>hash</dt><dd>Coming: added when a lesson first uses it.</dd>
+  <dt>sorted set</dt><dd>Coming: added when a lesson first uses it.</dd>
+</dl>
+<p>Lists, sets, streams, bitmaps, HyperLogLog and geo aren't needed for this course. They're listed under further reading in <a href="../RESOURCES.md">RESOURCES.md</a>.</p>
+
+<nav class="course">
+  <a href="../lessons/0000-shared-state-across-pods.html">← Lesson 0: Shared state across pods</a>
+  <a href="0005-glossary.html">Glossary →</a>
+</nav>
+
+</main>
+<script src="../assets/course-map.js"></script>
+<script src="../assets/nav.js"></script>
+</body>
+</html>

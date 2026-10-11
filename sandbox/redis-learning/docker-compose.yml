@@ -1,0 +1,21 @@
+# Local Redis for the course labs. Each profile is one lab environment:
+#   single       one Redis on localhost:6390 (Lessons 0, 3, 5, 6)
+# Later lessons add `replication` and `cluster`.
+#
+# Host ports start at 6390 so they never clash with a
+# `kubectl port-forward` to the cluster's product-redis on 6379.
+name: redis-learning
+
+services:
+  lab-redis:
+    image: redis:7.4.11-alpine
+    profiles: [single]
+    # Lab data is throwaway, so persistence is off.
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    ports:
+      - "127.0.0.1:6390:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 2s
+      retries: 15
