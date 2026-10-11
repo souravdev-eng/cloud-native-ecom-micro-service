@@ -13,6 +13,11 @@ npm run lab:03 -- --broken    # Lesson 3: 200 readers load the same answer 200 t
 npm run lab:03 -- --fixed     # Lesson 3: 1 load per worker, plus spread batch expiries
 npm run lab:04 -- --broken    # Lesson 4: every cache reply waits 2 seconds
 npm run lab:04 -- --fixed     # Lesson 4: 100 ms deadline, then the independent store
+npm run lab:05 -- --broken    # Lesson 5 A: two buyers, one unit, two purchases
+npm run lab:05 -- --lock      # B: token-checked lease works on the happy path
+npm run lab:05 -- --paused    # C: SIGSTOP past TTL allows both writes
+npm run lab:05 -- --fenced    # D: independent store rejects the stale writer
+npm run lab:05 -- --atomic    # E: conditional decrement, no lock (--fixed alias)
 npm run labs:verify           # every lab's --check, 3 runs each
 npm test                      # lab helper tests (lib/__test__/)
 npm run redis:down            # stop the lab Redis and Toxiproxy
@@ -23,6 +28,8 @@ npm run redis:down            # stop the lab Redis and Toxiproxy
 - `labs/NN-<slug>/`: one folder per lesson with a local lab, each with `--broken`, `--fixed` and `--check`.
 
 Lesson 4 adds and removes latency through Toxiproxy's API. `--check` verifies three delayed reads, three bounded fallback reads, and cleanup. Its fallback store is independent of Redis. Run one copy of lab 04 at a time; after a forced kill, stop and restart the profile to clear its proxy. See [Lesson 4](../../doc/learn/redis/lessons/0004-redis-down-or-slow.html) for the separate live outage exercise (`bash labs/04-redis-down-or-slow/live.sh`), required login/product ID and automatic restoration to one Redis replica.
+
+Lesson 5 needs macOS or Linux for SIGSTOP/SIGCONT. Run one copy at a time. Its independent in-memory stock store is in the parent process; workers use IPC. `--check` runs all five variants, verifies the OS-stopped holder stays paused beyond its lease, checks token-safe release and fencing, and reaps workers before prefix cleanup on success/error/INT/TERM. Forced parent SIGKILL or host loss cannot run cleanup. See [Lesson 5](../../doc/learn/redis/lessons/0005-locks-across-pods.html).
 
 The older reference material below (`docs/`, `examples/`) is being replaced by the course and will be removed once its content has moved.
 

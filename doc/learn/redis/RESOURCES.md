@@ -46,3 +46,9 @@ These were in the old `sandbox/redis-learning/docs/` chapters. They're useful, b
 
 - `npm run redis:cli` (from `sandbox/redis-learning/`) opens `redis-cli` inside the lab Redis. `MONITOR` there prints every command the server runs, live.
 - [node-redis](https://github.com/redis/node-redis): the client used by `product/` and the labs (v4).
+
+## Lesson 5: locks
+
+Read [Kleppmann's critique](https://martin.kleppmann.com/2016/02/08/how-to-do-distributed-locking.html) for the distinction between efficiency and correctness, paused owners, and storage-enforced fencing. Then read [antirez's response](https://antirez.com/news/101) for the competing timing assumptions and resource-specific checks. Compare them with [Redis's algorithm](https://redis.io/docs/latest/develop/clients/patterns/distributed-locks/); don't treat a majority of lease keys as a guarantee that a separate store rejects old writes.
+
+[MongoDB: Atomicity and Transactions](https://www.mongodb.com/docs/manual/core/write-operations-atomicity/) explains why a single-document update rechecks its match condition. This backs the product listener's quantity predicate and decrement. Atomic stock protection still needs an explicit plan for duplicate events and compensation across services.

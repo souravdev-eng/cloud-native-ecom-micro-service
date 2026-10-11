@@ -69,6 +69,14 @@
   <dt>readiness</dt><dd>Whether a pod can serve traffic according to its required-dependency contract. (L4)</dd>
 </dl>
 
+<h2>Coordination</h2>
+<dl class="fields">
+<dt>lease</dt><dd>Temporary ownership that expires. Expiry allows a new owner but doesn't stop an old process writing. (L5)</dd>
+<dt>ownership token</dt><dd>A unique random value for one acquisition; compare it atomically when releasing or renewing the lease. (L5)</dd>
+<dt>fencing token</dt><dd>A strictly increasing acquisition number carried to a store that atomically rejects stale numbers when writing. (L5)</dd>
+<dt>atomic conditional update</dt><dd>One store operation checks its predicate and applies its change together, such as subtracting stock only if enough remains. (L5)</dd>
+</dl>
+
 <h2>The labs</h2>
 <dl class="fields">
   <dt>sandbox Redis</dt><dd>The local Docker Redis from <code>sandbox/redis-learning/docker-compose.yml</code>, on host ports 6390–6399. The only Redis lab code may connect to. (L0)</dd>

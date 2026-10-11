@@ -19,7 +19,7 @@ window.COURSE = {
     { num: 2, title: 'Cache consistency', tag: 'Day 1 · cluster + local', href: '../lessons/0002-cache-consistency.html' },
     { num: 3, title: 'Stampede', tag: 'Day 1 · local', href: '../lessons/0003-stampede.html' },
     { num: 4, title: 'When Redis is down or slow', tag: 'Day 2 · cluster + local', href: '../lessons/0004-redis-down-or-slow.html' },
-    { num: 5, title: 'Locks across pods', tag: 'Day 2 · local', href: null },
+    { num: 5, title: 'Locks across pods', tag: 'Day 2 · local', href: '../lessons/0005-locks-across-pods.html' },
     { num: 6, title: 'Rate limiting across replicas', tag: 'Day 2 · local', href: null },
     { num: 7, title: 'Replication and failover', tag: 'Day 3 · local', href: null },
     { num: 8, title: 'Cluster and sharding', tag: 'Day 3 · local', href: null },
@@ -28,7 +28,7 @@ window.COURSE = {
   reference: [
     { title: 'Commands and data types', href: '../reference/0001-commands-and-data-types.html' },
     { title: 'Caching and invalidation', href: '../reference/0002-caching-and-invalidation.html' },
-    { title: 'Locks and rate limiters', href: null },
+    { title: 'Locks and rate limiters', href: '../reference/0003-locks-and-rate-limiters.html' },
     { title: 'Operations', href: null },
     { title: 'Glossary', href: '../reference/0005-glossary.html' },
     { title: 'Review checklist', href: null },

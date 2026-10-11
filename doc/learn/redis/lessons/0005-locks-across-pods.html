@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lesson 5 — Locks across pods</title>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<main>
+<p class="eyebrow">Lesson 5 · Day 2 · ~25–30 min · local lab</p>
+<h1>Who gets the last Kindle?</h1>
+<p class="lede">Lesson 4 let a request carry on when an optional cache failed. Stock needs a stronger rule: two shoppers cannot both buy the last unit. We'll try a Redis lock, stop its owner, and finish with the simpler answer our product listener already uses.</p>
+
+<h2>Before you start</h2>
+<details><summary>Recall check: Lesson 4 in 2 minutes</summary>
+<p>From memory: why should a cache have a deadline? Does a timed-out command necessarily stop running? When should an operation refuse to continue?</p>
+<p>Hint: a copy is optional; the real stock count isn't.</p>
+<details><summary>Show the answers</summary><p>A deadline bounds how long a request waits for the cache. It doesn't prove cancellation. Carry on from the store when an optional cache fails; refuse or delay when a required correctness check cannot be made. Revisit <a href="0004-redis-down-or-slow.html">Lesson 4's recap</a> if needed.</p></details>
+</details>
+<p>By the end, you can explain why a lock with a TTL can allow two writes, distinguish an ownership token from a fencing token, and choose one conditional database update for stock.</p>
+<h3>Your lab setup</h3>
+<dl class="fields">
+<dt>two Node workers</dt><dd>two separate processes standing in for pods, each with its own memory. Protected variants give each its own Redis connection.</dd>
+<dt>one sandbox Redis</dt><dd>the shared lease service on localhost:6390. The live cluster is not used.</dd>
+<dt>one fake stock store</dt><dd>the parent process owns one unit and receives worker requests over IPC. Reads and writes are separate requests until the final variant. Each store operation runs in one synchronous turn. This independent fake demonstrates write rules; it does not run MongoDB or model database performance.</dd>
+</dl>
+<ol class="steps"><li><p><strong>Start the sandbox.</strong></p>
+<pre>cd sandbox/redis-learning
+npm install
+npm run redis:single</pre>
+<p>Run from the repo root; skip <code>cd</code> if already here. Install the pinned client and runner, then start the compose single profile and wait for health. Docker must be running; the pause experiment needs macOS or Linux.</p></li></ol>
+<details><summary>How the lab forces timing and cleans up</summary>
+<p>Run one copy of lab 05 at a time. All Redis keys live under <code>lab:05:*</code>. The parent gates worker requests so the broken race happens every time. In the pause experiment it sends <code>SIGSTOP</code>, confirms the OS reports the worker stopped, waits more than its entire 800 ms TTL, and checks Redis has expired the key. Only then can the second worker start.</p>
+<p>On success, failure, a 20-second worker deadline, or handled SIGINT/SIGTERM, cleanup kills any remaining workers, waits for their close events, and scans/unlinks just this prefix. A forced kill of the parent or host loss cannot run its cleanup; avoid killing the parent with SIGKILL during this experiment. SIGCONT resumes a stopped process; SIGKILL can terminate one.</p>
+</details>
+
+<h2>1 · The question: one left on the shelf</h2>
+<p>Imagine a checkout promotion in our shop. This checkout race is made up for the lab; the quantity listener we'll read later is real.</p>
+<p>Stock says one Kindle remains. Pod A reads one. Before it saves its change, pod B also reads one. Each promises a shopper a unit and saves zero. Redis might handle every command correctly and the shop can still sell two units.</p>
+
+<h2>2 · Predict</h2>
+<div class="quiz" data-answer="1"><p class="q">A pod holds a Redis key with a TTL, then freezes for longer than the TTL. Can it still write when it resumes?</p><div class="options"><button>No: expiry cancels the pod's work</button><button>Yes: the stock store must reject its write</button><button>No: a random token stops the write</button></div><p class="why">Expiry removes a Redis key. It doesn't stop another process or revoke a request already headed to a different store.</p></div>
+
+<h2>3 · See it break</h2>
+<ol class="steps"><li><p><strong>Let both workers read the last unit.</strong></p>
+<pre class="out">npm run lab:05 -- --broken
+
+A: no protection
+  accepted purchases: 2 ✗
+  oversold:          1 ✗
+  double write:      yes ✗
+  remaining stock:   0</pre>
+<p>The stored count isn't negative. Both wrote zero using an old read. Count accepted purchases as well as the final value: two promises against one unit is an oversell.</p></li></ol>
+
+<h2>4 · Slow motion: borrow the key</h2>
+<p>Picture a stock clerk accepting changes to the shelf count. Two colleagues try to act on the same old count. Put a temporary permission slip on Redis's whiteboard: only its owner should ask the clerk to write. The keeper issues it to one colleague at a time, with an expiry time.</p>
+<dl class="fields"><dt>permission slip</dt><dd>a Redis key set only when absent, with a TTL.</dd><dt>signature</dt><dd>a random value unique to this acquisition; release must match it.</dd><dt>stock clerk</dt><dd>the system of record, a separate component that must enforce its own write rules.</dd></dl>
+<p>This helps while the first colleague finishes before the slip expires. It doesn't stop someone who fell asleep and wakes up with old instructions.</p>
+
+<h2>5 · Fix it, then break the fix</h2>
+<ol class="steps"><li><p><strong>Serialize the happy path.</strong></p>
+<pre>npm run lab:05 -- --lock</pre>
+<p>Expect one accepted purchase, zero oversold, and no double write. A gets the slip; B is forced to try and be refused. A writes zero and releases. B acquires, reads zero and cannot buy.</p></li></ol>
+<pre>const token = randomUUID();
+const acquired = await redis.set(key, token, { NX: true, PX: 10000 });
+// Only proceed if acquired is "OK".
+// Read stock and write while the lease is valid.
+// Release with a token-checked Lua script, never a plain DEL.</pre>
+<p><code>NX</code> makes acquisition conditional on absence. <code>PX</code> gives the TTL in milliseconds in the same command; a later expiry command could be skipped by a crash. Generate a fresh random token for every acquisition.</p>
+<p>Release must compare and delete in <em>one</em> Lua script. A separate GET followed by DEL has another gap: the old lease could expire and a new owner could acquire between them. See the <a href="../reference/0003-locks-and-rate-limiters.html#release">release script</a>.</p>
+<ol class="steps"><li><p><strong>Freeze the owner beyond expiry.</strong></p>
+<pre>npm run lab:05 -- --paused</pre>
+<p>Expect a PID and a confirmed SIGSTOP lasting over 800 ms, then two accepted purchases, one oversold, and <code>double write: yes</code>. A read one and stopped. Its slip expired. B acquired a new slip, read one and wrote zero. A resumed and wrote its old zero too.</p>
+<p>The old token's release returns zero while B still owns the key. That's correct: A cannot delete B's slip. It did nothing to prevent A's stock write. A real pod can pause during garbage collection, host suspension or scheduling; it doesn't need to receive SIGSTOP.</p></li></ol>
+<p>Increasing the TTL only changes how long a pause must last. Renewal can reduce ordinary expiry, but a stopped worker cannot renew. Checking the key immediately before a write still leaves a gap between that check and the store's write.</p>
+
+<h3>Put a number on the permission slip</h3>
+<p>The clerk can remember the newest permission number it accepted. A carries number 1. B gets number 2 and writes. When A returns with 1, the clerk refuses the old request. The check and write must happen atomically inside the store; a check in the application leaves the same gap again.</p>
+<ol class="steps"><li><p><strong>Repeat the same pause with numbered writes.</strong></p>
+<pre>npm run lab:05 -- --fenced</pre>
+<p>Expect one accepted purchase, no double write, and one stale write rejected. The lab issues the number in the same Redis Lua script as acquiring the key, then sends it with the write. The independent store accepts only a number greater than its last accepted number, and updates that remembered number together with stock.</p></li></ol>
+<p>A random ownership token proves “this key is still mine”; it has no order. An increasing number lets the store reject an older owner once it has accepted a newer one. Fencing doesn't automatically deduplicate repeated orders, or reject an expired owner before a newer number reaches the store.</p>
+<details><summary>Limits of this teaching fence</summary><p>The lab permits one write per acquisition, so equal numbers are rejected too. Multi-write designs need an explicit rule for repeated operations under one fence. The Redis counter is sufficient for this single-node experiment, but it can roll back with lost writes on failover. A real fence issuer must guarantee numbers never go backwards across recovery, and every path into the protected store must enforce them. Lesson 7 returns to lost writes. Deleting the lab counter during cleanup is safe only because its fake store is also discarded.</p></details>
+
+<h3>For stock, give the whole instruction to the clerk</h3>
+<ol class="steps"><li><p><strong>Remove the lock and make one conditional decrement.</strong></p>
+<pre>npm run lab:05 -- --atomic
+# --fixed is an alias for --atomic</pre>
+<p>Expect one purchase and zero oversold. Each worker asks “decrement one only if at least one remains”. The store checks and changes in one turn. The second request sees the first request's result, even if either worker paused before sending it. No lease, renewal, release or fencing service is needed.</p></li>
+<li><p><strong>Verify every step.</strong></p><pre>npm run lab:05 -- --check
+npm run labs:verify</pre><p>The check requires purchase counts 2, 1, 2, 1, 1; final stock zero; a confirmed pause beyond TTL in both paused runs; rejection of the old fence; token-safe release while the newer lease exists; and worker/key cleanup. The full verifier repeats every local lab three times.</p></li></ol>
+<p>This puts the invariant next to the real data and makes fewer components responsible for correctness. It protects stock against competing requests. Repeated delivery of the <em>same</em> order is a separate problem: validate positive quantities and use a durable order/event identity so retries cannot decrement again.</p>
+
+<h2>6 · Now name it</h2>
+<dl class="fields"><dt>lease</dt><dd>temporary ownership that expires. A Redis “lock” with a TTL is a lease, not indefinite exclusion of all writes.</dd><dt>ownership token</dt><dd>a unique random value used to release or renew only the acquisition you own.</dd><dt>fencing token</dt><dd>a strictly increasing acquisition number carried to a store that atomically rejects stale numbers when writing.</dd><dt>atomic conditional update</dt><dd>one store operation checks its predicate and applies the change together.</dd></dl>
+<p>Use a Redis lease for a cache rebuild or a cron single-runner where occasional overlap merely repeats acceptable work. A cron task charging cards needs correctness protection at the payment boundary. Money and stock must not depend solely on a Redis lease. Use store constraints, atomic updates, transactions where needed, and durable idempotency.</p>
+<p>Redlock acquires a majority of independent Redis primaries within a bounded time window. Its safety depends on timing assumptions and the protected resource; a quorum doesn't cancel a paused process's later write. Read <a href="../RESOURCES.md#lesson-5-locks">Kleppmann's critique and antirez's response</a> together before adopting it. This lesson's inventory solution stays a conditional database update.</p>
+
+<h2>7 · In our repo: stock changes on order events</h2>
+<p>From <a href="../../../../product/src/queues/listeners/productQuantityUpdate.ts">product/src/queues/listeners/productQuantityUpdate.ts</a>:</p>
+<pre>const updated = await Product.findOneAndUpdate(
+  { _id: data.id, quantity: { $gte: data.quantity } },
+  { $inc: { quantity: -data.quantity } },
+  { new: true },
+);</pre>
+<dl class="fields"><dt>findOneAndUpdate</dt><dd>one MongoDB operation on the product document, already used by the event listener.</dd><dt>_id</dt><dd>selects the product named in the quantity event.</dd><dt>quantity: $gte</dt><dd>matches only when enough stock remains for the requested decrement.</dd><dt>$inc</dt><dd>subtracts from the current stored quantity, rather than saving a count read earlier.</dd><dt>new: true</dt><dd>returns the updated document. No match yields null.</dd></dl>
+<p>The listener distinguishes missing products from insufficient stock, acknowledges either case and returns. On success it deletes <code>product:${data.id}</code> and acknowledges the message. The source notes the order is already committed upstream; compensation remains future saga work. Preventing a negative stock count here does not make the whole checkout transaction atomic or deduplicate redelivered events.</p>
+<p>Recall Lesson 2: deleting the detail key still leaves cached search lists stale. Stock correctness and cache freshness are separate rules. This lesson changes no product code.</p>
+
+<div class="recap"><h2>In short: remember these 3</h2><ol><li><strong>A TTL gives temporary permission.</strong> Expiry lets a new owner start; the old process can still write.</li><li><strong>Protect both boundaries.</strong> Token-checked release protects the Redis key; fencing checked inside the store rejects an older writer after a newer one.</li><li><strong>Ask the store to enforce stock.</strong> One conditional decrement beats a lease for this invariant; event retries still need idempotency.</li></ol><p><strong>If you forget everything:</strong> tell the stock clerk “subtract only if enough remains” in one instruction.</p><p><strong>You don't need to memorise</strong> Lua syntax or Redlock's timing maths. Keep the <a href="../reference/0003-locks-and-rate-limiters.html">locks sheet</a> nearby.</p></div>
+
+<h2>8 · Check yourself</h2>
+<div data-quiz-group><p class="score"></p>
+<div class="quiz" data-answer="1"><p class="q">Why must release compare the token and delete in one script?</p><div class="options"><button>To renew the TTL</button><button>To avoid deleting a newer owner's key</button><button>To reject a stock write</button></div><p class="why">Expiry and reacquisition can happen between separate commands. Atomic compare/delete protects ownership of the key only.</p></div>
+<div class="quiz" data-answer="2"><p class="q">A writes with fence 7 after the store accepted fence 8. Where must rejection happen?</p><div class="options"><button>In a pod's local variable</button><button>At Redis release time</button><button>Inside the store, together with the write</button></div><p class="why">The protected resource must reject stale requests atomically; an application check leaves another gap.</p></div>
+<div class="quiz" data-answer="0"><p class="q">What's the simplest stock protection for one product document?</p><div class="options"><button>A conditional decrement in MongoDB</button><button>A larger Redis TTL</button><button>A Redis GET before every write</button></div><p class="why">The database checks enough stock and changes it in one operation, with no lease-expiry gap.</p></div>
+<div class="quiz" data-answer="1"><p class="q">Which cron job is a reasonable use of a Redis lease alone?</p><div class="options"><button>Charge every customer's card</button><button>Rebuild a cache when duplicate work is acceptable</button><button>Guarantee each order decrements exactly once</button></div><p class="why">Judge the consequences of overlap, not the label “cron”. Financial effects and deduplication need durable protection.</p></div>
+<div class="quiz" data-answer="2"><p class="from">From Lesson 2</p><p class="q">The quantity listener updates Mongo and deletes product:id. Why can a search still show old stock?</p><div class="options"><button>The atomic decrement failed</button><button>Lua release had no TTL</button><button>Search uses separate keys that weren't invalidated</button></div><p class="why">The invariant in the system of record can hold while derived search copies remain stale until invalidation or expiry.</p></div>
+</div>
+<nav class="course"><a href="0004-redis-down-or-slow.html">← Lesson 4: When Redis is down or slow</a><a href="../reference/0003-locks-and-rate-limiters.html">Locks reference →</a></nav>
+</main>
+<script src="../assets/quiz.js"></script>
+<script src="../assets/course-map.js"></script>
+<script src="../assets/nav.js"></script>
+</body>
+</html>

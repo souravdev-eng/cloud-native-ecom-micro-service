@@ -14,6 +14,7 @@ const LABS = [
   { id: '02', profile: 'single', script: 'labs/02-cache-consistency/index.ts' },
   { id: '03', profile: 'single', script: 'labs/03-stampede/index.ts' },
   { id: '04', profile: 'single', script: 'labs/04-redis-down-or-slow/index.ts' },
+  { id: '05', profile: 'single', script: 'labs/05-locks-across-pods/index.ts' },
 ];
 
 /** Race labs must fail the same way every run, so one pass isn't enough to trust them. */

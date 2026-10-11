@@ -192,7 +192,7 @@ kubectl --context docker-desktop -n default rollout status deployment/product-re
 <div class="quiz" data-answer="1"><p class="from">From Lesson 3</p><p class="q">All four pods fall back for the same hot key. In-process single-flight guarantees what?</p><div class="options"><button>Only one MongoDB load for the whole cluster</button><button>One overlapping load per key per process</button><button>No store traffic during a cache outage</button></div><p class="why">Each pod owns its promise map. The database still needs enough capacity for the remaining loads.</p></div>
 </div>
 <div class="callout"><p class="label">Primary sources</p><p><a href="https://github.com/Shopify/toxiproxy#http-api">Toxiproxy API and latency toxic</a>; <a href="https://github.com/redis/node-redis/blob/redis%404.7.1/docs/client-configuration.md">node-redis 4.7.1 client configuration</a>. Check the installed client's behavior when changing versions; a connection option isn't a command deadline.</p></div>
-<nav class="course"><a href="0003-stampede.html">← Lesson 3: Stampede</a><span class="meta">Next: Locks across pods (coming)</span></nav>
+<nav class="course"><a href="0003-stampede.html">← Lesson 3: Stampede</a><a href="0005-locks-across-pods.html">Lesson 5: Locks across pods →</a></nav>
 </main>
 <script src="../assets/quiz.js"></script>
 <script src="../assets/course-map.js"></script>

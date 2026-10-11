@@ -13,7 +13,8 @@
     "lab:04": "tsx labs/04-redis-down-or-slow/index.ts",
     "labs:verify": "tsx scripts/verify.ts",
     "test": "tsx --test lib/__test__/*.test.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "lab:05": "tsx labs/05-locks-across-pods/index.ts"
   },
   "dependencies": {
     "redis": "4.7.1"
