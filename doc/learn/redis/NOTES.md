@@ -34,7 +34,7 @@ The first draft of Lesson 0 was accurate but read like a reference: an abstract 
 0. Shared state across pods (local, `single`). **Written.**
 1. Cache-aside in `product` (live cluster). **Written.**
 2. Cache consistency (live cluster + local). **Written.**
-3. Stampede (local, `single`).
+3. Stampede (local, `single`). **Written.**
 4. When Redis is down or slow (live cluster + local).
 5. Locks across pods (local, `single`).
 6. Rate limiting across replicas (local, `single`).
@@ -59,3 +59,6 @@ The first draft of Lesson 0 was accurate but read like a reference: an abstract 
 - Lesson 2 bends the section order on purpose: it has two break cycles, because the ticket asks for two ways to go stale. The live stale search is predict → see it break → slow motion (sections 2–4); the local stale set is a second predict, lab and slow motion inside section 5. Then one "why" picture covers both, and the fix (section 7) runs the lab's fixed variant and designs the `product` fix. The lab banner says "edition number", the picture's word, because "generation counter" is only named in section 8.
 - Lesson 2's picture extends Lesson 1's: lists are photocopies you can't find by label; a colleague walking back with an old photocopy is the stale set; the **edition number** at the top of the board is the generation counter. Lesson 3 can reuse the filing room with a queue at its door.
 - Repo facts found while writing Lesson 2: no service publishes `product-quantity-updated` (product, cart and order only listen), and product doesn't consume `order-created`, so a sale doesn't lower stock in MongoDB. `newProduct` has no cache code. Worth a follow-up ticket alongside the stale-search fix; Lesson 5 should not assume stock is decremented today.
+
+- **2026-10-11, Lesson 3 written.** Four workers × 50 readers all miss an actually expired hot key before refilling (barrier after the batch GETs). Broken makes 200 slow-store loads; process-local single-flight makes 4, with 200 correct replies in both. Batch: 100 equal deadlines versus seeded pseudo-random TTL offsets over 2 seconds; Redis PEXPIRETIME gives histogram counts 100/0/0/0 versus 24/32/19/25. About 100 ms after the base deadline, 0 equal-TTL keys remain versus 95–96 jittered keys in observed runs; that last count depends on scheduling. PXAT removes fill-timing noise; normal app code uses relative TTLs. `labs:verify` passes three consecutive runs for all three labs; disabling single-flight makes lab 03's check exit 1. Typechecking, local links and quiz answer indices pass. Browser policy disallows local-file URLs, so visual browser verification was not performed.
+- Lesson 3 extends the filing-room picture with a queue and a note on each team's private desk: the pending-load promise is process-local. Negative caching is a design proposal around `showProduct`'s non-empty guard, not a product change. The batch shows expiry deadlines and actual expiry, not measured database traffic. Soft TTL and XFetch remain further reading.

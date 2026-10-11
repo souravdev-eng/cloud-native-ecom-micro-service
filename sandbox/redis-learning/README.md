@@ -9,6 +9,8 @@ npm run lab:00 -- --broken    # Lesson 0: lose updates
 npm run lab:00 -- --fixed     # Lesson 0: lose none
 npm run lab:02 -- --broken    # Lesson 2: an old price stays cached until its TTL
 npm run lab:02 -- --fixed     # Lesson 2: a generation counter keeps it from being read
+npm run lab:03 -- --broken    # Lesson 3: 200 readers load the same answer 200 times
+npm run lab:03 -- --fixed     # Lesson 3: 1 load per worker, plus spread batch expiries
 npm run labs:verify           # every lab's --check, 3 runs each
 npm test                      # lab helper tests (lib/__test__/)
 npm run redis:down            # stop the lab Redis

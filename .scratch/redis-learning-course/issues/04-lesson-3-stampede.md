@@ -12,8 +12,12 @@ Adds the stampede mitigation layers to reference sheet 2.
 
 **Status:** ready-for-agent
 
-- [ ] Broken variant: loads ≈ number of concurrent readers; fixed variant: loads = number of worker processes; `--check` asserts both with clear thresholds
-- [ ] The jitter part shows clustered vs spread expiry times in a readable form (e.g. a small text histogram)
-- [ ] `--check` is part of `labs:verify` and passes 3 runs in a row
-- [ ] Reference sheet 2 gains the stampede mitigation section; the resources file lists soft TTL and XFetch
-- [ ] The quiz includes at least one question about an earlier lesson
+- [x] Broken variant: loads ≈ number of concurrent readers; fixed variant: loads = number of worker processes; `--check` asserts both with clear thresholds
+- [x] The jitter part shows clustered vs spread expiry times in a readable form (e.g. a small text histogram)
+- [x] `--check` is part of `labs:verify` and passes 3 runs in a row
+- [x] Reference sheet 2 gains the stampede mitigation section; the resources file lists soft TTL and XFetch
+- [x] The quiz includes at least one question about an earlier lesson
+
+## Comments
+
+- 2026-10-11: Implemented locally. Lesson `doc/learn/redis/lessons/0003-stampede.html`, lab `sandbox/redis-learning/labs/03-stampede/` and `npm run lab:03` added; course navigation, caching reference, glossary, Resources and README updated. Four real worker processes handle 200 reads: exactly 200 loads broken, 4 fixed, all replies correct. Batch histograms read Redis expiry deadlines and check actual key existence after the base deadline. Typechecking and `labs:verify` pass (all labs, three consecutive runs); disabling single-flight makes the check exit 1. Local links and quiz answer indices validated. Browser policy blocks local-file preview, so visual browser verification was not performed. Product code is unchanged.

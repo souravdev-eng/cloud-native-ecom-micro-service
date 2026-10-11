@@ -12,6 +12,7 @@ import path from 'node:path';
 const LABS = [
   { id: '00', profile: 'single', script: 'labs/00-shared-state/index.ts' },
   { id: '02', profile: 'single', script: 'labs/02-cache-consistency/index.ts' },
+  { id: '03', profile: 'single', script: 'labs/03-stampede/index.ts' },
 ];
 
 /** Race labs must fail the same way every run, so one pass isn't enough to trust them. */

@@ -33,7 +33,9 @@
 
 These were in the old `sandbox/redis-learning/docs/` chapters. They're useful, but not needed to meet the mission.
 
-- Caching extras: soft TTL and XFetch, [Optimal Probabilistic Cache Stampede Prevention (Vattani et al., VLDB 2015)](https://www.vldb.org/pvldb/vol8/p886-vattani.pdf); [client-side caching with `CLIENT TRACKING`](https://redis.io/docs/latest/develop/reference/client-side-caching/).
+- Soft TTL: serve an acceptable older copy during a coordinated refresh, bounded by a hard deadline. See the stale-copy option in §1 of [Optimal Probabilistic Cache Stampede Prevention](https://www.vldb.org/pvldb/vol8/p886-vattani.pdf).
+- XFetch: probabilistic early refresh based on rebuild duration and time remaining; §5 of [Optimal Probabilistic Cache Stampede Prevention (Vattani et al., VLDB 2015)](https://www.vldb.org/pvldb/vol8/p886-vattani.pdf).
+- [Client-side caching with `CLIENT TRACKING`](https://redis.io/docs/latest/develop/reference/client-side-caching/).
 - Rate limiting extras: GCRA and sliding log, [Brandur: Rate limiting, GCRA](https://brandur.org/rate-limiting).
 - Locks: [Redis: Distributed locks with Redis (Redlock)](https://redis.io/docs/latest/develop/clients/patterns/distributed-locks/).
 - Other data types: [Streams](https://redis.io/docs/latest/develop/data-types/streams/) (and Streams vs RabbitMQ), [bitmaps](https://redis.io/docs/latest/develop/data-types/bitmaps/), [HyperLogLog](https://redis.io/docs/latest/develop/data-types/probabilistic/hyperloglogs/), [geospatial](https://redis.io/docs/latest/develop/data-types/geospatial/).

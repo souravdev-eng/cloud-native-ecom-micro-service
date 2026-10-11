@@ -51,6 +51,15 @@
   <dt>generation counter</dt><dd>A counter that is part of every key in a family; <code>INCR</code> it and the whole family is invalidated at once, without finding the keys. In Lesson 2's picture, the edition number at the top of the board. (L2)</dd>
 </dl>
 
+<h2>Keeping cache misses from multiplying work</h2>
+<dl class="fields">
+  <dt>cache stampede</dt><dd>Many misses for the same answer start overlapping expensive loads. (L3)</dd>
+  <dt>single-flight</dt><dd>One pending load per key inside one process; other requests share its result. Also called request coalescing. Not one load per cluster. (L3)</dd>
+  <dt>TTL jitter</dt><dd>Varying expiry times so many keys don't all expire together. (L3)</dd>
+  <dt>negative caching</dt><dd>Keeping a successful “nothing found” answer briefly, so repeated empty queries don't all read the store again. (L3)</dd>
+  <dt>soft TTL</dt><dd>A freshness deadline after which an acceptable older copy may be served during refresh, until a hard expiry deadline. (L3)</dd>
+</dl>
+
 <h2>The labs</h2>
 <dl class="fields">
   <dt>sandbox Redis</dt><dd>The local Docker Redis from <code>sandbox/redis-learning/docker-compose.yml</code>, on host ports 6390–6399. The only Redis lab code may connect to. (L0)</dd>

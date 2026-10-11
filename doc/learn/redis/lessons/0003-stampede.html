@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lesson 3 — Stampede</title>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<main>
+<p class="eyebrow">Lesson 3 · Day 1 · ~25–30 min · local lab</p>
+<h1>When everyone needs a new copy</h1>
+<p class="lede">Lesson 2 kept old copies from being read after a change. Now ask what happens when a popular copy disappears and many shoppers need it at once. This lesson is about protecting MongoDB from the work our product pods create on a cache miss.</p>
+
+<h2>Before you start</h2>
+<details><summary>Recall check: Lesson 2 in 2 minutes</summary>
+<p>From memory: which copies does a product change need to clear? How can a slow reader put an old copy back? What does the edition number fix?</p>
+<p>Hint: lists, a colleague walking back, and the number at the top of the board.</p>
+<details><summary>Show the answers</summary>
+<p>Clear every affected copy, including search lists. A reader can load before the write and cache after the delete. Reading a generation before loading, then bumping it after a write, makes that old copy unreachable. The TTL clears abandoned copies and backs up missed invalidations.</p>
+<p>Forgot one? Revisit <a href="0002-cache-consistency.html">Lesson 2's recap</a>.</p>
+</details></details>
+<p>By the end, you can reduce repeated loads of one answer, explain the remaining load across pods, and spread a batch of expiries without exceeding your allowed stale window.</p>
+<h3>Your lab setup</h3>
+<dl class="fields">
+  <dt>four Node workers</dt><dd>four separate processes standing in for product pods; each has its own memory and Redis connection. Each handles 50 overlapping reads.</dd>
+  <dt>one sandbox Redis</dt><dd>the shared cache, on localhost:6390. Your live cluster is not used.</dd>
+  <dt>a slow fake store</dt><dd>stands in for MongoDB. Each load waits 200 ms and increments a counter shared by all workers. Its records live in separate sandbox keys; this is a teaching fake, not a measurement of MongoDB performance.</dd>
+</dl>
+<ol class="steps">
+<li><p><strong>Start the lab Redis.</strong></p>
+<pre>cd sandbox/redis-learning
+npm install
+npm run redis:single</pre>
+<p>Run from the repository root. Already in this folder? Skip <code>cd</code>. Install the pinned dependencies, then start the compose <code>single</code> profile and wait for Redis to be healthy. Docker must be running.</p></li>
+</ol>
+<details><summary>Why the failure repeats, and which keys are cleaned</summary>
+<p>The lab lets the hot key really expire, then holds all workers after their 50 cache reads. No worker can refill until all 200 reads have missed. This forces the worst case even if process startup is slow. Without that starting gun, a late worker could find the first worker's copy and hide the problem.</p>
+<p>All keys are under <code>lab:03:*</code>. Cleanup scans and unlinks only that prefix, including on an error. Avoid running two copies of this lab at the same time: they share the prefix.</p>
+</details>
+
+<h2>1 · The question: the sale opens</h2>
+<p>Imagine a promotion on the Kindle in our shop. This traffic spike is made up for the lab; the cache-aside code is real.</p>
+<p>Before the sale, shoppers read the same cached price. MongoDB gets little work. Then the copy reaches its throw-away time. Two hundred shoppers arrive while a fresh read is still on its way back.</p>
+<p>Redis answers each <code>GET</code> correctly: there is no copy. What do the four product pods do next?</p>
+
+<h2>2 · Predict</h2>
+<div class="quiz" data-answer="2">
+<p class="q">All 200 reads miss before a new copy is saved. How many slow-store loads happen with ordinary cache-aside?</p>
+<div class="options"><button>1: Redis chooses a loader</button><button>4: one per pod automatically</button><button>200: each miss starts its own load</button></div>
+<p class="why">Redis only answers GET and SET. It doesn't know MongoDB exists, and it doesn't group app requests. Each request follows the miss path.</p>
+</div>
+
+<h2>3 · See it break</h2>
+<ol class="steps">
+<li><p><strong>Run the unprotected reads.</strong></p>
+<pre class="out">npm run lab:03 -- --broken
+
+Broken: everyone fetches a copy
+  workers:           4
+  concurrent readers: 200
+  store loads:       200 ✗
+  all readers get 149: yes ✓</pre>
+<p>Every shopper gets the right price. The failure is the amount of work: 200 loads for one answer. Keep the batch output below it; we'll return to it after fixing the hot key.</p></li>
+</ol>
+
+<h2>4 · Slow motion</h2>
+<ol>
+<li>The hot key expires. All 200 readers ask for it and get a miss.</li>
+<li>Each reader starts a slow load. While those loads run, no fresh copy exists.</li>
+<li>They all get 149, save the same answer and respond. A later reader gets a cache hit.</li>
+</ol>
+<p>One command being atomic doesn't protect the whole <code>GET → load → SET</code> path. In a real overload, the store gets slower, leaving time for even more misses to join the pile. The fake counts work but doesn't simulate that feedback loop.</p>
+
+<h2>5 · Why: a queue at the filing room</h2>
+<div class="callout">
+<p>Use Lesson 1's picture: the cached price is a photocopy on the whiteboard; MongoDB is the filing room. When the keeper takes down an expired copy, every colleague who sees the empty spot walks to the filing room. Two hundred colleagues ask for the same sheet.</p>
+<p>Each team can instead keep a note on its own desk: <strong>“Someone is fetching this sheet; wait for their copy.”</strong> Fifty colleagues on one team share one trip. Four teams still make four trips, because each team's desk is private.</p>
+</div>
+<dl class="fields">
+<dt>empty spot</dt><dd>a cache miss after expiry.</dd>
+<dt>one note per sheet</dt><dd>a map from the complete cache key to a promise for the pending load.</dd>
+<dt>one desk per team</dt><dd>each worker's process memory. Redis shares the saved value; it doesn't share a JavaScript promise.</dd>
+</dl>
+
+<h2>6 · Fix it: wait for the fetch already running</h2>
+<ol class="steps">
+<li><p><strong>Run the same reads with a shared fetch.</strong></p>
+<pre class="out">npm run lab:03 -- --fixed
+
+Fixed: share one fetch inside each worker
+  workers:           4
+  concurrent readers: 200
+  store loads:       4 ✓
+  all readers get 149: yes ✓</pre>
+<p>One worker starts a load and puts its promise in a map before yielding. Its other 49 readers await that promise. The map belongs outside individual request handlers so all requests in that process can use it. Remove the entry on success <em>and</em> failure; a failed fetch must not poison later attempts.</p></li>
+</ol>
+<p>This protects one hot key inside each process. It cannot promise one load for the whole cluster. If four loads are still too expensive, cross-pod coordination is another layer; Lesson 5 covers leases and their limits. This lesson doesn't add a lock.</p>
+<h3>A second problem: a hundred copies come down together</h3>
+<p>Imagine warming a hundred different product copies at startup. Give them the same TTL and their next misses arrive in one wave. Sharing a fetch for one key can't combine reads for a hundred different keys.</p>
+<ol class="steps">
+<li><p><strong>Compare the batch output from both runs.</strong></p>
+<pre class="out">Batch: same TTL
+  keys:              100
+  expiry after fill: each # = about 5 keys
+  1.5–2s:            #################### (100)
+  2–2.5s:             (0)
+  2.5–3s:             (0)
+  3–3.5s:             (0)
+  after base TTL:    0/100 keys still readable
+
+Batch: base TTL + 0–1999ms jitter (seed 3)
+  keys:              100
+  expiry after fill: each # = about 5 keys
+  1.5–2s:            ##### (24)
+  2–2.5s:            ####### (32)
+  2.5–3s:            #### (19)
+  3–3.5s:            ##### (25)
+  after base TTL:    95/100 keys still readable</pre>
+<p>The histogram reads the expiry deadlines stored in Redis. About 100 ms after the base deadline, the lab reads how many keys still exist. The last count can vary with scheduling. It shows actual expiry, not database traffic; keys only cause reloads if someone reads them.</p>
+<p>The fixed batch adds a random offset to each TTL. It uses a fixed seed so you see the same distribution on each run. The lab uses a shared start time and <code>SET … PXAT</code> deadlines to remove write-timing noise. Real cache fills normally use relative <code>EX</code> or <code>PX</code>.</p></li>
+<li><p><strong>Check the claims together.</strong></p>
+<pre>npm run lab:03 -- --check
+npm run labs:verify</pre>
+<p>The check requires exactly 200 broken loads and 4 fixed loads, all 200 correct replies, clustered expiry without jitter, four occupied buckets spanning at least 1.5 seconds with jitter, and successful cleanup. The verifier runs every lab's check three times.</p></li>
+</ol>
+<p>Jitter spreads <em>different keys</em> over time. One hot key still expires once for everyone. Use both layers. Choose the base and the random range together: if a stale copy may survive at most 60 seconds, <code>50 + random(0…10)</code> fits; <code>60 + random(0…10)</code> exceeds the budget from Lesson 2.</p>
+
+<h2>7 · Now name it</h2>
+<p>These names are also in the <a href="../reference/0005-glossary.html">glossary</a>.</p>
+<dl class="fields">
+<dt>cache stampede</dt><dd>many misses for the same answer start overlapping expensive loads.</dd>
+<dt>single-flight</dt><dd>one pending load per key inside one process; other requests share its result. Also called request coalescing.</dd>
+<dt>TTL jitter</dt><dd>varying expiry times so many keys don't all expire together.</dd>
+<dt>negative caching</dt><dd>keeping a successful “nothing found” answer briefly, so repeated empty queries don't all read the store again.</dd>
+</dl>
+<p>Soft TTL keeps a copy beyond its freshness deadline: a reader can get that older copy while a coordinated background refresh runs, until a later hard deadline. Only use it where that staleness is acceptable. XFetch probabilistically refreshes before expiry, using the measured rebuild duration and time left; it addresses early refresh rather than randomising the stored TTL. These are further reading, not extra lab variants: see <a href="../RESOURCES.md">soft TTL and XFetch in Resources</a>.</p>
+
+<h2>8 · In our repo: nothing found, every time</h2>
+<p>From <a href="../../../../product/src/routes/showProduct.ts">product/src/routes/showProduct.ts</a>, the store read and cache write:</p>
+<pre>const product = await productApiFeature.executePaginated();
+
+if (shouldCacheResult &amp;&amp; product.data.length &gt; 0) {
+  const ttl = req.query.search ? calculateTTL(60, "minutes") : calculateTTL(10, "minutes");
+  await redisClient.set(cacheKey, JSON.stringify(product), { EX: ttl });
+}
+
+res.status(200).send(product);</pre>
+<dl class="fields">
+<dt>executePaginated()</dt><dd>queries MongoDB after the cache lookup missed. There is no shared pending-load map around this call.</dd>
+<dt>shouldCacheResult</dt><dd>Lesson 1's policy decides whether this query is eligible for caching.</dd>
+<dt>product.data.length &gt; 0</dt><dd>an eligible search with zero matches never writes a copy. The next identical search misses again.</dd>
+<dt>calculateTTL · SET with EX</dt><dd>fixed 60- or 10-minute TTLs, with no jitter.</dd>
+<dt>res.status(200)</dt><dd>an empty result is still a successful answer, unlike a database timeout or an error.</dd>
+</dl>
+<p>A design improvement would cache the full successful empty response for a short TTL, for example 15 seconds, using the same complete query key. Check for a cached value with <code>cached !== null</code>; don't confuse an empty result with an absent key. Invalidate it when a new product can make the result non-empty, or accept that short delay. Do not cache a database error as “nothing found”. Bound the number of distinct negative keys: random searches can fill a cache even with short TTLs. This course proposes the change; it doesn't modify product.</p>
+
+<div class="recap">
+<h2>In short: remember these 3</h2>
+<ol>
+<li><strong>A miss can multiply work.</strong> Many readers can all fetch the same answer before any saves it.</li>
+<li><strong>Share a pending fetch per key.</strong> Single-flight brings 200 loads down to one per worker, not one per cluster.</li>
+<li><strong>Spread expiries and keep empty answers briefly.</strong> Jitter helps batches; negative caching helps repeated empty searches. Neither replaces invalidation or the stale-time budget.</li>
+</ol>
+<p><strong>If you forget everything:</strong> before walking to the filing room, check whether someone on your team is already fetching that sheet.</p>
+<p><strong>You don't need to memorise</strong> the seed, histogram counts or XFetch maths. Use the <a href="../reference/0002-caching-and-invalidation.html#stampede">mitigation layers on the caching sheet</a>.</p>
+</div>
+
+<h2>9 · Check yourself</h2>
+<p>Answer from memory, then click. You can retry.</p>
+<div data-quiz-group>
+<p class="score"></p>
+<div class="quiz" data-answer="1"><p class="q">Four pods use in-process single-flight. All miss the same hot key before any refill. How many loads?</p><div class="options"><button>1 for the cluster</button><button>4, one per process</button><button>200</button></div><p class="why">The pending-load map is private process memory. Only the saved cache value lives in Redis.</p></div>
+<div class="quiz" data-answer="0"><p class="q">What does TTL jitter fix?</p><div class="options"><button>Many different keys expiring together</button><button>Every reader of one hot key sharing its load</button><button>A missed invalidation</button></div><p class="why">It spreads deadlines across keys. A single key still has one shared expiry.</p></div>
+<div class="quiz" data-answer="2"><p class="q">Which answer can safely be negative-cached briefly?</p><div class="options"><button>A MongoDB timeout</button><button>A connection error treated as an empty list</button><button>A successful query with zero matches</button></div><p class="why">Errors aren't evidence of absence. A successful empty result can be reused, with a short TTL and a plan for newly created products.</p></div>
+<div class="quiz" data-answer="1"><p class="from">From Lesson 2</p><p class="q">A missed invalidation may leave a price wrong for at most 60 seconds. Which TTL range fits?</p><div class="options"><button>60–70 seconds</button><button>50–60 seconds</button><button>Any range if single-flight is used</button></div><p class="why">The maximum TTL is the backstop. Single-flight limits work, not staleness.</p></div>
+</div>
+<div class="callout"><p class="label">Read next (optional)</p><p>Section 5 of <a href="https://www.vldb.org/pvldb/vol8/p886-vattani.pdf">Optimal Probabilistic Cache Stampede Prevention</a> describes XFetch. First explain why jitter on a batch and early refresh of one hot key address different timing problems.</p></div>
+<nav class="course"><a href="0002-cache-consistency.html">← Lesson 2: Cache consistency</a><span class="meta">Next: When Redis is down or slow (coming)</span></nav>
+</main>
+<script src="../assets/quiz.js"></script>
+<script src="../assets/course-map.js"></script>
+<script src="../assets/nav.js"></script>
+</body>
+</html>
