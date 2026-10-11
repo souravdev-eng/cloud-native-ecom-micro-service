@@ -27,3 +27,5 @@ Writes the locks half of reference sheet 3 (release and extend Lua scripts, a sa
 - [x] The quiz includes at least one question about an earlier lesson
 
 Implementation: `sandbox/redis-learning/labs/05-locks-across-pods/`, Lesson 5, reference sheet 3's locks half, glossary/navigation/resources, and `labs:verify`. Starting HEAD: `8375419a52e205e83fbbb89d61b805955fd7d77e`. All five outcomes and OS-stopped TTL timing checked against the sandbox. Worker-failure, SIGINT and SIGTERM fault checks confirmed nonzero exits, reaped workers and zero lab keys. The product listener already uses the recommended conditional decrement; product code was not changed.
+
+Review/verification: 22 helper tests, typecheck, and every local lab checked three times passed. Standards review's glossary-link gap fixed; minor duplicated variant classification retained as explicit lab logic. Spec review found no behavior gaps. Phone-width Chrome check confirmed lesson/reference rendering, quiz feedback, no document overflow or console warnings/errors; linked glossary titles clear the mobile header.

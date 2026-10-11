@@ -134,6 +134,7 @@ details[open] summary { margin-bottom: 0.5rem; }
 /* Definition list used for "field → meaning" breakdowns instead of wide tables. */
 dl.fields { margin: 1rem 0; }
 dl.fields dt { font: 500 0.88rem 'IBM Plex Mono', monospace; color: var(--text); margin-top: 0.8rem; }
+dl.fields dt[id] { scroll-margin-top: 4rem; }
 dl.fields dd { margin: 0.15rem 0 0 0; }
 
 figure { margin: 1.75rem 0; }
