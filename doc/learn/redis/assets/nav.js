@@ -11,9 +11,40 @@
  * - Narrow screens: a top bar with a reading-progress line and a
  *   "Contents" button that opens the sidebar as a drawer.
  *
+ * - Theme picker: Auto (follow the system), Light, Paper or Dark, remembered
+ *   in this browser only.
+ * - "Mark as read" switch at the end of each page. A read page shows a tick
+ *   in the sidebar instead of its number, and the first unread lesson is
+ *   tagged "next". Also remembered in this browser only.
+ *
  * Pages only need <main> with <h2> sections; ids are generated when missing.
  */
 (function () {
+  /**
+   * The theme is applied before anything else is built. Storage can throw in
+   * private windows, and then the picker simply forgets between pages.
+   */
+  const THEME_KEY = 'redis-course-theme';
+  const themes = [['auto', 'Auto'], ['light', 'Light'], ['paper', 'Paper'], ['dark', 'Dark']];
+  const readTheme = () => { try { return localStorage.getItem(THEME_KEY) || 'auto'; } catch (e) { return 'auto'; } };
+  const applyTheme = (theme) => {
+    if (theme === 'auto') document.documentElement.removeAttribute('data-theme');
+    else document.documentElement.setAttribute('data-theme', theme);
+  };
+  applyTheme(readTheme());
+
+  /** Pages marked as read, by file name, so the list survives moving the course folder. */
+  const READ_KEY = 'redis-course-read';
+  const readPages = (() => {
+    try { return new Set(JSON.parse(localStorage.getItem(READ_KEY) || '[]')); } catch (e) { return new Set(); }
+  })();
+  const fileOf = (href) => (href ? href.split('/').pop() : '');
+  const saveRead = () => {
+    /** If storage is blocked the mark lasts until the page is closed. */
+    try { localStorage.setItem(READ_KEY, JSON.stringify(Array.from(readPages))); } catch (e) { /** Nothing to do. */ }
+  };
+  const CHECK_ICON = '<svg viewBox="0 0 16 16" width="11" height="11" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
   const course = window.COURSE || { title: 'Course', lessons: [], reference: [] };
   const main = document.querySelector('main');
   if (!main) return;
@@ -113,14 +144,19 @@
     return { node: section.node, link };
   });
 
+  /** Sidebar rows that can be ticked, refreshed whenever a page is marked or unmarked. */
+  const trackedRows = [];
+
   const lessonList = el('ol', { class: 'side-lessons' });
   course.lessons.forEach((lesson) => {
     const current = isCurrent(lesson.href);
-    const label = [el('span', { class: 'side-num', text: String(lesson.num) }), el('span', { class: 'side-name', text: lesson.title })];
+    const num = el('span', { class: 'side-num', text: String(lesson.num) });
+    const label = [num, el('span', { class: 'side-name', text: lesson.title })];
     const item = lesson.href
       ? el('a', { href: lesson.href }, label)
       : el('span', { class: 'side-coming', title: 'Coming soon' }, label);
     const li = el('li', { class: current ? 'current' : lesson.href ? '' : 'upcoming' }, [item]);
+    if (lesson.href) trackedRows.push({ li, file: fileOf(lesson.href), lesson: true, num, label: String(lesson.num) });
     if (current) {
       item.setAttribute('aria-current', 'page');
       li.appendChild(toc);
@@ -136,8 +172,12 @@
       refList.appendChild(el('li', { class: 'upcoming' }, [coming]));
       return;
     }
-    const link = el('a', { href: ref.href, text: ref.title });
+    const link = el('a', { href: ref.href }, [el('span', { class: 'side-name', text: ref.title })]);
+    const tick = el('span', { class: 'side-tick' });
+    tick.innerHTML = CHECK_ICON;
+    link.appendChild(tick);
     const li = el('li', { class: isCurrent(ref.href) ? 'current' : '' }, [link]);
+    trackedRows.push({ li, file: fileOf(ref.href), lesson: false });
     if (isCurrent(ref.href)) {
       link.setAttribute('aria-current', 'page');
       li.appendChild(toc);
@@ -145,17 +185,69 @@
     refList.appendChild(li);
   });
 
+  const themePick = el('div', { class: 'theme-pick', role: 'group', 'aria-label': 'Theme' });
+  const themeButtons = themes.map(([value, name]) => {
+    const button = el('button', { type: 'button', text: name, 'aria-pressed': String(readTheme() === value) });
+    button.addEventListener('click', () => {
+      applyTheme(value);
+      /** If storage is blocked the choice isn't saved, but it still applies to this page. */
+      try { localStorage.setItem(THEME_KEY, value); } catch (e) { /** Nothing to do. */ }
+      themeButtons.forEach((other) => other.setAttribute('aria-pressed', String(other === button)));
+    });
+    themePick.appendChild(button);
+    return button;
+  });
+
   const side = el('nav', { class: 'side', 'aria-label': 'Course contents' }, [
     el('a', { class: 'side-title', href: course.home || '#' }, [
       el('span', { text: course.title }),
       el('span', { class: 'label', text: course.subtitle || '' }),
     ]),
+    themePick,
     el('p', { class: 'label', text: 'Lessons' }),
     lessonList,
     refList.children.length ? el('p', { class: 'label', text: 'Reference' }) : null,
     refList.children.length ? refList : null,
   ]);
   scrollLinks(side);
+
+  /** A lesson's number turns into a tick once read; the first unread lesson is "next". */
+  const refreshProgress = () => {
+    let nextFound = false;
+    trackedRows.forEach((row) => {
+      const done = readPages.has(row.file);
+      row.li.classList.toggle('done', done);
+      if (row.lesson) {
+        if (done) row.num.innerHTML = CHECK_ICON; else row.num.textContent = row.label;
+        const isNext = !done && !nextFound;
+        if (isNext) nextFound = true;
+        row.li.classList.toggle('next', isNext);
+      }
+    });
+  };
+  refreshProgress();
+
+  /** The "Mark as read" switch, placed just above the previous/next links. */
+  const readInput = el('input', { type: 'checkbox', role: 'switch', class: 'read-input' });
+  readInput.checked = readPages.has(pageFile);
+  const readState = el('span', { class: 'read-state' });
+  const showReadState = () => {
+    readState.textContent = readInput.checked ? 'Read. Nice work.' : 'Finished this page? Mark it so you know what to study next.';
+  };
+  showReadState();
+  readInput.addEventListener('change', () => {
+    if (readInput.checked) readPages.add(pageFile); else readPages.delete(pageFile);
+    saveRead();
+    showReadState();
+    refreshProgress();
+  });
+  const readToggle = el('label', { class: 'read-toggle' }, [
+    readInput,
+    el('span', { class: 'read-track', 'aria-hidden': 'true' }),
+    el('span', { class: 'read-text' }, [el('strong', { text: 'Mark as read' }), readState]),
+  ]);
+  const footerNav = main.querySelector('nav.course');
+  if (footerNav) main.insertBefore(readToggle, footerNav); else main.appendChild(readToggle);
 
   /** Right panel: reading progress, then the outline. */
   const progressFill = el('div', { class: 'otp-progress-fill' });

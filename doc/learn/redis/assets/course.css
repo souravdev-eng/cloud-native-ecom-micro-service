@@ -20,9 +20,15 @@
   --good-bg: #E6F4EC;
   --bad: #B42318;
   --bad-bg: #FDECEA;
+  --hl-keyword: #7A1FA2; --hl-string: #0B6B3A; --hl-number: #A6520A; --hl-comment: #6B7A90;
+  --hl-title: #1E47B8; --hl-attr: #9A3412; --hl-type: #0E6E8C;
 }
+/*
+ * Theme: no data-theme follows the system; nav.js sets "light", "paper" or "dark"
+ * when the reader picks one, so only the attribute-free root may follow the OS.
+ */
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
+  :root:not([data-theme]) {
     --navy: #AFC2FF;
     --accent: #7C9BFF;
     --accent-deep: #9DB3FF;
@@ -37,6 +43,8 @@
     --good-bg: #0F2A1E;
     --bad: #FF8A80;
     --bad-bg: #2E1414;
+    --hl-keyword: #D3A6FF; --hl-string: #8FDCA8; --hl-number: #FFB877; --hl-comment: #7F8AA3;
+    --hl-title: #8FB0FF; --hl-attr: #FFA98A; --hl-type: #79D4EE;
   }
 }
 :root[data-theme="dark"] {
@@ -44,6 +52,17 @@
   --text: #E8ECF6; --body: #C3CAD9; --muted: #8A94A8;
   --bg: #0B1020; --tint: #141B33; --border: #2A3450; --code-bg: #121831;
   --good: #5BD19A; --good-bg: #0F2A1E; --bad: #FF8A80; --bad-bg: #2E1414;
+  --hl-keyword: #D3A6FF; --hl-string: #8FDCA8; --hl-number: #FFB877; --hl-comment: #7F8AA3;
+  --hl-title: #8FB0FF; --hl-attr: #FFA98A; --hl-type: #79D4EE;
+}
+/* Paper: warm off-white with softer contrast, for long reading sessions. */
+:root[data-theme="paper"] {
+  --navy: #051367; --accent: #1E47B8; --accent-deep: #051367;
+  --text: #2B2416; --body: #463C2C; --muted: #74684F;
+  --bg: #F6F0E2; --tint: #ECE3CF; --border: #D8CCB2; --code-bg: #EFE7D4;
+  --good: #1F6B3F; --good-bg: #E1EBD3; --bad: #A3271B; --bad-bg: #F4DFD3;
+  --hl-keyword: #7B2D7A; --hl-string: #3D6B1F; --hl-number: #A0430A; --hl-comment: #8A7D63;
+  --hl-title: #1E47B8; --hl-attr: #8C3B12; --hl-type: #1F6470;
 }
 
 * { box-sizing: border-box; }
@@ -54,13 +73,14 @@ body {
   color: var(--body);
   font: 17px/1.65 Inter, system-ui, sans-serif;
 }
-main { max-width: 42rem; margin: 0 auto; padding: 2.5rem 16px 4rem; }
+main { max-width: 56rem; margin: 0 auto; padding: 2.5rem 16px 4rem; }
 
 h1, h2, h3 { font-family: Lexend, Inter, sans-serif; color: var(--text); line-height: 1.25; }
 h1 { font-size: 2rem; margin: 0.25rem 0 0.75rem; color: var(--navy); }
 h2 { font-size: 1.35rem; margin: 2.75rem 0 0.75rem; }
 h3 { font-size: 1.05rem; margin: 1.75rem 0 0.5rem; }
-p, li { max-width: 38rem; }
+/* Prose stops short of the column so lines stay readable; figures, code and callouts use the full width. */
+p, li { max-width: 48rem; }
 /* Long file paths in links would otherwise push the page wider than a phone screen. */
 p, li, dd, figcaption { overflow-wrap: break-word; }
 a { color: var(--accent); text-underline-offset: 2px; }
@@ -87,6 +107,30 @@ pre {
   line-height: 1.5;
   color: var(--text);
 }
+
+/* Copy button and syntax colours for code blocks, from assets/code.js. */
+.code-wrap { position: relative; }
+.code-wrap > pre { padding-right: 5.5rem; }
+.code-copy {
+  position: absolute; top: 0.45rem; right: 0.45rem;
+  display: inline-flex; align-items: center; gap: 0.3rem;
+  font: 500 0.72rem Inter, sans-serif; color: var(--muted); cursor: pointer;
+  background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+  padding: 0.25rem 0.5rem;
+  opacity: 0.75; transition: opacity 0.15s, color 0.15s, border-color 0.15s;
+}
+.code-wrap:hover .code-copy, .code-copy:focus-visible { opacity: 1; }
+.code-copy:hover { color: var(--text); border-color: var(--accent); }
+.code-copy.done { color: var(--good); border-color: var(--good); opacity: 1; }
+pre code.hljs { font-size: inherit; background: none; padding: 0; }
+.hljs-keyword, .hljs-built_in, .hljs-literal, .hljs-meta .hljs-keyword { color: var(--hl-keyword); }
+.hljs-string, .hljs-regexp, .hljs-template-string { color: var(--hl-string); }
+.hljs-number, .hljs-symbol { color: var(--hl-number); }
+.hljs-comment, .hljs-meta { color: var(--hl-comment); font-style: italic; }
+.hljs-title, .hljs-title.function_, .hljs-section { color: var(--hl-title); }
+.hljs-attr, .hljs-attribute, .hljs-variable, .hljs-template-variable, .hljs-params { color: var(--hl-attr); }
+.hljs-type, .hljs-title.class_ { color: var(--hl-type); }
+.hljs-subst { color: var(--text); }
 
 /* A highlighted aside: key idea, warning, or the primary source to read. */
 .callout {
@@ -143,6 +187,30 @@ figcaption { color: var(--muted); font-size: 0.88rem; margin-top: 0.5rem; }
 
 nav.course { display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; border-top: 1px solid var(--border); margin-top: 3rem; padding-top: 1rem; font-size: 0.95rem; }
 
+/* "Mark as read" switch at the end of every page, from assets/nav.js. */
+.read-toggle {
+  display: flex; align-items: center; gap: 0.9rem; cursor: pointer;
+  margin: 3rem 0 0; padding: 0.9rem 1.1rem;
+  border: 1px solid var(--border); border-radius: 10px; background: var(--tint);
+}
+.read-input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.read-track {
+  flex: none; position: relative; width: 2.6rem; height: 1.45rem; border-radius: 999px;
+  background: var(--border); transition: background 0.15s;
+}
+.read-track::after {
+  content: ''; position: absolute; top: 0.2rem; left: 0.2rem;
+  width: 1.05rem; height: 1.05rem; border-radius: 50%; background: var(--bg);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25); transition: transform 0.15s;
+}
+.read-input:checked + .read-track { background: var(--good); }
+.read-input:checked + .read-track::after { transform: translateX(1.15rem); }
+.read-input:focus-visible + .read-track { outline: 2px solid var(--accent); outline-offset: 2px; }
+.read-text { display: flex; flex-direction: column; line-height: 1.4; }
+.read-state { font-size: 0.88rem; color: var(--muted); }
+.read-toggle:has(.read-input:checked) { border-color: var(--good); background: var(--good-bg); }
+.read-toggle + nav.course { margin-top: 1.5rem; }
+
 /* Quiz component, driven by assets/quiz.js. */
 .quiz { border: 1px solid var(--border); border-radius: 10px; padding: 1rem 1.1rem; margin: 1.25rem 0; }
 .quiz .q { font-weight: 600; color: var(--text); margin: 0 0 0.75rem; }
@@ -165,7 +233,7 @@ nav.course { display: flex; justify-content: space-between; gap: 1rem; flex-wrap
 @media print {
   body { font-size: 11pt; background: #fff; color: #000; }
   main { max-width: none; padding: 0; }
-  nav.course, .quiz button.retry { display: none; }
+  nav.course, .quiz button.retry, .code-copy, .read-toggle { display: none; }
   .quiz .why { display: block; }
   a { color: inherit; }
 }
@@ -210,6 +278,24 @@ html { scroll-padding-top: 1.5rem; }
 .side li.upcoming > span { color: var(--muted); opacity: 0.75; cursor: default; }
 .side li.upcoming .side-name::after {
   content: 'coming'; margin-left: 0.4rem;
+  font: 500 0.62rem 'IBM Plex Mono', monospace; letter-spacing: 0.05em; text-transform: uppercase;
+}
+/* Theme picker at the top of the sidebar, from nav.js. */
+.theme-pick { display: flex; gap: 2px; margin: 1rem 0 0; padding: 2px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); }
+.theme-pick button {
+  flex: 1; font: 500 0.78rem Inter, sans-serif; cursor: pointer;
+  background: none; color: var(--muted); border: 0; border-radius: 6px; padding: 0.3rem 0;
+}
+.theme-pick button:hover { color: var(--text); }
+.theme-pick button[aria-pressed="true"] { background: var(--navy); color: var(--bg); }
+/* Reading progress in the sidebar: ticks for read pages, a "next" tag on the first unread lesson. */
+.side li.done .side-num { background: var(--good); border-color: var(--good); color: var(--bg); display: inline-flex; align-items: center; justify-content: center; }
+.side li.current.done .side-num { background: var(--good); border-color: var(--good); }
+.side-tick { display: none; margin-left: auto; flex: none; color: var(--good); align-self: center; }
+.side li.done .side-tick { display: inline-flex; }
+.side li.next .side-name::after {
+  content: 'next'; margin-left: 0.4rem; padding: 0.05rem 0.35rem; border-radius: 4px;
+  background: var(--accent); color: var(--bg);
   font: 500 0.62rem 'IBM Plex Mono', monospace; letter-spacing: 0.05em; text-transform: uppercase;
 }
 .side-toc { margin: 0.2rem 0 0.5rem 1.2rem !important; border-left: 1px solid var(--border); }
@@ -292,7 +378,7 @@ body.nav-open .scrim { display: block; }
   .side-toc { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {
-  body.has-chrome .side { transition: none; }
+  body.has-chrome .side, .read-track, .read-track::after { transition: none; }
 }
 @media print {
   .side, .otp, .topbar, .scrim { display: none !important; }
