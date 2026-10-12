@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Redis Caching Sheet</title>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<main>
+
+<p class="eyebrow">Reference 2 · Lessons 1–3+</p>
+<h1>Caching and invalidation</h1>
+<p class="meta">The caching patterns and defaults the lessons use, for lookup after the course. It grows as lessons are added: invalidation came with Lesson 2, stampede protection with Lesson 3, and what to do when Redis is down with Lesson 4.</p>
+
+<h2>The rule: the cache is a copy</h2>
+<div class="callout">
+<p>A cached value is derived from the system of record (for products, MongoDB) and can be thrown away and rebuilt at any time. Never store anything in a cache that exists nowhere else. Every cached value needs a TTL, which limits how long a wrong copy can survive.</p>
+</div>
+
+<h2>Cache-aside</h2>
+<p>The pattern <code>product</code> uses (Lesson 1). On every read:</p>
+<ol>
+  <li><strong>Look:</strong> <code>GET key</code>. If it returns a value, that's a hit: answer with it.</li>
+  <li><strong>Fetch:</strong> on a miss, read the system of record.</li>
+  <li><strong>Store:</strong> <code>SET key value EX ttl</code>, in one command, then answer.</li>
+</ol>
+<pre>const cached = await redis.get(key);
+if (cached !== null) return JSON.parse(cached);
+const fresh = await loadFromDb();
+await redis.set(key, JSON.stringify(fresh), { EX: ttlSeconds });
+return fresh;</pre>
+<dl class="fields">
+  <dt>Good for</dt><dd>read-heavy data where a short delay before changes show up is acceptable. Only data someone asked for is cached, so the cache stays small.</dd>
+  <dt>Costs</dt><dd>every miss pays for a Redis round trip plus the database read. A copy can be stale until it's invalidated or expires (see Invalidation below). Many pods missing the same key at once all hit the database (Lesson 3).</dd>
+  <dt>Who does the work</dt><dd>the app. Redis never fetches anything and doesn't know the database exists.</dd>
+</dl>
+
+<h2>Choosing a pattern</h2>
+<dl class="fields">
+  <dt>cache-aside (lazy loading)</dt><dd>the default. The app fills the cache on a miss. Used by <code>product</code>.</dd>
+  <dt>write-through</dt><dd>the app also writes the new value to the cache every time it writes the database. Fewer stale reads and misses; caches data nobody may read. Usually combined with cache-aside for misses.</dd>
+  <dt>read-through</dt><dd>like cache-aside, but a caching library does the fetch on a miss, so the app only talks to the cache. Not used in this repo.</dd>
+  <dt>write-behind</dt><dd>the app writes only to the cache and something copies it to the database later. The cache becomes the only copy for a while, which breaks the rule above. Out of scope for this course.</dd>
+</dl>
+
+<h2>Key design</h2>
+<dl class="fields">
+  <dt>Prefix every key</dt><dd>with what it holds: <code>product:</code>, <code>product_search:v2:</code>. Prefixes make keys readable in <code>MONITOR</code> and let you find a family with <code>SCAN … MATCH product:*</code>.</dd>
+  <dt>The key is the whole question</dt><dd>anything that can change the answer must be in the key. Leave a filter out and two different questions share one answer (Lesson 1's old <code>quantity</code> bug).</dd>
+  <dt>Normalise before hashing</dt><dd>sort object fields so the same question in a different order gives the same key.</dd>
+  <dt>Hash long questions</dt><dd>MD5 (or any stable hash) of the normalised query gives a fixed-length key. It's a name, not a security measure.</dd>
+  <dt>Version the prefix</dt><dd>bump it (<code>v2</code>, <code>v3</code>) when the key's meaning or the value's shape changes, so no pod reads copies made under the old rules. The old keys expire on their own.</dd>
+</dl>
+
+<h2>TTL defaults</h2>
+<h3>What product uses today</h3>
+<dl class="fields">
+  <dt>product:&lt;id&gt; · 15 min (900 s)</dt><dd>the product detail page. The <code>cache</code> wrapper's default, <code>product/src/cache/redisCache.ts</code>.</dd>
+  <dt>product_search:v2:&lt;md5&gt; with ?search= · 60 min (3,600 s)</dt><dd>a text search, the most expensive query. <code>product/src/routes/showProduct.ts</code>.</dd>
+  <dt>product_search:v2:&lt;md5&gt; otherwise · 10 min (600 s)</dt><dd>category and filter lists, first page only.</dd>
+  <dt>not cached</dt><dd>empty results, a missing product, plain listings with no filter, later pages of a category or filter list.</dd>
+</dl>
+<h3>Choosing a TTL</h3>
+<p>Ask: how long may a user see the old value after a change, and how expensive is a miss? A longer TTL means fewer database reads and a longer window for stale data. If changes are invalidated on write (see Invalidation below), the TTL is only the backstop for invalidations that were missed.</p>
+<ul>
+  <li>Always set it in the same command: <code>SET key value EX ttl</code>, never <code>SET</code> then <code>EXPIRE</code>.</li>
+  <li><code>TTL key</code> returns the seconds left, <code>-1</code> for a key with no expiry (a bug in a cache), <code>-2</code> for no such key.</li>
+</ul>
+
+<h2 id="invalidation">Invalidation</h2>
+<p>What to do when the system of record changes (Lesson 2). Every change must make every affected copy stop being used, or the copy stays wrong until its TTL.</p>
+
+<h3>Delete, don't update</h3>
+<p>On a write, delete the cached copy and let the next read fetch the new value. Writing the new value into the cache instead (write-through) breaks when two writes to one key overlap: their <code>SET</code>s can land in the other order, and the cache keeps the older value. Two deletes can't be in the wrong order.</p>
+
+<h3>Delete after commit</h3>
+<p>Invalidate only after the database write has succeeded. Delete first, and a reader can load and re-cache the old value in the gap.</p>
+<pre>/** 1. Commit. */
+await product.save();
+/** 2. Then invalidate. */
+await redis.del(`product:${id}`);</pre>
+
+<h3>The stale set, and the backstop</h3>
+<p>Even a correct delete can be beaten: a reader loads the old value before the write, and saves it after the delete. Nothing deletes it again. The TTL is the backstop that bounds how long it survives. So, once you invalidate on write, choose the TTL as "the longest a missed invalidation may last", not "how often to refresh".</p>
+
+<h3>Invalidating a family of keys at once</h3>
+<p>When the keys can't be found from the change (search results: a key is a fingerprint of a query, not a list of products), use a <strong>generation counter</strong>:</p>
+<pre>/** Read: a missing counter reads as 0. */
+const gen = Number(await redis.get('product_search:gen'));
+const key = `product_search:v2:g${gen}:${md5(sortedQuery)}`;
+
+/** Write, after the database commit. */
+await redis.incr('product_search:gen');</pre>
+<ul>
+  <li>Read the counter <strong>before</strong> loading from the database; bump it <strong>after</strong> the commit. Either order swapped lets an old value in under the new number.</li>
+  <li>Old copies are never read again and expire on their own. Costs: one extra round trip per read, and every bump invalidates the whole family, including copies that were still right.</li>
+  <li>A per-item counter (<code>product:gen:&lt;id&gt;</code>) also defeats the stale set for one key, as lab 02's fixed variant shows.</li>
+  <li>A versioned prefix (<code>v2</code>) is the same idea, bumped by hand in code when the key format changes.</li>
+</ul>
+
+<h3>Options for "invalidate all searches"</h3>
+<dl class="fields">
+  <dt>generation counter</dt><dd>one <code>INCR</code>, O(1), race-safe. The default.</dd>
+  <dt>SCAN MATCH + UNLINK</dt><dd>walks the keyspace on every write; still loses to the stale set. Never <code>KEYS</code>, which blocks Redis.</dd>
+  <dt>reverse index (a set of search keys per product)</dt><dd>precise, but every cached search writes to many sets, which can themselves go stale.</dd>
+  <dt>shorter TTL only</dt><dd>a stopgap: fewer minutes wrong, more database reads.</dd>
+</dl>
+
+<h3>What product invalidates today</h3>
+<dl class="fields">
+  <dt>updateProduct · deleteProduct</dt><dd><code>DEL product:&lt;id&gt;</code> after the MongoDB write. Search copies untouched: an old price or a deleted product shows in search for up to 60 minutes.</dd>
+  <dt>productQuantityUpdate listener</dt><dd><code>DEL product:&lt;id&gt;</code> after the atomic <code>$inc</code>. Nothing publishes its event today.</dd>
+  <dt>newProduct</dt><dd>no cache code: a new product is missing from cached searches until they expire.</dd>
+  <dt>the designed fix</dt><dd><code>product_search:gen</code>, bumped by all four after commit; keys become <code>product_search:v2:g&lt;gen&gt;:&lt;md5&gt;</code>. Keep the delete for <code>product:&lt;id&gt;</code>. A follow-up ticket, not done in the course.</dd>
+</dl>
+
+<h2 id="stampede">Stampede mitigation layers</h2>
+<p><a href="../lessons/0003-stampede.html">Lesson 3</a> shows 200 misses becoming 200 loads, then 4 loads with single-flight across four worker processes. Combine layers according to the work you need to limit:</p>
+<dl class="fields">
+  <dt>One hot key: single-flight</dt><dd>Keep one pending promise per complete cache key in a process-wide map. Other requests await it. Clear it on success and failure. One load per process, not per cluster; requests still need bounded waits and error handling.</dd>
+  <dt>Many keys: TTL jitter</dt><dd>Randomise each fill's TTL to spread expiry deadlines. For a maximum stale budget of 60 seconds, use 50–60 seconds, not 60–70. Jitter doesn't prevent simultaneous misses on one hot key.</dd>
+  <dt>Repeated empty queries: negative caching</dt><dd>Cache a successful empty response briefly (e.g. 15 seconds), under the complete query key. Never convert a store error into absence. Invalidate on creation or accept the delay; limit distinct keys. Product currently skips empty results.</dd>
+  <dt>Too much work across pods: a rebuild lease</dt><dd>Coordination can further reduce duplicate loads. Waiters need a bounded wait or an acceptable old copy; the holder can outlive its lease. Lesson 5 covers these limits. Don't use a cache-rebuild lease as an inventory correctness guarantee.</dd>
+  <dt>Acceptable older copies: soft TTL</dt><dd>A freshness deadline triggers a coordinated refresh while readers use the old copy until a hard deadline. Define the tolerated stale window.</dd>
+  <dt>Early refresh of a hot key: XFetch</dt><dd>Probabilistic refresh before expiry, weighted by rebuild duration and time remaining. Further reading in <a href="../RESOURCES.md">Resources</a>, not required for the lab.</dd>
+</dl>
+<pre>// Budget: stale copies live at most 60 seconds.
+const ttlSeconds = 50 + Math.floor(Math.random() * 11);
+await redis.set(key, JSON.stringify(answer), { EX: ttlSeconds });</pre>
+
+<h2>Coming with later lessons</h2>
+<dl class="fields">
+  <dt>When Redis is down or slow</dt><dd>timeouts and falling back to the database. Lesson 4.</dd>
+</dl>
+
+<nav class="course">
+  <a href="0001-commands-and-data-types.html">← Commands and data types</a>
+  <a href="0005-glossary.html">Glossary →</a>
+</nav>
+
+</main>
+<script src="../assets/course-map.js"></script>
+<script src="../assets/code.js"></script>
+<script src="../assets/nav.js"></script>
+</body>
+</html>

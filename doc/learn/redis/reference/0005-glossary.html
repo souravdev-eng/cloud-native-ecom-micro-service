@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Redis Glossary</title>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<main>
+
+<p class="eyebrow">Reference 5 · All lessons</p>
+<h1>Glossary</h1>
+<p class="meta">Every lesson uses these words with exactly these meanings. Terms are added as lessons introduce them; the lesson that introduces each one is in brackets.</p>
+
+<h2>Many processes, one Redis</h2>
+<dl class="fields">
+  <dt>shared state</dt><dd>Data that several processes read and change. Pods share no memory, so shared state has to live outside them, in Redis or a database. (L0)</dd>
+  <dt>worker</dt><dd>One process in a lab, standing in for one pod: its own memory, its own Redis connection. (L0)</dd>
+  <dt>round trip</dt><dd>One request to Redis plus its reply. Every command costs one; the network time usually dwarfs Redis's own work. Also called RTT. In Lesson 0's picture, the walk to the keeper and back. (L0)</dd>
+  <dt>read-modify-write</dt><dd>Read a value, change it in the app, write it back. Done as two commands, it leaves a gap where other clients can write. (L0)</dd>
+  <dt>race condition</dt><dd>A bug where the result depends on how operations from different clients happen to interleave. (L0)</dd>
+  <dt>lost update</dt><dd>Two clients read the same value and both write back a change; the second write overwrites the first, which is lost without any error. (L0)</dd>
+  <dt>TOCTOU</dt><dd>Time of check to time of use: the gap between reading a value and acting on it, in which someone else can change it. A read-modify-write has one. (L0)</dd>
+</dl>
+
+<h2>How Redis runs commands</h2>
+<dl class="fields">
+  <dt>command thread</dt><dd>The single main thread on which Redis executes every command, one at a time. Other threads only do side work, such as freeing memory or reading and writing sockets. In Lesson 0's picture, it's the keeper of the whiteboard. (L0)</dd>
+  <dt>atomic</dt><dd>No other client's command can run in the middle of it. Every single Redis command is atomic; a sequence of commands is not. (L0)</dd>
+  <dt>pipelining</dt><dd>Sending several commands without waiting for each reply. Saves round trips; not atomic. (L0)</dd>
+</dl>
+
+<h2>Caching</h2>
+<dl class="fields">
+  <dt>system of record</dt><dd>The store that holds the real, authoritative data. For products, MongoDB. A cache is never one. (L1)</dd>
+  <dt>derived copy</dt><dd>Data made from the system of record that can be thrown away and rebuilt at any time. Every cached value is one. (L1)</dd>
+  <dt>cache hit · cache miss</dt><dd>The key was in the cache, so the copy was used · the key wasn't there, so the app had to read the system of record. (L1)</dd>
+  <dt>cache-aside</dt><dd>The app looks in the cache; on a miss it reads the system of record and stores a copy itself. The cache never fetches anything. Also called lazy loading. In Lesson 1's picture: check the whiteboard, else walk to the filing room and pin up a photocopy. (L1)</dd>
+  <dt>TTL</dt><dd>Time to live: the seconds a key has left before Redis deletes it. Set with <code>EX</code> on <code>SET</code>, read with the <code>TTL</code> command. In Lesson 1's picture, the throw-away time on a photocopy. (L1)</dd>
+  <dt>cache key</dt><dd>The name a cached value is stored under. It must cover everything that can change the answer. (L1)</dd>
+  <dt>key prefix</dt><dd>The fixed start of a key saying what kind of thing it holds, such as <code>product:</code>. In the labs, <code>lab:NN:</code>. (L0, L1)</dd>
+  <dt>versioned key</dt><dd>A key prefix with a version in it (<code>product_search:v2:</code>), changed when the meaning of the keys changes so old copies are never read again. (L1)</dd>
+  <dt>stale</dt><dd>A cached copy that no longer matches the system of record. (L1)</dd>
+  <dt>cache invalidation</dt><dd>Making a cached copy stop being used after the original changes: deleting it, or making its key unreachable. (L2)</dd>
+  <dt>invalidate on write</dt><dd>Doing the invalidation as part of every write to the system of record, rather than waiting for the TTL. (L2)</dd>
+  <dt>delete vs update on write</dt><dd>On a change, delete the copy (the next read fetches it) or write the new value into the cache. Delete is the default: two overlapping updates can land in the wrong order. (L2)</dd>
+  <dt>delete after commit</dt><dd>Invalidate only after the database write has succeeded, so no reader can re-cache the old value in between. (L2)</dd>
+  <dt>stale set</dt><dd>A race: a reader loads a value before a change and saves its copy after the invalidation, putting the old value back. In Lesson 2's picture, the colleague walking back with an old photocopy. (L2)</dd>
+  <dt>backstop TTL</dt><dd>The TTL's job once you invalidate on write: the longest a copy can stay wrong when an invalidation is missed or beaten by a stale set. (L2)</dd>
+  <dt>generation counter</dt><dd>A counter that is part of every key in a family; <code>INCR</code> it and the whole family is invalidated at once, without finding the keys. In Lesson 2's picture, the edition number at the top of the board. (L2)</dd>
+</dl>
+
+<h2>Keeping cache misses from multiplying work</h2>
+<dl class="fields">
+  <dt>cache stampede</dt><dd>Many misses for the same answer start overlapping expensive loads. (L3)</dd>
+  <dt>single-flight</dt><dd>One pending load per key inside one process; other requests share its result. Also called request coalescing. Not one load per cluster. (L3)</dd>
+  <dt>TTL jitter</dt><dd>Varying expiry times so many keys don't all expire together. (L3)</dd>
+  <dt>negative caching</dt><dd>Keeping a successful “nothing found” answer briefly, so repeated empty queries don't all read the store again. (L3)</dd>
+  <dt>soft TTL</dt><dd>A freshness deadline after which an acceptable older copy may be served during refresh, until a hard expiry deadline. (L3)</dd>
+</dl>
+
+<h2>When the cache fails</h2>
+<dl class="fields">
+  <dt>fail open</dt><dd>Continue an operation when a dependency fails; for an optional cache, fall back to the system of record. (L4)</dd>
+  <dt>fail closed</dt><dd>Refuse or delay an operation when its required dependency cannot be used. (L4)</dd>
+  <dt>command timeout</dt><dd>A deadline on waiting for one command's answer. It doesn't expire a key, connect a socket, or guarantee cancellation of the command. (L4)</dd>
+  <dt>reconnect strategy</dt><dd>The client's policy for retrying a broken connection. It doesn't give requests a deadline. (L4)</dd>
+  <dt>readiness</dt><dd>Whether a pod can serve traffic according to its required-dependency contract. (L4)</dd>
+</dl>
+
+<h2>Coordination</h2>
+<dl class="fields">
+<dt id="lease">lease</dt><dd>Temporary ownership that expires. Expiry allows a new owner but doesn't stop an old process writing. (L5)</dd>
+<dt id="ownership-token">ownership token</dt><dd>A unique random value for one acquisition; compare it atomically when releasing or renewing the lease. (L5)</dd>
+<dt id="fencing-token">fencing token</dt><dd>A strictly increasing acquisition number carried to a store that atomically rejects stale numbers when writing. (L5)</dd>
+<dt id="atomic-conditional-update">atomic conditional update</dt><dd>One store operation checks its predicate and applies its change together, such as subtracting stock only if enough remains. (L5)</dd>
+</dl>
+
+<h2>The labs</h2>
+<dl class="fields">
+  <dt>sandbox Redis</dt><dd>The local Docker Redis from <code>sandbox/redis-learning/docker-compose.yml</code>, on host ports 6390–6399. The only Redis lab code may connect to. (L0)</dd>
+  <dt>connection guard</dt><dd><code>connect()</code> in the lab helpers: it throws for any URL that isn't the sandbox Redis, with no override. (L0)</dd>
+  <dt>lab prefix</dt><dd><code>lab:NN:</code>, the key prefix each lab writes under and the only thing its cleanup deletes. (L0)</dd>
+  <dt>barrier</dt><dd>A lab helper that holds each worker at a point until all of them arrive, to force the worst-case timing on every run. (L0)</dd>
+  <dt>pause point</dt><dd>A lab helper (<code>createPauses</code>) that holds one worker at a named step until another worker has done its part and resumes it, to force one exact order of events. (L2)</dd>
+  <dt>slow store</dt><dd>A lab helper (<code>createSlowStore</code>) standing in for the system of record: every read and write waits a set latency, and reads are counted. (L2)</dd>
+  <dt>broken / fixed variant</dt><dd>The two versions of each lab: one shows the failure, one shows the fix against the same scenario. <code>--check</code> runs both and asserts the outcome. (L0)</dd>
+</dl>
+
+<nav class="course">
+  <a href="0002-caching-and-invalidation.html">← Caching and invalidation</a>
+  <a href="../lessons/0000-shared-state-across-pods.html">Lesson 0 →</a>
+</nav>
+
+</main>
+<script src="../assets/course-map.js"></script>
+<script src="../assets/code.js"></script>
+<script src="../assets/nav.js"></script>
+</body>
+</html>

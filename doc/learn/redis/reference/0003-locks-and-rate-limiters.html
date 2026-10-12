@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Redis Locks and Rate Limiters Sheet</title>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<main>
+<p class="eyebrow">Reference 3 · Lesson 5+</p>
+<h1>Locks and rate limiters</h1>
+<p class="meta">The locks half is available with Lesson 5. Limiter scripts will be added with Lesson 6.</p>
+<h2>Choose the invariant first</h2>
+<dl class="fields"><dt>Acceptable overlap</dt><dd>Cache rebuilds and cron work where a duplicate run only repeats tolerable work. A Redis lease can reduce overlap; the write must also tolerate an older worker finishing later.</dd><dt>Unsafe with a lease alone</dt><dd>Money transfers, card charges, stock decrements, exactly-once effects, and cron tasks whose duplicate run corrupts data.</dd><dt>Stock</dt><dd>Use a single conditional update in the system of record. Validate the requested quantity and handle no match. Use durable idempotency separately for repeated events.</dd></dl>
+<pre>const updated = await Product.findOneAndUpdate(
+  { _id: id, quantity: { $gte: requested } },
+  { $inc: { quantity: -requested } },
+  { new: true },
+);</pre>
+<h2 id="acquire">Acquire a lease</h2>
+<pre>const token = randomUUID(); // fresh for every attempt/acquisition
+const acquired = await redis.set(key, token, { NX: true, PX: ttlMs });
+if (acquired !== 'OK') { /* don't perform the protected work */ }</pre>
+<p>NX and expiry belong to the same command. Bound retries and use backoff with jitter under contention. TTL must cover normal work plus a margin, but no TTL covers an arbitrary pause. A Redis error is not permission to enter a correctness-critical section.</p>
+<h2 id="release">Release: compare and delete atomically</h2>
+<pre>-- KEYS[1]: lease key; ARGV[1]: this acquisition's random token
+if redis.call('GET', KEYS[1]) == ARGV[1] then
+  return redis.call('DEL', KEYS[1])
+end
+return 0</pre>
+<pre>const released = await redis.eval(releaseLua, {
+  keys: [key], arguments: [token],
+});</pre>
+<p>1 means removed; 0 means missing or owned by someone else. Never use a plain DEL or separate GET/DEL. This is the Redis 7.x-compatible Lua pattern used by the lab. It protects the key, not a separate store's writes.</p>
+<h2 id="extend">Extend: compare and renew atomically</h2>
+<pre>-- KEYS[1]: lease key; ARGV[1]: token; ARGV[2]: positive TTL in ms
+if redis.call('GET', KEYS[1]) == ARGV[1] then
+  return redis.call('PEXPIRE', KEYS[1], ARGV[2])
+end
+return 0</pre>
+<p>Pass a validated positive TTL. Only 1 confirms renewal. On 0, timeout or error, treat ownership as lost; don't start more protected work. Stop renewal when work ends, and bound total renewal time. Renewing cannot undo a stale write already sent to another store, and a paused worker cannot renew.</p>
+<h2 id="fencing">Fencing: the resource rejects stale writers</h2>
+<p>Issue a strictly increasing number with each acquisition. Carry it on every write. The store must compare against its last accepted number and mutate the resource atomically. The lab accepts one write per acquisition and rejects numbers less than or equal to the last accepted number.</p>
+<pre>-- Lab only: acquisition and fence issuance in one atomic turn
+if redis.call('SET', KEYS[1], ARGV[1], 'NX', 'PX', ARGV[2]) then
+  return redis.call('INCR', KEYS[2])
+end
+return 0</pre>
+<p>KEYS[1] is the lease, KEYS[2] a counter that outlives leases, ARGV[1] the random token and ARGV[2] the TTL. Separate SET then INCR can let an old paused owner obtain a later number. In Cluster these keys need the same hash slot (Lesson 8). A failover can roll back a Redis counter; production fencing requires an issuer whose ordering survives recovery. Every protected write path must enforce fencing. This doesn't provide event deduplication or reject an expired writer before the store has seen a newer fence.</p>
+<h2 id="limiters">Rate limiters</h2>
+<p>Planned for Lesson 6: atomic fixed-window and token-bucket scripts.</p>
+<h2>Read alongside</h2>
+<p><a href="../lessons/0005-locks-across-pods.html">Lesson 5's five experiments</a>, <a href="https://redis.io/docs/latest/develop/clients/patterns/distributed-locks/">Redis's lock documentation</a>, and <a href="../RESOURCES.md#lesson-5-locks">both sides of the Redlock debate</a>. MongoDB documents <a href="https://www.mongodb.com/docs/manual/core/write-operations-atomicity/">single-document write atomicity</a>.</p>
+<nav class="course"><a href="0002-caching-and-invalidation.html">← Caching and invalidation</a><a href="../lessons/0005-locks-across-pods.html">Lesson 5 →</a></nav>
+</main>
+<script src="../assets/course-map.js"></script>
+<script src="../assets/code.js"></script>
+<script src="../assets/nav.js"></script>
+</body>
+</html>
